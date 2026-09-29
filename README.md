@@ -4,7 +4,8 @@ A visual-design prototype for Relvor, the operations platform (Josh Evans is
 one example organisation using it). It is a static, mock-data front end for
 trying out the look and feel. It is not a second Hub.
 
-- **Pass 4, section navigation (current):** `docs/VISUAL-PASS-4.md`, `docs/screenshots/pass-4/`.
+- **Pass 5, product identity (current):** `docs/VISUAL-PASS-5.md`, `docs/screenshots/pass-5/`. The Brief, the Day Line, state marks and decisions, index tabs.
+- **Pass 4, section navigation:** `docs/VISUAL-PASS-4.md`, `docs/screenshots/pass-4/`.
 - **Visual pass 3:** `docs/VISUAL-PASS-3.md`, `docs/screenshots/pass-3/`.
 - **Visual pass 2:** branch `claude/visual-pass-2`; `docs/VISUAL-PASS-2.md`, `docs/screenshots/pass-2/`.
 - **Visual pass 1:** branch `claude/visual-pass-1`, screenshots in `docs/screenshots/pass-1/`.
@@ -44,6 +45,7 @@ css/components.css  page, section, card, stats, button, pill, badge, row,
                     skeleton, form fields, segmented, chips, sheet, toast
 css/shell.css       top bar, bottom tab bar, desktop sidebar, area switch
 css/screens.css     per-screen composition only
+css/signature.css   Relvor's signature patterns (Brief, Day Line, marks, decisions, index tabs)
 js/brand.js         branding boundary (name, mark, accent, terms; accent clamped for contrast)
 js/icons.js         stroke icon set
 js/ui.js            component helpers (one per pattern)

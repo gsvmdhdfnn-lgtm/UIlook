@@ -41,17 +41,25 @@
       return '<button type="button" data-action="member" data-id="' + c.id + '" aria-pressed="' + (c.id === member.id) + '">' + ui.avatar(c.name, 'xs') + esc(c.name.split(' ')[0]) + '</button>';
     }).join('') + '</div>' : '';
 
-    var updates = P.updates.map(function (u) { return ui.notice('neutral', u.title, esc(u.body), { meta: u.meta, icon: 'megaphone' }); }).join('');
+    /* Client brief: the family's week in two sentences, then the week
+       line (the Day Line at week scale). */
+    var T = ui.tok, n = member.next, fn = member.name.split(' ')[0];
+    var brief = ui.brief({ kicker: 'This week \u00b7 updated 11:20', title: 'Welcome back, ' + first,
+      lines: [esc(fn) + '\u2019s next session is ' + T('today at ' + n.time.split(' ')[0], 'accent') + ' at ' + T(n.venue) + ', with ' + esc(n.coach) + '. ' +
+        (member.feedback ? 'New feedback from ' + esc(member.feedback.coach.split(' ')[0]) + ' is ' + T('ready to read', '', '#parent-development') + '.' : 'No new feedback yet.')],
+      since: 'last Thursday', changes: P.updates.map(function (u) { return { text: u.title, time: 'Today, 11:20' }; }) });
+    var week = [['Mon', 28], ['Tue', 29], ['Wed', 30], ['Thu', 1], ['Fri', 2], ['Sat', 3], ['Sun', 4]].map(function (d, i) { return { dow: d[0], date: d[1], past: i < 3, today: i === 3, session: i === 3 }; });
 
-    return '<div class="page page--client">' +
-      '<header class="page-head"><div class="page-head__text"><h1 class="page-title client-title">Welcome back, ' + esc(first) + '</h1><p class="page-meta">Thursday 1 October</p></div>' + switcher + '</header>' +
-      '<div class="layout"><div class="col">' + nextSurface(member.next) + updates + feedback(member) + '</div>' +
+    return '<div class="page page--client"><div class="home">' +
+      brief +
+      '<section class="section">' + ui.sectionHead(fn + '\u2019s week', { meta: '28 September \u2013 4 October', right: switcher }) + ui.weekline(week) + '</section>' +
+      '<div class="home-grid"><div class="col">' + nextSurface(member.next) + feedback(member) + '</div>' +
       '<aside class="col rail">' +
         '<section class="section section--quiet">' + ui.sectionHead('Your family', { link: 'Manage', href: '#parent-more' }) + ui.rows(members.map(function (c) {
           return ui.row({ lead: ui.avatar(c.name, 'md'), title: esc(c.name), sub: [esc(c.sessions.join(', '))], action: 'member', data: { id: c.id }, chevron: false, cls: 'row--quiet' });
         }), 'rows--quiet rows--avatar') + '</section>' +
         '<section class="section section--quiet">' + ui.sectionHead('Payments') + '<p class="rail-note">Payments and bookings will be managed here soon. For now, the office handles them as usual.</p></section>' +
-      '</aside></div></div>';
+      '</aside></div></div></div>';
   };
 
   Hub.actions.member = function (el) { activeId = el.dataset.id; Hub.render(); };

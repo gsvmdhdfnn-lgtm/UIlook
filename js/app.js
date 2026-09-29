@@ -62,12 +62,14 @@
     }
     var urgent = D.attention.summary.counts.Urgent;
     return '<aside class="sidebar" aria-label="Management navigation">' +
-      '<button type="button" class="workspace" data-action="soon" aria-label="Switch organisation">' + Hub.orgMark() + '<span class="org__name">' + esc(Hub.brand.orgName) + '<span class="org__sub">' + esc(Hub.brand.orgSub) + '</span></span>' + I('selector', 'icon-sm') + '</button>' +
+      '<button type="button" class="workspace" data-action="soon" aria-label="Switch organisation">' + Hub.orgMark() + '<span class="org__name">' + esc(Hub.brand.orgName) + '<span class="org__sub org-live">Live \u00b7 4 sessions today</span></span>' + I('selector', 'icon-sm') + '</button>' +
       '<nav class="nav">' + link('mgmt-home', 'Home', 'home') + link('mgmt-attention', 'Needs attention', 'attention', '<span class="count count--alert" title="' + urgent + ' urgent">' + attentionCount + '</span>') + '</nav>' +
       '<nav class="nav"><div class="nav__label">Workspace</div>' + D.areas.map(function (a) {
         var id = a.id === 'coaches' ? 'mgmt-coaches' : 'mgmt-' + a.id;
         var label = a.id === 'coaches' ? 'People' : a.label;
-        return link(id, label, a.id === 'coaches' ? 'users' : a.id === 'players' ? 'family' : a.icon, a.on ? '' : '<span class="off">Off</span>');
+        /* State marks travel up: a module shows the worst state inside it */
+        var mark = { schedule: 'Urgent', coaches: 'Warning', players: 'Normal', finance: 'Normal' }[a.id];
+        return link(id, label, a.id === 'coaches' ? 'users' : a.id === 'players' ? 'family' : a.icon, a.on ? (mark ? ui.sev(mark) : '') : '<span class="off">Off</span>');
       }).join('') + '</nav>' +
       '<nav class="nav"><div class="nav__label">Approvals</div>' + D.approvals.map(function (a) { return link('mgmt-' + a.id, a.label, a.icon, a.count ? '<span class="count">' + a.count + '</span>' : ''); }).join('') + '</nav>' +
       '<div class="sidebar__foot"><nav class="nav nav--quiet">' + link('mgmt-settings', 'Settings', 'settings') + link('mgmt-more', 'All tools', 'grid') + '</nav>' +
@@ -128,10 +130,18 @@
     var screen = Hub.screens[S.route];
     Hub.crumbTail = null;
     var content = screen && BUILT[S.route] ? screen({ state: S.state }) : placeholder();
+    var animate = Hub.animateSection; Hub.animateSection = false;
     app.innerHTML = protoBar() +
       '<div class="frame">' + (S.area === 'management' ? sidebar() : '') +
       '<div class="main">' + topbar() + (S.area === 'management' ? canvasBar() : '') + '<main id="main" tabindex="-1">' + content + '</main></div></div>' +
       '<nav class="tabbar" aria-label="Main">' + tabLinks(S.area, 'tab') + '</nav>';
+    if (animate) { var sec = app.querySelector('.ws + .page'); if (sec) sec.classList.add('enter'); }
+    /* Day lines that scroll (phones) open on the first thing still to come */
+    app.querySelectorAll('.dayline__scroll').forEach(function (sc) {
+      if (sc.scrollWidth <= sc.clientWidth) return;
+      var next = sc.querySelector('.blk:not(.blk--past)');
+      if (next) sc.scrollLeft = Math.max(0, next.offsetLeft - 96);
+    });
     document.title = (S.route === 'system' ? 'Visual system' : pageTitle()) + ' · ' + Hub.brand.orgName;
   };
 

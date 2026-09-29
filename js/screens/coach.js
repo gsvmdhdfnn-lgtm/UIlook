@@ -22,25 +22,28 @@
   Hub.screens['coach-home'] = function (ctx) {
     var today = D.occurrences.filter(function (o) { return o.date === '2026-10-01' && mine(o); });
     var later = D.occurrences.filter(function (o) { return o.date > '2026-10-01' && mine(o); });
-    var head = '<header class="page-head"><div class="page-head__text"><h1 class="page-title">Good afternoon, ' + esc(D.me.name.split(' ')[0]) + '</h1><p class="page-meta">Thursday 1 October · ' + esc(D.term) + '</p></div></header>';
+    var first = D.me.name.split(' ')[0], T = ui.tok;
+    var head = '<header class="page-head"><div class="page-head__text"><h1 class="page-title">Good afternoon, ' + esc(first) + '</h1><p class="page-meta">Thursday 1 October \u00b7 ' + esc(D.term) + '</p></div></header>';
+    var brief = ui.brief({ kicker: 'Your brief \u00b7 14:10', title: 'Good afternoon, ' + first,
+      lines: ['You\u2019re coaching ' + T('2 sessions', '', '#coach-schedule') + ' today, both at ' + T('City of London Freemen\u2019s', '', '#coach-venues') + '. First is ' + T('U9/10 Development at 17:30', 'accent') + ' with Charlie Hughes. ' +
+        'For ' + T('U12 Academy at 19:00', 'warn') + ', Charlie is marked unavailable, so expect a change to your staffing.'] });
+    var day = ui.dayline({ label: 'Your day', meta: 'Thursday 1 October', start: 14, end: 21, now: '14:10', ground: true,
+      items: D.occurrences.filter(function (o) { return o.date === '2026-10-01' && mine(o); }).map(function (o, i) { return { title: o.session, start: o.start, end: o.end, state: i === 0 ? 'mine' : '', action: 'soon' }; }) });
 
     if (ctx.state === 'loading') return '<div class="page">' + head + '<div class="surface surface--pad" style="display:grid;gap:18px"><span class="skeleton" style="height:12px;width:120px"></span><span class="skeleton" style="height:26px;width:55%"></span><span class="skeleton" style="height:44px"></span></div></div>';
     if (ctx.state === 'error') return '<div class="page page--narrow">' + head + ui.notice('danger', 'Couldn’t load your schedule', 'This is usually a weak connection. Check your signal and try again.', { action: ui.btn('Retry', { size: 'sm', icon: 'refresh' }) }) + '</div>';
 
     var links = [['calendar', 'My schedule', '#coach-schedule'], ['book', 'Library', '#coach-library'], ['pin', 'Locations', '#coach-venues'], ['support', 'Support', '#coach-support']];
 
-    return '<div class="page">' + head +
-      '<div class="layout"><div class="col">' +
-        (ctx.state === 'empty' ? '<div class="surface">' + ui.empty('clock', 'Nothing scheduled today', 'Your next session is St Peter’s After School on Friday.') + '</div>' : nextSurface(today[0])) +
-        '<section class="section">' + ui.sectionHead('Today', { meta: ctx.state === 'empty' ? '' : today.length + ' sessions', link: 'Schedule', href: '#coach-schedule' }) +
-          (ctx.state === 'empty' ? '' : ui.rows(today.map(function (o, i) {
-            return ui.row({ lead: '<span class="row__time">' + o.start + '<small>' + o.end + '</small></span>', title: esc(o.session), sub: [esc(venue(o)), o.players + ' expected'], trail: i === 0 ? '<span class="next-flag">Next</span>' : '', action: 'soon' });
-          }), 'rows--time')) + '</section>' +
+    if (ctx.state === 'empty') return '<div class="page"><div class="home">' + ui.brief({ kicker: 'Your brief \u00b7 14:10', title: 'Good afternoon, ' + first, lines: ['Nothing on today. Your next session is ' + T('St Peter\u2019s After School', '', '#coach-schedule') + ' on Friday at 16:00.'] }) + '</div></div>';
+
+    return '<div class="page"><div class="home">' + brief + day +
+      '<div class="home-grid"><div class="col">' + nextSurface(today[0]) +
       '</div><aside class="col rail">' +
         '<section class="section section--quiet">' + ui.sectionHead('Shortcuts') + ui.rows(links.map(function (l) { return ui.row({ lead: I(l[0], 'row-glyph'), title: l[1], href: l[2], cls: 'row--quiet' }); }), 'rows--quiet rows--bare') + '</section>' +
         '<section class="section section--quiet">' + ui.sectionHead('Later this week') + ui.rows(later.map(function (o) {
           return ui.row({ title: esc(o.session), sub: [(o.date === '2026-10-02' ? 'Fri ' : 'Thu ') + o.start, esc(venue(o))], action: 'soon', chevron: false, cls: 'row--quiet' });
         }), 'rows--quiet') + '</section>' +
-      '</aside></div></div>';
+      '</aside></div></div></div>';
   };
 })();

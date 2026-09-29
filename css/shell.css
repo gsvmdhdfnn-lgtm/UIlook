@@ -92,7 +92,7 @@ img.org-mark { background: #fff; padding: 3px; box-shadow: 0 0 0 1px var(--line)
 .nav__label { font-size: var(--t-12); font-weight: var(--w-medium); letter-spacing: var(--track-over); text-transform: uppercase; color: var(--text-4); padding: 0 12px 8px; }
 .nav-link { display: flex; align-items: center; gap: 12px; height: 40px; padding: 0 12px; border-radius: var(--r-md); color: var(--text-2); font-size: var(--t-15); font-weight: var(--w-medium); letter-spacing: -0.005em; text-decoration: none; min-width: 0; transition: background var(--dur) var(--ease), color var(--dur) var(--ease); }
 .nav-link .icon { width: 18px; height: 18px; color: var(--text-3); }
-.nav-link span:not(.count):not(.bubble):not(.off) { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nav-link span:not(.count):not(.bubble):not(.off):not(.sev) { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .nav-link:hover { background: var(--hover); color: var(--text); text-decoration: none; }
 .nav-link[aria-current="page"] { background: var(--selected); color: var(--text); box-shadow: var(--shadow-xs); }
 .nav-link[aria-current="page"] .icon { color: var(--accent); }

@@ -81,17 +81,66 @@
     /* Workspace header: module title, context, actions, and the section
        tabs that say which part of the module is in view. */
     workspace: function (o) {
+      /* Index tabs: a boxed tab per section, each carrying its own state
+         line, so the tabs themselves say where attention is needed. */
       var tabs = (o.tabs || []).map(function (t) {
         var sel = t.id === o.active;
-        return '<button type="button" class="ws-tab" role="tab" aria-selected="' + sel + '" data-action="wstab" data-ws="' + esc(o.id) + '" data-tab="' + esc(t.id) + '">' +
-          '<span>' + esc(t.label) + '</span>' + (t.count != null ? '<span class="ws-tab__count' + (t.alert ? ' is-alert' : '') + '">' + esc(t.count) + '</span>' : '') + '</button>';
+        var meta = t.meta != null ? t.meta : (t.count != null ? String(t.count) : '');
+        return '<button type="button" class="itab" role="tab" aria-selected="' + sel + '" data-action="wstab" data-ws="' + esc(o.id) + '" data-tab="' + esc(t.id) + '"><i aria-hidden="true"></i>' +
+          '<span class="itab__label">' + esc(t.label) + '</span>' +
+          '<span class="itab__meta">' + (t.state ? ui.sev(t.state) : '') + '<span>' + meta + '</span></span></button>';
       }).join('');
       return '<header class="ws"><div class="ws__inner">' +
         '<div class="ws__top"><div class="ws__text">' + (o.overline ? '<div class="overline">' + esc(o.overline) + '</div>' : '') +
         '<h1 class="ws__title">' + esc(o.title) + '</h1>' + (o.sub ? '<div class="summary-line ws__sub"><p>' + o.sub + '</p></div>' : '') + '</div>' +
         (o.actions ? '<div class="ws__actions">' + o.actions + '</div>' : '') + '</div>' +
-        (tabs ? '<nav class="ws-tabs" role="tablist" aria-label="' + esc(o.title) + ' sections">' + tabs + '</nav>' : '') +
+        (tabs ? '<nav class="itabs" role="tablist" aria-label="' + esc(o.title) + ' sections">' + tabs + '</nav>' : '') +
         '</div></header>';
+    },
+
+    /* ---- Signature patterns ---- */
+    tok: function (text, tone, href) {
+      var cls = 'tok' + (tone ? ' tok--' + tone : '');
+      return href ? '<a class="' + cls + '" href="' + href + '">' + text + '</a>' : '<span class="' + cls + '">' + text + '</span>';
+    },
+    brief: function (o) {
+      return '<section class="brief" aria-label="Brief"><div class="brief__kicker">' + esc(o.kicker) + '</div>' +
+        '<h1 class="brief__title">' + esc(o.title) + '</h1>' + o.lines.map(function (l) { return '<p class="brief__text">' + l + '</p>'; }).join('') +
+        (o.changes && o.changes.length ? '<div class="changes"><div class="changes__head">Since your last visit, <b>' + esc(o.since) + '</b></div><ul class="changes__list">' + o.changes.map(function (c) {
+          var inner = c.key ? '<a href="#" data-action="case" data-key="' + esc(c.key) + '">' + esc(c.text) + '</a>' : c.href ? '<a href="' + c.href + '">' + esc(c.text) + '</a>' : esc(c.text);
+          return '<li class="chg' + (c.tone ? ' chg--' + c.tone : '') + '"><span>' + inner + '</span><time>' + esc(c.time) + '</time></li>';
+        }).join('') + '</ul></div>' : '') + '</section>';
+    },
+    /* Day line: items {title, start, end, state: issue|mine|'', action/href}. */
+    dayline: function (o) {
+      function h(t) { var p = t.split(':'); return +p[0] + (+p[1]) / 60; }
+      var span = o.end - o.start, pct = function (t) { return ((h(t) - o.start) / span * 100).toFixed(3) + '%'; };
+      var items = o.items.slice().sort(function (a, b) { return h(a.start) - h(b.start); }), lanes = [];
+      items.forEach(function (it) { var l = 0; while (lanes[l] != null && lanes[l] > h(it.start) + 0.001) l++; lanes[l] = h(it.end); it.lane = l; });
+      var hours = ''; for (var x = o.start; x <= o.end; x++) hours += '<div class="dayline__hour" style="left:' + ((x - o.start) / span * 100) + '%"><span>' + String(x).padStart(2, '0') + ':00</span></div>';
+      var nowH = h(o.now);
+      var blocks = items.map(function (it) {
+        var past = h(it.end) <= nowH, cls = 'blk' + (it.state === 'issue' ? ' blk--issue' : '') + (it.state === 'mine' ? ' blk--mine' : '') + (past ? ' blk--past' : '');
+        var w = ((h(it.end) - h(it.start)) / span * 100).toFixed(3) + '%';
+        var inner = (it.state === 'issue' ? ui.sev('Urgent') : '') + '<b>' + esc(it.title) + '</b><small>' + it.start + '</small>';
+        var a = it.action ? ' role="button" tabindex="0" data-action="' + it.action + '"' + (it.key ? ' data-key="' + esc(it.key) + '"' : '') : '';
+        return '<div class="' + cls + '" style="left:' + pct(it.start) + ';width:calc(' + w + ' - 4px);top:' + (28 + it.lane * 48) + 'px"' + a + ' title="' + esc(it.title + ', ' + it.start + '\u2013' + it.end) + '">' + inner + '</div>';
+      }).join('');
+      return '<section class="dayline' + (o.ground ? ' dayline--ground' : '') + '" aria-label="' + esc(o.label || 'Day line') + '">' +
+        '<div class="dayline__head">' + ui.sectionHead(o.label || 'The day', { meta: o.meta || '' }) + (o.legend ? '<div class="dayline__legend wide-inline"><span>' + ui.sev('Urgent') + 'Needs a decision</span><span><i class="legend-now"></i>Now</span></div>' : '') + '</div>' +
+        '<div class="dayline__scroll"><div class="dayline__track" style="--lanes:' + Math.max(1, lanes.length) + ';--now:' + pct(o.now) + '">' +
+        '<div class="dayline__elapsed"></div>' + hours + blocks + '<div class="dayline__now" style="left:' + pct(o.now) + '"><span>Now ' + o.now + '</span></div>' +
+        '</div></div></section>';
+    },
+    weekline: function (days) {
+      return '<div class="weekline" role="list">' + days.map(function (d) {
+        return '<div role="listitem" class="wday' + (d.today ? ' is-today' : '') + (d.past ? ' is-past' : '') + (d.session ? ' has-session' : '') + '"><span>' + esc(d.dow) + '</span><b>' + d.date + '</b><i aria-hidden="true"></i></div>';
+      }).join('') + '</div>';
+    },
+    decision: function (o) {
+      return '<article class="decision"><div class="decision__kicker">' + ui.sev('Urgent') + '<span>' + esc(o.kicker) + '</span><span class="when">' + esc(o.when) + '</span></div>' +
+        '<h3 class="decision__title">' + esc(o.title) + '</h3><p class="decision__ctx">' + esc(o.ctx) + '</p>' +
+        '<div class="decision__actions">' + o.actions + '</div></article>';
     },
 
     metric: function (label, value, sub, tone) {

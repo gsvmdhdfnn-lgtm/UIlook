@@ -41,46 +41,61 @@
     });
   }
 
-  /* ---------------------------------------------------------------- HOME */
+  /* ---------------------------------------------------------------- HOME
+     Relvor's first screen: the Brief (what matters, what changed), the
+     Day Line (the operation in time), then decisions and the rest. */
+  function dayItems(list) {
+    return list.map(function (o) {
+      var issue = !o.staff.length || o.staff.some(function (s) { return s.unavailable; });
+      return { title: o.session, start: o.start, end: o.end, state: issue ? 'issue' : '', action: issue ? 'case' : 'soon', key: issue ? (o.id === 'o4' ? 'assigned_coach_unavailable|occurrence:o4|coach:charlie' : 'session_no_coach|occurrence:o5') : '' };
+    });
+  }
+  function decisionFor(c) {
+    return ui.decision({ kicker: 'Decision needed', when: c.when, title: c.title, ctx: c.detail,
+      actions: ui.btn(c.actionLabel, { variant: 'primary', trail: 'arrowRight', attrs: { 'data-action': 'case', 'data-key': c.caseKey } }) + ui.btn('Details', { variant: 'tertiary', attrs: { 'data-action': 'case', 'data-key': c.caseKey } }) });
+  }
+
   Hub.screens['mgmt-home'] = function (ctx) {
-    var A = D.attention, c = A.summary.counts, live = ctx.state === 'live';
-    var head = '<header class="page-head"><div class="page-head__text">' +
-      '<h1 class="page-title">Good afternoon, ' + esc(D.me.name.split(' ')[0]) + '</h1>' +
-      '<p class="page-meta">Thursday 1 October · ' + esc(D.term) + '</p>' +
-      (live ? '<div class="summary-line"><p><span><b>4</b> sessions today</span><span><b>53</b> expected</span><span><b>6</b> staff on duty</span><span class="is-alert"><b>' + c.Urgent + '</b> urgent</span></p></div>' : '') +
-      '</div><div class="page-head__actions">' + ui.btn('Review queue', { variant: 'primary', href: '#mgmt-attention', trail: 'arrowRight' }) + '</div></header>';
+    var A = D.attention, c = A.summary.counts, T = ui.tok;
+    var urgent = A.cases.filter(function (x) { return x.severity === 'Urgent'; });
+    var rest = A.cases.filter(function (x) { return x.severity !== 'Urgent'; });
 
-    var top = A.cases.slice(0, 4);
-    var attention = ctx.state === 'loading' ? skeleton(4)
-      : ctx.state === 'error' ? ui.notice('danger', 'Open items couldn’t be checked', 'The queue didn’t finish loading, so it isn’t shown as clear. Try again in a moment.', { action: ui.btn('Retry', { size: 'sm', icon: 'refresh' }) })
-      : ctx.state === 'empty' ? '<div class="zone-inset">' + ui.empty('checkCircle', 'Nothing needs attention', 'Staffing, cover and compliance are in order.', 'ok') + '</div>'
-      : ui.rows(top.map(caseRow), 'rows--lead') + '<a class="more-link" href="#mgmt-attention">' + (A.summary.total - top.length) + ' more in the queue' + I('arrowRight', 'icon-sm') + '</a>';
+    if (ctx.state === 'loading') return '<div class="page"><div class="home"><div class="brief"><span class="skeleton" style="height:12px;width:140px"></span><span class="skeleton" style="height:34px;width:360px"></span><span class="skeleton" style="height:20px;width:80%"></span><span class="skeleton" style="height:20px;width:60%"></span></div><span class="skeleton" style="height:150px;border-radius:14px"></span></div></div>';
+    if (ctx.state === 'error') return '<div class="page"><div class="home">' + ui.brief({ kicker: 'Brief', title: 'Good afternoon, ' + D.me.name.split(' ')[0], lines: ['The operation couldn’t be checked just now, so Relvor isn’t showing a brief it can’t stand behind.'] }) + ui.notice('danger', 'Couldn’t load today’s operation', 'Try again in a moment. Nothing is shown as clear until the checks complete.', { action: ui.btn('Retry', { size: 'sm', icon: 'refresh' }) }) + '</div></div>';
 
-    var today = ctx.state === 'loading' ? skeleton(3)
-      : ctx.state === 'empty' ? '<div class="zone-inset">' + ui.empty('calendar', 'Nothing scheduled today', 'Tomorrow has 2 sessions.') + '</div>'
-      : todayTable(todayOcc());
+    var brief = ctx.state === 'empty'
+      ? ui.brief({ kicker: 'Brief · updated 14:10', title: 'Good afternoon, ' + D.me.name.split(' ')[0], lines: ['Nothing is scheduled today and nothing needs a decision. ' + T('2 sessions', '', '#mgmt-schedule') + ' run tomorrow.'] })
+      : ui.brief({ kicker: 'Brief · updated 14:10', title: 'Good afternoon, ' + D.me.name.split(' ')[0],
+          lines: [T('4 sessions', '', '#mgmt-schedule') + ' run today across ' + T('2 locations') + ', 15:30 to 20:30, with ' + T('53 expected') + '. ' +
+            T(c.Urgent + ' need a decision', 'danger', '#mgmt-attention') + ' before tonight, and ' + T('4 approvals', '', '#mgmt-more') + ' are waiting. Everything else is on track.'],
+          since: D.lastVisit, changes: D.changes });
+
+    var day = ctx.state === 'empty' ? '' : ui.dayline({ label: 'Today', meta: 'Thursday 1 October · ' + D.term, start: 14, end: 21, now: '14:10', items: dayItems(todayOcc()), legend: true });
+
+    var decisions = ctx.state === 'empty' ? '' : '<section class="section section--primary">' + ui.sectionHead('Decisions', { meta: urgent.length + ' before tonight', link: 'Open queue', href: '#mgmt-attention' }) + '<div class="decisions">' + urgent.map(decisionFor).join('') + '</div></section>';
+
+    var list = ctx.state === 'empty' ? '<div class="zone-inset">' + ui.empty('checkCircle', 'Nothing needs attention', 'Staffing, cover and compliance are in order.', 'ok') + '</div>'
+      : ui.rows(rest.slice(0, 4).map(caseRow), 'rows--lead') + '<a class="more-link" href="#mgmt-attention">' + (rest.length - 4) + ' more in the queue' + I('arrowRight', 'icon-sm') + '</a>';
 
     var approvals = '<div class="zone-inset">' + ui.rows(D.approvals.filter(function (a) { return a.count; }).map(function (a) {
       return ui.row({ title: esc(a.label), trail: '<span class="num">' + a.count + '</span>', href: '#mgmt-' + a.id, cls: 'row--quiet' });
     }), 'rows--quiet') + '</div>';
-
-    var tomorrow = '<div class="zone-inset">' + ui.rows(tomorrowOcc().map(function (o) {
+    var tomorrow = '<div class="zone-inset">' + ui.rows(tomorrowOcc().slice().sort(function (a, b) { return a.start < b.start ? -1 : 1; }).map(function (o) {
       return ui.row({ title: esc(o.session), sub: [o.start + '–' + o.end, esc(venue(o))], trail: o.staff.length ? '' : '<span class="status status--danger status--plain">No staff</span>', action: 'soon', chevron: false, cls: 'row--quiet' });
     }), 'rows--quiet') + '</div>';
 
-    return '<div class="page">' + head +
-      '<div class="layout"><div class="col">' +
-        '<section class="section section--primary">' + ui.sectionHead('Needs attention', { meta: live ? A.summary.total + ' open' : '', link: 'Open queue', href: '#mgmt-attention' }) + attention + '</section>' +
-        '<section class="section">' + ui.sectionHead('Today', { meta: live ? '4 sessions' : '', link: 'Schedule', href: '#mgmt-schedule' }) + today + '</section>' +
+    return '<div class="page"><div class="home">' + brief + day +
+      '<div class="home-grid"><div class="col">' + decisions +
+        '<section class="section">' + ui.sectionHead('Also on your list', { meta: ctx.state === 'empty' ? '' : rest.length + ' items' }) + list + '</section>' +
       '</div><aside class="col rail">' +
         '<section class="section section--quiet">' + ui.sectionHead('Awaiting approval') + approvals + '</section>' +
         '<section class="section section--quiet">' + ui.sectionHead('Tomorrow') + tomorrow + '</section>' +
-      '</aside></div></div>';
+      '</aside></div></div></div>';
   };
 
   /* Section-tab state per module, and the crumb tail for the context bar */
   Hub.wsTabs = Hub.wsTabs || { attention: 'All', people: 'staff', schedule: 'today', finance: 'overview' };
-  Hub.actions.wstab = function (el) { Hub.wsTabs[el.dataset.ws] = el.dataset.tab; Hub.render(); };
+  Hub.actions.wstab = function (el) { Hub.wsTabs[el.dataset.ws] = el.dataset.tab; Hub.animateSection = true; Hub.render(); };
   function placeholderBody(title, body) { return '<div class="zone-inset ws-placeholder">' + ui.empty('grid', title, body) + '</div>'; }
 
   /* ------------------------------------------------------- NEEDS ATTENTION */
@@ -93,7 +108,9 @@
       sub: ctx.state === 'live' ? '<span>' + A.summary.total + ' open</span><span class="is-alert">' + A.summary.counts.Urgent + ' urgent</span><span>Updated 14:05</span>' : ctx.state === 'empty' ? '<span>Everything is in order</span><span>Updated 14:05</span>' : '<span>Checking…</span>',
       actions: ui.btn('Refresh', { variant: 'secondary', icon: 'refresh', attrs: { 'data-action': 'refresh' } }),
       active: filter,
-      tabs: ctx.state === 'live' ? [{ id: 'All', label: 'All items', count: A.cases.length }].concat(Object.keys(cats).map(function (k) { return { id: k, label: k, count: cats[k], alert: A.cases.some(function (c) { return c.category === k && c.severity === 'Urgent'; }) }; })) : [] });
+      tabs: ctx.state === 'live' ? [{ id: 'All', label: 'All items', meta: '<span class="is-alert">' + A.summary.counts.Urgent + ' urgent</span> \u00b7 ' + A.cases.length + ' open', state: 'Urgent' }].concat(Object.keys(cats).map(function (k) {
+        var u = A.cases.filter(function (c) { return c.category === k && c.severity === 'Urgent'; }).length, w = A.cases.filter(function (c) { return c.category === k && c.severity === 'Warning'; }).length;
+        return { id: k, label: k, meta: u ? '<span class="is-alert">' + u + ' urgent</span> \u00b7 ' + cats[k] + ' open' : cats[k] + ' open', state: u ? 'Urgent' : w ? 'Warning' : 'Normal' }; })) : [] });
 
     if (ctx.state === 'loading') return head + '<div class="page page--wide">' + skeleton(6) + '</div>';
     if (ctx.state === 'error') return head + '<div class="page page--wide">' + ui.notice('danger', 'The queue couldn’t be checked', 'One of the checks didn’t complete, so this page won’t show a partial list or call it clear. Refresh to try again.', { action: ui.btn('Retry', { size: 'sm', icon: 'refresh' }) }) + '</div>';
@@ -153,7 +170,8 @@
   Hub.screens['mgmt-coaches'] = function (ctx) {
     var list = D.staff.filter(function (p) { return peopleFilter === 'all' || flagged(p); });
     var tab = Hub.wsTabs.people, clientWord = Hub.brand.terms.client + 's';
-    var tabs = [{ id: 'staff', label: 'Staff', count: D.staff.length }, { id: 'clients', label: clientWord, count: 214 }, { id: 'families', label: 'Families', count: 163 }];
+    var flaggedN = D.staff.filter(flagged).length;
+    var tabs = [{ id: 'staff', label: 'Staff', meta: D.staff.length + ' people \u00b7 ' + flaggedN + ' to check', state: 'Warning' }, { id: 'clients', label: clientWord, meta: '214 active' }, { id: 'families', label: 'Families', meta: '163 linked \u00b7 1 claim', state: 'Normal' }];
     Hub.crumbTail = tabs.filter(function (t) { return t.id === tab; })[0].label;
     var head = ui.workspace({ id: 'people', title: 'People', sub: '<span>Staff, ' + esc(clientWord.toLowerCase()) + ' and families across ' + esc(Hub.brand.orgName) + '</span>', actions: ui.btn('Export', { variant: 'tertiary', icon: 'download', attrs: { 'data-action': 'soon' } }) + ui.btn('Add person', { variant: 'primary', icon: 'plus', attrs: { 'data-action': 'soon' } }), active: tab, tabs: tabs });
     if (tab !== 'staff') return head + '<div class="page page--wide">' + placeholderBody(Hub.crumbTail + ' is not part of this visual pass', 'The tab keeps its place so the module reads as complete. The staff table shows the row and column language every People view shares.') + '</div>';
@@ -196,7 +214,7 @@
      sessions and venues). */
   Hub.screens['mgmt-schedule'] = function (ctx) {
     var tab = Hub.wsTabs.schedule;
-    var tabs = [{ id: 'today', label: 'Today', count: todayOcc().length }, { id: 'week', label: 'This week', count: 6 }, { id: 'calendar', label: 'Calendar' }, { id: 'sessions', label: 'Sessions', count: 18 }, { id: 'locations', label: 'Locations', count: 4 }];
+    var tabs = [{ id: 'today', label: 'Today', meta: '4 sessions \u00b7 <span class="is-alert">1 issue</span>', state: 'Urgent' }, { id: 'week', label: 'This week', meta: '6 sessions \u00b7 <span class="is-alert">2 issues</span>', state: 'Urgent' }, { id: 'calendar', label: 'Calendar', meta: 'Term 1' }, { id: 'sessions', label: 'Sessions', meta: '18 running' }, { id: 'locations', label: 'Locations', meta: '4 in use \u00b7 1 unassigned', state: 'Normal' }];
     Hub.crumbTail = tabs.filter(function (t) { return t.id === tab; })[0].label;
     var head = ui.workspace({ id: 'schedule', title: 'Schedule & Sessions', sub: '<span>Thursday 1 October</span><span>' + esc(D.term) + '</span><span class="is-alert">2 sessions need staff</span>',
       actions: ui.btn('Add to calendar', { variant: 'tertiary', icon: 'calendar', attrs: { 'data-action': 'soon' } }), active: tab, tabs: tabs });
@@ -218,7 +236,7 @@
      product, so the module shows its structure and a restricted state. */
   Hub.screens['mgmt-finance'] = function () {
     var tab = Hub.wsTabs.finance;
-    var tabs = [{ id: 'overview', label: 'Overview' }, { id: 'billing', label: 'Billing' }, { id: 'invoicing', label: 'Invoicing' }, { id: 'sessions', label: 'Session finances' }, { id: 'staff', label: 'Staff costs' }];
+    var tabs = [{ id: 'overview', label: 'Overview', meta: 'Term 1' }, { id: 'billing', label: 'Billing', meta: 'Finance access' }, { id: 'invoicing', label: 'Invoicing', meta: 'Finance access' }, { id: 'sessions', label: 'Session finances', meta: 'Finance access' }, { id: 'staff', label: 'Staff costs', meta: '1 summary to finalise', state: 'Normal' }];
     Hub.crumbTail = tabs.filter(function (t) { return t.id === tab; })[0].label;
     var head = ui.workspace({ id: 'finance', title: 'Finance', sub: '<span>' + esc(D.term) + '</span><span>Finance access only</span>', active: tab, tabs: tabs });
     return head + '<div class="page page--wide">' + '<div class="zone-inset ws-placeholder">' + ui.empty('shield', 'Finance needs Finance access', 'Finance is permissioned separately from Management. The module and its sections keep their place so the workspace reads as complete.') + '</div></div>';

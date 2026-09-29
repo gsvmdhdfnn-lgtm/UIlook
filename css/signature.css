@@ -1,0 +1,156 @@
+/* ==========================================================================
+   Relvor signature patterns
+   --------------------------------------------------------------------------
+   Three patterns that repeat in Management, Staff and Client and make the
+   product recognisable:
+
+   1. THE BRIEF      The operation, written as a short paragraph. Live
+                     facts are set as tokens you can act on. Followed by
+                     what changed since you last looked.
+   2. THE DAY LINE   The day as a line of time, with Now marked in amber,
+                     elapsed time shaded, and exceptions shown where they
+                     happen.
+   3. STATE MARKS    One attention vocabulary everywhere: ring (to do),
+                     diamond (warning), filled dot (urgent). Marks travel
+                     up from rows to tabs to the sidebar, so trouble is
+                     visible from anywhere. Urgent items become DECISIONS.
+
+   Plus the navigation signature: INDEX TABS, boxed section tabs whose
+   selected box opens onto the page under a thin amber edge.
+   ========================================================================== */
+
+/* ---------- 1. The Brief ---------- */
+.brief { display: grid; gap: var(--s-6); max-width: 900px; }
+.brief__kicker { display: flex; align-items: center; gap: 10px; font-size: var(--t-12); font-weight: var(--w-medium); letter-spacing: var(--track-over); text-transform: uppercase; color: var(--text-3); }
+.brief__kicker::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 4px var(--accent-soft); }
+.brief__title { font-size: var(--t-34); font-weight: var(--w-semibold); letter-spacing: var(--track-display); line-height: 1.1; }
+.brief__text { font-size: 1.25rem; line-height: 1.6; color: var(--text-2); letter-spacing: -0.008em; max-width: 60ch; text-wrap: pretty; }
+.brief__text + .brief__text { margin-top: calc(var(--s-4) * -1); }
+
+/* Tokens: live facts inside the sentence */
+.tok { color: var(--text); font-weight: var(--w-medium); background: color-mix(in oklab, var(--hover) 75%, var(--canvas)); border-radius: 6px; padding: 0.05em 0.38em; box-decoration-break: clone; -webkit-box-decoration-break: clone; white-space: nowrap; text-decoration: none; font-variant-numeric: tabular-nums; transition: background var(--dur) var(--ease); }
+a.tok:hover { background: var(--press); text-decoration: none; }
+.tok--danger { color: var(--danger); background: var(--danger-soft); }
+a.tok--danger:hover { background: color-mix(in oklab, var(--danger) 16%, var(--canvas)); }
+.tok--warn { color: var(--warn); background: var(--warn-soft); }
+.tok--ok { color: var(--ok); background: var(--ok-soft); }
+.tok--accent { color: var(--accent); background: var(--accent-soft); }
+
+/* What changed since you last looked */
+.changes { display: grid; gap: var(--s-2); max-width: 640px; }
+.changes__head { font-size: var(--t-13); color: var(--text-3); }
+.changes__head b { color: var(--text-2); font-weight: var(--w-medium); }
+.changes__list { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.chg { display: grid; grid-template-columns: 14px minmax(0, 1fr) auto; gap: var(--s-3); align-items: baseline; font-size: var(--t-14); color: var(--text-2); padding: 6px 0; }
+.chg::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); transform: translateY(-1px); }
+.chg--danger::before { background: var(--danger); }
+.chg a { color: inherit; }
+.chg a:hover { color: var(--text); }
+.chg time { font-size: var(--t-13); color: var(--text-4); }
+
+/* ---------- 2. The Day Line ---------- */
+.dayline { display: grid; gap: var(--s-3); }
+.dayline__head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--s-4); flex-wrap: wrap; }
+.dayline__legend { display: flex; gap: var(--s-5); font-size: var(--t-13); color: var(--text-3); }
+.dayline__legend span { display: inline-flex; align-items: center; gap: 6px; }
+.dayline__scroll { overflow-x: auto; scrollbar-width: none; margin-inline: calc(var(--s-5) * -1); padding-inline: var(--s-5); }
+.dayline__scroll::-webkit-scrollbar { display: none; }
+.dayline__track { position: relative; min-width: 620px; height: calc(var(--lanes, 2) * 48px + 56px); padding-top: 28px; }
+.dayline__elapsed { position: absolute; left: 0; top: 28px; bottom: 28px; width: var(--now); background: repeating-linear-gradient(135deg, transparent 0 6px, color-mix(in oklab, var(--text-4) 14%, transparent) 6px 7px); border-radius: var(--r-md) 0 0 var(--r-md); }
+.dayline__hour { position: absolute; top: 28px; bottom: 28px; width: 1px; background: var(--line-soft); }
+.dayline__hour span { position: absolute; bottom: -24px; left: 0; transform: translateX(-50%); font-size: var(--t-12); color: var(--text-4); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.dayline__now { position: absolute; top: 4px; bottom: 28px; width: 0; border-left: 1.5px solid var(--accent); z-index: 2; }
+.dayline__now span { position: absolute; top: 0; left: 0; transform: translateX(-50%); font-size: var(--t-12); font-weight: var(--w-medium); color: var(--accent); background: var(--canvas); padding: 0 6px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.dayline--ground .dayline__now span { background: var(--ground); }
+.blk { position: absolute; height: 40px; display: flex; align-items: center; gap: 8px; padding: 0 10px 0 12px; border-radius: var(--r-md); background: var(--raised); box-shadow: inset 0 0 0 1px var(--line), var(--shadow-xs); font-size: var(--t-13); color: var(--text); overflow: hidden; white-space: nowrap; z-index: 1; text-decoration: none; transition: box-shadow var(--dur) var(--ease); }
+.blk:hover { text-decoration: none; box-shadow: inset 0 0 0 1px var(--line-strong), var(--shadow-xs); }
+.blk b { font-weight: var(--w-medium); overflow: hidden; text-overflow: ellipsis; }
+.blk small { color: var(--text-3); font-size: var(--t-12); font-variant-numeric: tabular-nums; }
+.blk .sev { margin-left: -2px; }
+.blk--issue { background: var(--danger-soft); box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--danger) 30%, transparent); }
+.blk--issue b { color: var(--danger); }
+.blk--mine { box-shadow: inset 0 0 0 1.5px var(--accent), var(--shadow-xs); }
+.blk--past { opacity: .5; }
+
+/* Week line (client): the same idea at week scale */
+.weekline { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; }
+.wday { display: grid; justify-items: center; gap: 6px; padding: 12px 4px 10px; border-radius: var(--r-md); font-size: var(--t-12); color: var(--text-3); }
+.wday b { font-size: var(--t-17); font-weight: var(--w-medium); color: var(--text-2); font-variant-numeric: tabular-nums; }
+.wday i { width: 6px; height: 6px; border-radius: 50%; background: transparent; }
+.wday.has-session i { background: var(--text-2); }
+.wday.is-past { opacity: .45; }
+.wday.is-today { background: var(--raised); box-shadow: inset 0 2px 0 var(--accent), var(--shadow-xs); color: var(--accent); }
+.wday.is-today b { color: var(--text); }
+.wday.is-today i { background: var(--accent); }
+
+/* ---------- 3. State marks travel; decisions ---------- */
+.decisions { display: grid; gap: var(--s-4); }
+@media (min-width: 760px) { .decisions { grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); } }
+.decision { display: grid; gap: var(--s-4); align-content: start; padding: var(--s-6); border-radius: var(--r-lg); background: var(--raised); box-shadow: inset 0 0 0 1px var(--line-soft), var(--shadow-xs); }
+.decision__kicker { display: flex; align-items: center; gap: 10px; font-size: var(--t-12); font-weight: var(--w-medium); letter-spacing: var(--track-over); text-transform: uppercase; color: var(--danger); }
+.decision__kicker .when { margin-left: auto; letter-spacing: 0; text-transform: none; font-size: var(--t-13); }
+.decision__title { font-size: var(--t-20); font-weight: var(--w-semibold); letter-spacing: var(--track-title); line-height: 1.25; }
+.decision__ctx { font-size: var(--t-14); color: var(--text-3); margin-top: calc(var(--s-3) * -1); }
+.decision__actions { display: flex; gap: var(--s-2); flex-wrap: wrap; padding-top: var(--s-2); }
+
+/* marks in the sidebar and tabs */
+.nav-link .sev { width: 14px; }
+
+/* ---------- Index tabs (section navigation signature) ---------- */
+.itabs { display: flex; gap: var(--s-2); overflow-x: auto; scrollbar-width: none; margin-inline: calc(var(--s-2) * -1); padding: 0 var(--s-2); }
+.itabs::-webkit-scrollbar { display: none; }
+.itab {
+  position: relative; flex: none; min-width: 172px; display: grid; gap: 3px; align-content: center; text-align: left;
+  padding: 14px 20px 14px; border-radius: 12px 12px 0 0;
+  background: color-mix(in oklab, var(--canvas) 38%, var(--band)); box-shadow: inset 0 1px 0 var(--line-soft), inset 1px 0 0 var(--line-soft), inset -1px 0 0 var(--line-soft);
+  transition: background var(--dur) var(--ease);
+}
+.itab:hover { background: color-mix(in oklab, var(--canvas) 70%, var(--band)); }
+.itab__label { font-size: var(--t-15); font-weight: var(--w-medium); color: var(--text-2); letter-spacing: -0.005em; }
+.itab__meta { display: flex; align-items: center; gap: 6px; font-size: var(--t-13); color: var(--text-3); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.itab__meta .sev { width: 12px; height: 16px; }
+.itab__meta .is-alert { color: var(--danger); }
+.itab[aria-selected="true"] { background: var(--canvas); box-shadow: none; }
+.itab[aria-selected="true"] .itab__label { color: var(--text); font-weight: var(--w-semibold); }
+/* the amber edge */
+.itab[aria-selected="true"] > i { position: absolute; top: 0; left: 14px; right: 14px; height: 2px; border-radius: 0 0 2px 2px; background: var(--accent); }
+.itab[aria-selected="true"]::before, .itab[aria-selected="true"]::after { content: ""; position: absolute; bottom: 0; width: 12px; height: 12px; pointer-events: none; }
+.itab[aria-selected="true"]::before { left: -12px; background: radial-gradient(circle at 0 0, transparent 11.5px, var(--canvas) 12px); }
+.itab[aria-selected="true"]::after { right: -12px; background: radial-gradient(circle at 100% 0, transparent 11.5px, var(--canvas) 12px); }
+.itab:focus-visible { box-shadow: inset 0 0 0 2px color-mix(in oklab, var(--accent) 50%, transparent); }
+@media (max-width: 759px) {
+  .itabs { margin-inline: calc(var(--s-5) * -1); padding-inline: var(--s-4); }
+  .itab { min-width: 140px; padding: 12px 16px; }
+}
+
+/* Section transition: content settles in beneath the chosen tab */
+.enter { animation: settle 260ms var(--ease); }
+@keyframes settle { from { opacity: 0; transform: translateY(6px); } }
+
+/* Live organisation status in the shell */
+.org-live { display: inline-flex; align-items: center; gap: 6px; font-size: var(--t-12); color: var(--text-3); letter-spacing: 0; }
+.org-live::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--ok); box-shadow: 0 0 0 3px var(--ok-soft); }
+
+/* Home rhythm */
+.home { display: grid; gap: var(--s-14); }
+.home > .zone-rule { height: 1px; background: var(--line-soft); }
+.home-grid { display: grid; gap: var(--gap-zone); grid-template-columns: minmax(0, 1fr); align-items: start; }
+@media (min-width: 1180px) { .home-grid { grid-template-columns: minmax(0, 1fr) 300px; column-gap: var(--s-16); } }
+@media (max-width: 759px) { .brief__text { font-size: 1.125rem; } .brief__title { font-size: var(--t-30); } .home { gap: var(--s-12); } }
+.legend-now { width: 0; height: 12px; border-left: 1.5px solid var(--accent); }
+.client-top { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--s-6); flex-wrap: wrap; }
+.client-top .member-switch { align-self: flex-start; margin-top: 30px; }
+.page--client .brief__title { font-weight: var(--w-medium); }
+
+.home-grid > .col { display: grid; gap: var(--gap-zone); align-content: start; min-width: 0; }
+.home-grid > .rail { gap: var(--s-10); }
+/* Organisation block: name and live line each truncate on their own */
+.workspace .org__name { display: grid; gap: 2px; white-space: normal; }
+.workspace .org__name > span, .workspace .org__name { overflow: hidden; }
+.workspace .org-live { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* On the warm ground (Staff, Client) tokens sit on the raised surface */
+.app:not([data-area="management"]) .tok { background: var(--raised); box-shadow: var(--shadow-xs); }
+.app:not([data-area="management"]) .tok--accent { background: color-mix(in oklab, var(--accent) 10%, var(--raised)); }
+.app:not([data-area="management"]) .tok--warn { background: color-mix(in oklab, var(--warn) 10%, var(--raised)); }
+.section-head .member-switch { align-self: center; }
+@media (max-width: 759px) { .dayline__track { min-width: 900px; } }

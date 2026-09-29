@@ -104,9 +104,18 @@
     { id: 'sam', name: 'Sam Okafor', email: 'sam@example.com', role: 'Office', team: 'Operations', sessions: 0, compliance: 'none', complianceText: 'Not required', last: 'Active now', flag: null }
   ];
 
+  /* What changed since the user last looked. Consistent with the cases
+     and approvals above; nothing new is implied. */
+  var lastVisit = 'yesterday at 17:40';
+  var changes = [
+    { time: '30 Sep, 18:12', text: 'Charlie Hughes marked unavailable for U12 Academy', tone: 'danger', key: 'assigned_coach_unavailable|occurrence:o4|coach:charlie' },
+    { time: '30 Sep, 19:03', text: 'Tom Reid uploaded a first aid certificate', tone: '', key: 'compliance_verification_pending|requirement:tom-firstaid' },
+    { time: 'Today, 09:24', text: '2 session requests arrived', tone: '', href: '#mgmt-session-requests' }
+  ];
+
   Hub.data = {
     now: NOW, coaches: coaches, venues: venues, occurrences: occurrences, attention: attention,
-    approvals: approvals, areas: areas, parent: parent, staff: staff,
+    approvals: approvals, areas: areas, parent: parent, staff: staff, changes: changes, lastVisit: lastVisit,
     me: { id: 'david', name: 'David Cole', email: 'david@example.com', roleLabel: 'Management' },
     term: 'Term 1 · Week 4'
   };
