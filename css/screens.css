@@ -126,3 +126,11 @@
 .icon-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(40px, 1fr)); gap: var(--s-1); color: var(--text-2); }
 .icon-grid span { display: grid; place-items: center; height: 40px; border-radius: var(--r-md); }
 .icon-grid span:hover { background: var(--hover); }
+
+/* Module pages under a workspace header */
+.ws-stack { gap: var(--s-12); }
+.ws-placeholder { padding: var(--s-8); }
+.toolbar .ws-bar__label { margin: 0; }
+.sys-ws { border-radius: var(--r-lg); overflow: hidden; box-shadow: 0 0 0 1px var(--line-soft); }
+.sys-ws .ws { padding: var(--s-8) var(--s-8) 0; }
+.sys-ws__page { height: 72px; background: var(--canvas); }

@@ -120,3 +120,7 @@ img.org-mark { background: #fff; padding: 3px; box-shadow: 0 0 0 1px var(--line)
 .search-trigger { display: flex; align-items: center; gap: 10px; width: 300px; height: 38px; padding: 0 8px 0 12px; border-radius: var(--r-md); background: var(--hover); color: var(--text-3); font-size: var(--t-14); transition: background var(--dur) var(--ease); }
 .search-trigger:hover { background: var(--press); }
 .search-trigger .kbd { margin-left: auto; }
+
+/* When a module opens with a workspace header, the context bar takes the
+   band's tone so bar and header read as one piece. */
+@media (min-width: 900px) { .main:has(.ws) .canvas-bar { background: var(--band); } }

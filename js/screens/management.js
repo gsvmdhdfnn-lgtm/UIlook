@@ -29,7 +29,7 @@
     return ui.table({
       cols: '64px minmax(0, 1.6fr) minmax(0, 1.1fr) 72px minmax(0, 150px)',
       head: ['Time', 'Session', { label: 'Staff', cls: 'wide' }, { label: 'Expected', cls: 'c-num wide' }, { label: '', cls: 'wide' }],
-      body: list.map(function (o) {
+      body: list.slice().sort(function (a, b) { return a.start < b.start ? -1 : 1; }).map(function (o) {
         return ui.tr([
           { cls: 'c-time', html: o.start + '<small>' + o.end + '</small>' },
           { cls: 'c-main', html: '<span class="c-title">' + esc(o.session) + '</span><span class="c-sub">' + esc(venue(o)) + '<span class="only-narrow-inline"> · ' + o.players + ' expected</span></span>' },
@@ -78,22 +78,26 @@
       '</aside></div></div>';
   };
 
+  /* Section-tab state per module, and the crumb tail for the context bar */
+  Hub.wsTabs = Hub.wsTabs || { attention: 'All', people: 'staff', schedule: 'today', finance: 'overview' };
+  Hub.actions.wstab = function (el) { Hub.wsTabs[el.dataset.ws] = el.dataset.tab; Hub.render(); };
+  function placeholderBody(title, body) { return '<div class="zone-inset ws-placeholder">' + ui.empty('grid', title, body) + '</div>'; }
+
   /* ------------------------------------------------------- NEEDS ATTENTION */
-  var filter = 'All';
   Hub.screens['mgmt-attention'] = function (ctx) {
     var A = D.attention, cats = {};
     A.cases.forEach(function (c) { cats[c.category] = (cats[c.category] || 0) + 1; });
-    var head = '<header class="page-head"><div class="page-head__text"><h1 class="page-title">Needs attention</h1>' +
-      '<p class="page-meta">' + (ctx.state === 'live' ? A.summary.total + ' open items, most urgent first · updated 14:05' : ctx.state === 'empty' ? 'Everything is in order · updated 14:05' : 'Checking…') + '</p></div>' +
-      '<div class="page-head__actions">' + ui.btn('Refresh', { variant: 'tertiary', icon: 'refresh', attrs: { 'data-action': 'refresh' } }) + '</div></header>';
+    var filter = Hub.wsTabs.attention;
+    Hub.crumbTail = filter === 'All' ? 'All items' : filter;
+    var head = ui.workspace({ id: 'attention', title: 'Needs attention',
+      sub: ctx.state === 'live' ? '<span>' + A.summary.total + ' open</span><span class="is-alert">' + A.summary.counts.Urgent + ' urgent</span><span>Updated 14:05</span>' : ctx.state === 'empty' ? '<span>Everything is in order</span><span>Updated 14:05</span>' : '<span>Checking…</span>',
+      actions: ui.btn('Refresh', { variant: 'secondary', icon: 'refresh', attrs: { 'data-action': 'refresh' } }),
+      active: filter,
+      tabs: ctx.state === 'live' ? [{ id: 'All', label: 'All items', count: A.cases.length }].concat(Object.keys(cats).map(function (k) { return { id: k, label: k, count: cats[k], alert: A.cases.some(function (c) { return c.category === k && c.severity === 'Urgent'; }) }; })) : [] });
 
-    if (ctx.state === 'loading') return '<div class="page page--wide">' + head + skeleton(6) + '</div>';
-    if (ctx.state === 'error') return '<div class="page page--wide">' + head + ui.notice('danger', 'The queue couldn’t be checked', 'One of the checks didn’t complete, so this page won’t show a partial list or call it clear. Refresh to try again.', { action: ui.btn('Retry', { size: 'sm', icon: 'refresh' }) }) + '</div>';
-    if (ctx.state === 'empty') return '<div class="page page--wide">' + head + '<div class="zone-inset">' + ui.empty('checkCircle', 'Nothing needs attention', 'No staffing gaps, compliance issues, cover or summaries are waiting.', 'ok') + '</div></div>';
-
-    var tabs = '<div class="tabs" role="tablist">' + ['All'].concat(Object.keys(cats)).map(function (k) {
-      return '<button type="button" class="tab-btn" role="tab" data-action="filter" data-filter="' + esc(k) + '" aria-selected="' + (filter === k) + '">' + esc(k) + '<span class="count">' + (k === 'All' ? A.cases.length : cats[k]) + '</span></button>';
-    }).join('') + '</div>';
+    if (ctx.state === 'loading') return head + '<div class="page page--wide">' + skeleton(6) + '</div>';
+    if (ctx.state === 'error') return head + '<div class="page page--wide">' + ui.notice('danger', 'The queue couldn’t be checked', 'One of the checks didn’t complete, so this page won’t show a partial list or call it clear. Refresh to try again.', { action: ui.btn('Retry', { size: 'sm', icon: 'refresh' }) }) + '</div>';
+    if (ctx.state === 'empty') return head + '<div class="page page--wide">' + '<div class="zone-inset">' + ui.empty('checkCircle', 'Nothing needs attention', 'No staffing gaps, compliance issues, cover or summaries are waiting.', 'ok') + '</div></div>';
 
     var cols = '16px minmax(0, 1fr) 180px 150px 180px';
     var shown = A.cases.filter(function (c) { return filter === 'All' || c.category === filter; });
@@ -113,13 +117,12 @@
         '<div class="tbl" role="table" style="--cols:' + cols + '">' + body + '</div></section>';
     }).join('');
 
-    return '<div class="page page--wide page--queue">' + head +
-      '<div class="section queue">' + tabs +
+    return head + '<div class="page page--wide page--queue">' +
+      '<div class="section queue">' +
       '<div class="tbl queue__head" role="table" style="--cols:' + cols + '"><div class="tbl__head" role="row"><div></div><div>Item</div><div class="wide">Area</div><div class="wide">Due</div><div class="wide"></div></div></div>' +
       groups + '</div></div>';
   };
 
-  Hub.actions.filter = function (el) { filter = el.dataset.filter; Hub.render(); };
   Hub.actions.refresh = function (el) { el.classList.add('is-busy'); setTimeout(function () { el.classList.remove('is-busy'); Hub.toast('Queue is up to date'); }, 700); };
 
   Hub.actions['case'] = function (el) {
@@ -149,11 +152,15 @@
   function flagged(p) { return p.compliance === 'warn' || p.compliance === 'danger' || p.flag; }
   Hub.screens['mgmt-coaches'] = function (ctx) {
     var list = D.staff.filter(function (p) { return peopleFilter === 'all' || flagged(p); });
-    var head = '<header class="page-head"><div class="page-head__text"><h1 class="page-title">People</h1><p class="page-meta">Staff, clients and families across ' + esc(Hub.brand.orgName) + '</p></div></header>';
-    var toolbar = '<div class="toolbar"><div class="tabs" role="tablist"><button type="button" class="tab-btn" role="tab" aria-selected="true">Staff<span class="count">' + D.staff.length + '</span></button><button type="button" class="tab-btn" role="tab" aria-selected="false" data-action="soon">' + esc(Hub.brand.terms.client) + 's<span class="count">214</span></button><button type="button" class="tab-btn" role="tab" aria-selected="false" data-action="soon">Families<span class="count">163</span></button></div>' +
+    var tab = Hub.wsTabs.people, clientWord = Hub.brand.terms.client + 's';
+    var tabs = [{ id: 'staff', label: 'Staff', count: D.staff.length }, { id: 'clients', label: clientWord, count: 214 }, { id: 'families', label: 'Families', count: 163 }];
+    Hub.crumbTail = tabs.filter(function (t) { return t.id === tab; })[0].label;
+    var head = ui.workspace({ id: 'people', title: 'People', sub: '<span>Staff, ' + esc(clientWord.toLowerCase()) + ' and families across ' + esc(Hub.brand.orgName) + '</span>', actions: ui.btn('Export', { variant: 'tertiary', icon: 'download', attrs: { 'data-action': 'soon' } }) + ui.btn('Add person', { variant: 'primary', icon: 'plus', attrs: { 'data-action': 'soon' } }), active: tab, tabs: tabs });
+    if (tab !== 'staff') return head + '<div class="page page--wide">' + placeholderBody(Hub.crumbTail + ' is not part of this visual pass', 'The tab keeps its place so the module reads as complete. The staff table shows the row and column language every People view shares.') + '</div>';
+    var toolbar = '<div class="toolbar"><p class="ws-bar__label"><b>' + list.length + '</b> of ' + D.staff.length + ' staff</p>' +
       '<div class="toolbar__end"><label class="search"><span class="visually-hidden">Search people</span>' + I('search') + '<input class="input" id="people-search" placeholder="Search people"></label>' +
       '<div class="segmented" role="group" aria-label="Filter"><button type="button" data-action="pfilter" data-val="all" aria-pressed="' + (peopleFilter === 'all') + '">All</button><button type="button" data-action="pfilter" data-val="flag" aria-pressed="' + (peopleFilter === 'flag') + '">Needs a look</button></div></div></div>';
-    if (ctx.state === 'loading') return '<div class="page page--wide">' + head + toolbar + skeleton(6) + '</div>';
+    if (ctx.state === 'loading') return head + '<div class="page page--wide">' + toolbar + skeleton(6) + '</div>';
     var body = list.map(function (p) {
       var comp = p.compliance === 'danger' ? ui.status(p.complianceText, 'danger') : p.compliance === 'warn' ? ui.status(p.complianceText, 'warn') : '<span class="c-mute">' + esc(p.complianceText) + '</span>';
       return ui.tr([
@@ -166,7 +173,7 @@
         { cls: 'c-end', html: (flagged(p) ? '<span class="only-narrow">' + ui.sev(p.compliance === 'danger' || (p.flag && p.flag.tone === 'danger') ? 'Urgent' : 'Warning') + '</span>' : '') + '<span class="wide hover-action">' + ui.iconBtn('dotsV', 'Actions for ' + p.name, { 'data-action': 'soon' }) + '</span>' }
       ], { action: 'person', data: { id: p.id }, label: p.name });
     }).join('');
-    return '<div class="page page--wide">' + head + '<div class="section">' + toolbar +
+    return head + '<div class="page page--wide">' + '<div class="section">' + toolbar +
       ui.table({ cols: '36px minmax(0, 1.7fr) minmax(0, 1fr) 84px minmax(0, 1.3fr) 120px 36px', head: ['', 'Name', { label: 'Role', cls: 'wide' }, { label: 'This week', cls: 'c-num wide' }, { label: 'Compliance', cls: 'wide' }, { label: 'Last active', cls: 'wide' }, ''], body: body }) +
       '<p class="table-foot">' + list.length + ' of ' + D.staff.length + ' staff · sorted by name</p></div></div>';
   };
@@ -182,6 +189,39 @@
         '<section class="section">' + ui.sectionHead('Compliance') + ui.fields(comp) + '</section>',
       foot: ui.btn('Message', { variant: 'tertiary', icon: 'chat' }) + ui.btn('Open profile', { variant: 'primary' })
     });
+  };
+
+  /* ----------------------------------------------------- SCHEDULE & SESSIONS
+     Tabs mirror views the Hub already has (Today / This week / Calendar,
+     sessions and venues). */
+  Hub.screens['mgmt-schedule'] = function (ctx) {
+    var tab = Hub.wsTabs.schedule;
+    var tabs = [{ id: 'today', label: 'Today', count: todayOcc().length }, { id: 'week', label: 'This week', count: 6 }, { id: 'calendar', label: 'Calendar' }, { id: 'sessions', label: 'Sessions', count: 18 }, { id: 'locations', label: 'Locations', count: 4 }];
+    Hub.crumbTail = tabs.filter(function (t) { return t.id === tab; })[0].label;
+    var head = ui.workspace({ id: 'schedule', title: 'Schedule & Sessions', sub: '<span>Thursday 1 October</span><span>' + esc(D.term) + '</span><span class="is-alert">2 sessions need staff</span>',
+      actions: ui.btn('Add to calendar', { variant: 'tertiary', icon: 'calendar', attrs: { 'data-action': 'soon' } }), active: tab, tabs: tabs });
+    var body;
+    if (ctx.state === 'loading') body = skeleton(5);
+    else if (tab === 'today') body = '<section class="section">' + ui.sectionHead('Thursday 1 October', { meta: '4 sessions · 53 expected' }) + todayTable(todayOcc()) + '</section>';
+    else if (tab === 'week') {
+      var days = [['2026-10-01', 'Thursday 1 October'], ['2026-10-02', 'Friday 2 October']];
+      body = days.map(function (d) {
+        var list = D.occurrences.filter(function (o) { return o.date === d[0]; });
+        return '<section class="section">' + ui.sectionHead(d[1], { meta: list.length + ' sessions' }) + todayTable(list) + '</section>';
+      }).join('');
+    } else body = placeholderBody(Hub.crumbTail + ' is not part of this visual pass', 'The tab keeps its place in the module so the navigation reads as complete.');
+    return head + '<div class="page page--wide ws-stack">' + body + '</div>';
+  };
+
+  /* ------------------------------------------------------------- FINANCE
+     Finance View / Manage access is separate from Management in the
+     product, so the module shows its structure and a restricted state. */
+  Hub.screens['mgmt-finance'] = function () {
+    var tab = Hub.wsTabs.finance;
+    var tabs = [{ id: 'overview', label: 'Overview' }, { id: 'billing', label: 'Billing' }, { id: 'invoicing', label: 'Invoicing' }, { id: 'sessions', label: 'Session finances' }, { id: 'staff', label: 'Staff costs' }];
+    Hub.crumbTail = tabs.filter(function (t) { return t.id === tab; })[0].label;
+    var head = ui.workspace({ id: 'finance', title: 'Finance', sub: '<span>' + esc(D.term) + '</span><span>Finance access only</span>', active: tab, tabs: tabs });
+    return head + '<div class="page page--wide">' + '<div class="zone-inset ws-placeholder">' + ui.empty('shield', 'Finance needs Finance access', 'Finance is permissioned separately from Management. The module and its sections keep their place so the workspace reads as complete.') + '</div></div>';
   };
 
   /* ---------------------------------------------------------------- MORE */

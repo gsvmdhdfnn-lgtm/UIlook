@@ -78,6 +78,22 @@
     },
     group: function (label, count, lead) { return '<div class="tbl__group">' + (lead || '') + esc(label) + ' <span class="count">' + count + '</span></div>'; },
 
+    /* Workspace header: module title, context, actions, and the section
+       tabs that say which part of the module is in view. */
+    workspace: function (o) {
+      var tabs = (o.tabs || []).map(function (t) {
+        var sel = t.id === o.active;
+        return '<button type="button" class="ws-tab" role="tab" aria-selected="' + sel + '" data-action="wstab" data-ws="' + esc(o.id) + '" data-tab="' + esc(t.id) + '">' +
+          '<span>' + esc(t.label) + '</span>' + (t.count != null ? '<span class="ws-tab__count' + (t.alert ? ' is-alert' : '') + '">' + esc(t.count) + '</span>' : '') + '</button>';
+      }).join('');
+      return '<header class="ws"><div class="ws__inner">' +
+        '<div class="ws__top"><div class="ws__text">' + (o.overline ? '<div class="overline">' + esc(o.overline) + '</div>' : '') +
+        '<h1 class="ws__title">' + esc(o.title) + '</h1>' + (o.sub ? '<div class="summary-line ws__sub"><p>' + o.sub + '</p></div>' : '') + '</div>' +
+        (o.actions ? '<div class="ws__actions">' + o.actions + '</div>' : '') + '</div>' +
+        (tabs ? '<nav class="ws-tabs" role="tablist" aria-label="' + esc(o.title) + ' sections">' + tabs + '</nav>' : '') +
+        '</div></header>';
+    },
+
     metric: function (label, value, sub, tone) {
       return '<div class="metric' + (tone ? ' metric--' + tone : '') + '"><span class="metric__label">' + esc(label) + '</span><span class="metric__value">' + value + '</span>' + (sub ? '<span class="metric__sub">' + sub + '</span>' : '') + '</div>';
     },

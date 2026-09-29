@@ -291,3 +291,57 @@ a.row:hover::before, button.row:hover::before, .row--stretch:hover::before, a.ro
 
 /* ---------- Toast ---------- */
 .toast { position: fixed; left: 50%; bottom: calc(var(--tabbar-h, 0px) + var(--s-5)); transform: translateX(-50%); z-index: 90; background: var(--strong); color: var(--on-strong); padding: 12px 16px; border-radius: var(--r-md); font-size: var(--t-14); font-weight: var(--w-medium); box-shadow: var(--shadow-float); display: flex; gap: var(--s-2); align-items: center; max-width: calc(100vw - 32px); animation: rise 180ms var(--ease); }
+
+/* ==========================================================================
+   Workspace header and section tabs
+   The sidebar says where you are in the platform; this band says which
+   part of the module you are looking at. The band sits on a quiet tone;
+   the selected tab is cut from the workspace surface itself and flows
+   into the page below it, so "you are here" reads without an underline,
+   a pill or a border.
+   ========================================================================== */
+.ws { background: var(--band); padding: var(--s-10) var(--s-5) 0; }
+.ws__inner { max-width: var(--wide-max); margin-inline: auto; display: grid; gap: var(--s-8); }
+.ws__top { display: flex; align-items: flex-end; justify-content: space-between; gap: var(--s-5) var(--s-8); flex-wrap: wrap; }
+.ws__text { display: grid; gap: var(--s-2); min-width: 0; }
+.ws__title { font-size: var(--t-30); font-weight: var(--w-semibold); letter-spacing: var(--track-display); line-height: var(--lh-tight); }
+.ws__sub { color: var(--text-3); margin-top: 0; }
+.ws__actions { display: flex; gap: var(--s-2); align-items: center; flex-wrap: wrap; }
+
+.ws-tabs { display: flex; gap: var(--s-1); margin-inline: calc(var(--s-2) * -1); overflow-x: auto; scrollbar-width: none; padding-inline: var(--s-2); }
+.ws-tabs::-webkit-scrollbar { display: none; }
+.ws-tab {
+  position: relative; flex: none; display: inline-flex; align-items: center; gap: 10px;
+  height: 50px; padding: 0 22px; border-radius: 12px 12px 0 0;
+  font-size: var(--t-15); font-weight: var(--w-medium); color: var(--text-3); white-space: nowrap; letter-spacing: -0.005em;
+  transition: color var(--dur) var(--ease), background var(--dur) var(--ease);
+}
+.ws-tab:hover { color: var(--text); background: color-mix(in oklab, var(--canvas) 55%, var(--band)); }
+.ws-tab[aria-selected="true"] { color: var(--text); background: var(--canvas); }
+/* soft inverted corners where the selected tab meets the page */
+.ws-tab[aria-selected="true"]::before, .ws-tab[aria-selected="true"]::after { content: ""; position: absolute; bottom: 0; width: 12px; height: 12px; pointer-events: none; }
+.ws-tab[aria-selected="true"]::before { left: -12px; background: radial-gradient(circle at 0 0, transparent 11.5px, var(--canvas) 12px); }
+.ws-tab[aria-selected="true"]::after { right: -12px; background: radial-gradient(circle at 100% 0, transparent 11.5px, var(--canvas) 12px); }
+.ws-tab__count { font-size: var(--t-13); font-weight: var(--w-regular); color: var(--text-4); font-variant-numeric: tabular-nums; }
+.ws-tab[aria-selected="true"] .ws-tab__count { color: var(--text-3); }
+.ws-tab__count.is-alert { display: inline-flex; align-items: center; gap: 6px; color: var(--danger); }
+.ws-tab__count.is-alert::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--danger); }
+.ws-tab:focus-visible { box-shadow: inset 0 0 0 2px color-mix(in oklab, var(--accent) 50%, transparent); }
+
+/* The page under a workspace header starts closer: the tab already
+   separates it from the header. */
+.ws + .page { padding-top: var(--s-10); }
+.ws-bar { display: flex; align-items: center; justify-content: space-between; gap: var(--s-4); flex-wrap: wrap; }
+.ws-bar__label { font-size: var(--t-15); color: var(--text-3); }
+.ws-bar__label b { color: var(--text); font-weight: var(--w-medium); }
+
+@media (min-width: 900px) {
+  .ws { padding: var(--s-12) var(--s-14) 0; }
+}
+@media (max-width: 759px) {
+  .ws { padding-top: var(--s-7); }
+  .ws__inner { gap: var(--s-6); }
+  .ws__actions .btn { flex: 1; }
+  .ws-tabs { margin-inline: calc(var(--s-5) * -1); padding-inline: var(--s-4); }
+  .ws-tab { height: 46px; padding: 0 16px; font-size: var(--t-14); }
+}

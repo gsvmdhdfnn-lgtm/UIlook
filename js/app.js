@@ -32,7 +32,7 @@
   }
   var HOME = { management: 'mgmt-home', staff: 'coach-home', client: 'parent-home' };
   function areaLabel(a) { var t = terms(); return { management: 'Management', staff: t.staff + ' hub', client: t.client + ' hub' }[a]; }
-  var BUILT = { 'mgmt-home': 1, 'mgmt-attention': 1, 'mgmt-more': 1, 'mgmt-coaches': 1, 'coach-home': 1, 'parent-home': 1, system: 1 };
+  var BUILT = { 'mgmt-home': 1, 'mgmt-attention': 1, 'mgmt-more': 1, 'mgmt-coaches': 1, 'mgmt-schedule': 1, 'mgmt-finance': 1, 'coach-home': 1, 'parent-home': 1, system: 1 };
 
   var S = { role: 'management', area: 'management', route: 'mgmt-home', state: 'live', theme: 'auto', brand: 'relvor' };
   try { var saved = JSON.parse(localStorage.getItem('relvor-proto') || '{}'); ['theme', 'brand'].forEach(function (k) { if (saved[k]) S[k] = saved[k]; }); } catch (e) {}
@@ -79,9 +79,10 @@
 
   function canvasBar() {
     var n = NAV('management').filter(function (x) { return x.id === S.route; })[0];
-    var extra = { 'mgmt-coaches': 'People' };
+    var extra = { 'mgmt-coaches': 'People', 'mgmt-schedule': 'Schedule & Sessions', 'mgmt-finance': 'Finance' };
     var title = extra[S.route] || (n && (n.long || n.label)) || pageTitle();
-    return '<div class="canvas-bar"><div class="crumbs"><span>Management</span>' + I('chevron') + '<b>' + esc(title) + '</b></div><span class="canvas-bar__spacer"></span>' +
+    var tail = Hub.crumbTail ? I('chevron') + '<b>' + esc(Hub.crumbTail) + '</b>' : '';
+    return '<div class="canvas-bar"><div class="crumbs"><span>Management</span>' + I('chevron') + (tail ? '<span>' + esc(title) + '</span>' + tail : '<b>' + esc(title) + '</b>') + '</div><span class="canvas-bar__spacer"></span>' +
       '<button type="button" class="search-trigger" data-action="soon">' + I('search') + '<span>Search people, sessions, items</span><span class="kbd">⌘K</span></button>' +
       '<button type="button" class="icon-btn" data-action="soon" aria-label="Notifications">' + I('bell') + '<span class="dot"></span></button></div>';
   }
@@ -125,6 +126,7 @@
     var app = document.getElementById('app');
     app.dataset.area = S.area;
     var screen = Hub.screens[S.route];
+    Hub.crumbTail = null;
     var content = screen && BUILT[S.route] ? screen({ state: S.state }) : placeholder();
     app.innerHTML = protoBar() +
       '<div class="frame">' + (S.area === 'management' ? sidebar() : '') +

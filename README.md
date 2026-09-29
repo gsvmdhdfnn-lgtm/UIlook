@@ -4,7 +4,8 @@ A visual-design prototype for Relvor, the operations platform (Josh Evans is
 one example organisation using it). It is a static, mock-data front end for
 trying out the look and feel. It is not a second Hub.
 
-- **Visual pass 3 (current):** see `docs/VISUAL-PASS-3.md` and `docs/screenshots/pass-3/`.
+- **Pass 4, section navigation (current):** `docs/VISUAL-PASS-4.md`, `docs/screenshots/pass-4/`.
+- **Visual pass 3:** `docs/VISUAL-PASS-3.md`, `docs/screenshots/pass-3/`.
 - **Visual pass 2:** branch `claude/visual-pass-2`; `docs/VISUAL-PASS-2.md`, `docs/screenshots/pass-2/`.
 - **Visual pass 1:** branch `claude/visual-pass-1`, screenshots in `docs/screenshots/pass-1/`.
 
