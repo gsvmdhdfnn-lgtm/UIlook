@@ -1,7 +1,11 @@
-# Hub UI
+# Relvor UI
 
-A visual-design prototype for the Josh Evans Hub. It is a static, mock-data
-front end for trying out the look and feel. It is not a second Hub.
+A visual-design prototype for Relvor, the operations platform (Josh Evans is
+one example organisation using it). It is a static, mock-data front end for
+trying out the look and feel. It is not a second Hub.
+
+- **Visual pass 2 (current):** see `docs/VISUAL-PASS-2.md` and `docs/screenshots/pass-2/`.
+- **Visual pass 1:** branch `claude/visual-pass-1`, screenshots in `docs/screenshots/pass-1/`.
 
 - The real product lives in `gsvmdhdfnn-lgtm/Coach-allocation-TEST`. This repo
   never changes it.
@@ -19,10 +23,10 @@ python3 -m http.server 8000
 ```
 
 The dark bar at the top is prototype chrome. Use it to switch:
-- **Role:** Management, Coach or Parent
+- **Role:** Management, Staff or Client (called Coach and Parent under the Josh Evans brand)
 - **Data state:** data, empty, loading or error
 - **Theme:** light, dark or auto
-- **Brand:** Josh Evans, or a fictional sample organisation
+- **Brand:** Relvor's generic look (a fictional organisation), or Josh Evans
 - **Visual system:** a reference page of every token and component
 
 The prototype clock is fixed at Thursday 1 October 2026, 14:10, so "today"
@@ -38,17 +42,18 @@ css/components.css  page, section, card, stats, button, pill, badge, row,
                     skeleton, form fields, segmented, chips, sheet, toast
 css/shell.css       top bar, bottom tab bar, desktop sidebar, area switch
 css/screens.css     per-screen composition only
-js/brand.js         branding boundary (3 colours + name + mark -> tokens)
+js/brand.js         branding boundary (name, mark, accent, terms; accent clamped for contrast)
 js/icons.js         stroke icon set
 js/ui.js            component helpers (one per pattern)
 js/data.js          mock data
 js/screens/*.js     Management Home, Needs Attention, More; Coach Home;
                     Parent Home; Visual system reference
 docs/AUDIT.md       audit of the current Hub
-docs/screenshots/   phone, desktop and dark renders of every screen
+docs/VISUAL-PASS-2.md  the pass-2 visual direction and rules
+docs/screenshots/   pass-1 and pass-2 renders (phone, desktop, dark)
 ```
 
-## First pass: what's here
+## First pass: what was built
 
 The five representative screens asked for (the rest of the tabs show a
 "Not in this first pass" placeholder):

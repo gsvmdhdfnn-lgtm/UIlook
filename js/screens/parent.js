@@ -1,74 +1,61 @@
-/* Parent Home. Same content and order as the Hub's current Parent Home
-   (greeting with child, next session, updates when there are any, recent
-   published feedback). A child switcher appears only when a family has
-   more than one linked child. */
+/* Client Home (the Parent Hub for Josh Evans). Warmer and more spacious
+   than Management, same system underneath. A member switcher appears
+   when an account has more than one person linked. */
 (function () {
   var ui = Hub.ui, I = Hub.icon, D = Hub.data, esc = ui.esc;
   var activeId = null;
 
-  function nextSession(n) {
-    return '<section class="card card--strong next-card next-card--parent" aria-labelledby="p-next">' +
-      '<div class="next-card__top"><span class="next-card__label">Next session</span>' + ui.pill(n.dateLabel, 'highlight', 'pill--plain') + '</div>' +
-      '<div class="next-card__main">' +
-        '<h2 id="p-next" class="display next-card__title">' + esc(n.session) + '</h2>' +
-        '<ul class="next-card__meta">' +
-          '<li>' + I('calendar', 'icon-sm') + '<span>' + esc(n.date) + '</span></li>' +
-          '<li>' + I('clock', 'icon-sm') + '<b class="num">' + esc(n.time) + '</b></li>' +
-          '<li>' + I('pin', 'icon-sm') + '<span>' + esc(n.venue) + ' <span class="muted">· meet at the ' + esc(n.meetingPoint.toLowerCase()) + '</span></span></li>' +
-          '<li>' + I('whistle', 'icon-sm') + '<span>Coach: ' + esc(n.coach) + '</span></li>' +
-        '</ul>' +
+  function nextPanel(n) {
+    return '<section class="panel next next--client" aria-labelledby="p-next">' +
+      '<div class="next__bar"><span class="overline">Next session</span><span class="next__eta">' + esc(n.dateLabel) + '</span></div>' +
+      '<div class="next__body">' +
+        '<h2 id="p-next" class="next__title">' + esc(n.session) + '</h2>' +
+        ui.fields([['Date', esc(n.date)], ['Time', '<span class="num">' + esc(n.time) + '</span>'], ['Location', esc(n.venue) + '<span class="field-note">' + esc(n.venueArea) + '</span>'], ['With', esc(n.coach)]], true) +
+        '<p class="next__note"><span class="text-3">Meeting point</span> ' + esc(n.meetingPoint) + '</p>' +
       '</div>' +
-      '<div class="next-card__actions">' + ui.btn('View session', { variant: 'highlight', trail: 'arrowRight', attrs: { 'data-action': 'soon' } }) + '</div>' +
+      '<div class="next__actions">' + ui.btn('View details', { variant: 'primary', trail: 'arrowRight', attrs: { 'data-action': 'soon' } }) + ui.btn('Location & parking', { variant: 'tertiary', icon: 'pin', attrs: { 'data-action': 'soon' } }) + '</div>' +
       '</section>';
   }
 
-  function feedback(child) {
-    var f = child.feedback;
-    if (!f) return '<section class="section">' + ui.sectionHead('Recent feedback') + '<div class="card">' + ui.empty('star', 'No published feedback yet', 'When ' + esc(child.name.split(' ')[0]) + '’s coach publishes feedback, it will appear here.') + '</div></section>';
-    return '<section class="section">' + ui.sectionHead('Recent feedback', { link: 'Development', href: '#parent-development' }) +
-      '<article class="card card--pad feedback-card">' +
-        '<header class="feedback-card__head">' + ui.avatar(f.coach, 'sm') + '<div><b>' + esc(f.coach) + '</b><small>Published ' + esc(f.date) + '</small></div></header>' +
-        '<div class="feedback-card__blocks">' +
-          '<div class="fb-block"><span class="fb-block__label">Keep doing</span><p>' + esc(f.keepDoing) + '</p></div>' +
-          '<div class="fb-block fb-block--focus"><span class="fb-block__label">My focus</span><p>' + esc(f.focus) + '</p></div>' +
-        '</div>' +
-        ui.btn('Read full feedback', { variant: 'secondary', block: true, attrs: { 'data-action': 'soon' } }) +
+  function feedback(member) {
+    var f = member.feedback;
+    if (!f) return '<section class="section">' + ui.sectionHead('Latest feedback') + '<div class="panel">' + ui.empty('star', 'No feedback published yet', 'When feedback for ' + esc(member.name.split(' ')[0]) + ' is published, it will appear here.') + '</div></section>';
+    return '<section class="section">' + ui.sectionHead('Latest feedback', { link: 'All feedback', href: '#parent-development' }) +
+      '<article class="panel feedback">' +
+        '<div class="panel__head"><div class="feedback__by">' + ui.avatar(f.coach, 'md') + '<div><b>' + esc(f.coach) + '</b><small>Published ' + esc(f.date) + '</small></div></div></div>' +
+        '<div class="feedback__cols"><div><span class="overline">Keep doing</span><p>' + esc(f.keepDoing) + '</p></div><div><span class="overline">Focus next</span><p>' + esc(f.focus) + '</p></div></div>' +
+        '<div class="panel__foot"><span></span><a class="section-link" href="#parent-development">Read in full' + I('chevron', 'icon-sm') + '</a></div>' +
       '</article></section>';
   }
 
-  function family(children) {
-    return '<section class="section">' + ui.sectionHead('Your family', { link: 'Manage', href: '#parent-more' }) +
-      '<div class="card card--flush">' + ui.list(children.map(function (c) {
-        return ui.row({ lead: ui.avatar(c.name), title: esc(c.name), meta: [esc(c.sessions.join(', '))], trail: ui.pill('Linked', 'ok'), data: { child: c.id }, action: 'child' });
-      })) + '</div></section>' +
-      '<section class="section">' + ui.sectionHead('Payments & bookings') +
-      '<div class="card card--pad card--quiet"><p class="fs-sm text-2">Paying for sessions and managing bookings will live here. For now, payments are handled by the office as usual.</p></div></section>';
-  }
-
   Hub.screens['parent-home'] = function (ctx) {
-    var P = D.parent, kids = P.children;
-    var child = kids.filter(function (c) { return c.id === activeId; })[0] || kids[0];
+    var P = D.parent, members = P.children;
+    var member = members.filter(function (c) { return c.id === activeId; })[0] || members[0];
     var first = P.name.split(' ')[0];
 
-    if (ctx.state === 'loading') return '<div class="page page--parent"><div class="parent-hero"><span class="skeleton" style="height:14px;width:30%"></span><span class="skeleton" style="height:34px;width:60%;margin-top:10px"></span></div><div class="card card--strong next-card" style="min-height:240px" aria-busy="true"></div></div>';
-    if (ctx.state === 'error') return '<div class="page page--parent page--read">' + ui.alert('danger', 'We couldn’t load your Hub', 'Please check your connection and try again. If it keeps happening, contact the office.', ui.btn('Try again', { variant: 'secondary', size: 'sm', icon: 'refresh' })) + '</div>';
+    if (ctx.state === 'loading') return '<div class="page page--client"><div class="page-head"><div class="page-head__text"><span class="skeleton" style="height:10px;width:120px"></span><span class="skeleton" style="height:28px;width:280px"></span></div></div><div class="panel" style="height:260px"></div></div>';
+    if (ctx.state === 'error') return '<div class="page page--client">' + ui.notice('danger', 'We couldn’t load your account', 'Please check your connection and try again. If it keeps happening, contact us.', { action: ui.btn('Retry', { size: 'sm', icon: 'refresh' }) }) + '</div>';
     if (ctx.state === 'empty') {
-      return '<div class="page page--parent page--read"><header class="parent-hero"><span class="eyebrow">' + esc(Hub.brand.hubName) + '</span><h1 class="display parent-hero__title">Welcome, ' + esc(first) + '</h1><p class="page-sub">Add your child to see their sessions, coach and feedback in one place.</p></header>' +
-        '<div class="card card--pad add-child">' + ui.empty('family', 'No children linked yet', 'We’ll match your child to their existing record. It usually takes a moment; some links are checked by the office first.') + ui.btn('Add your child', { block: true, icon: 'plus', attrs: { 'data-action': 'soon' } }) + '</div></div>';
+      return '<div class="page page--client">' + ui.pageHead({ overline: esc(Hub.brand.orgName), title: 'Welcome, ' + first, sub: 'Link your account to see sessions, updates and feedback in one place.' }) +
+        '<div class="panel">' + ui.empty('family', 'Nothing linked yet', 'We’ll match the details you give us to the right record. Some links are checked by our team first.') + '<div style="display:flex;justify-content:center;padding-bottom:32px">' + ui.btn('Add a family member', { variant: 'primary', icon: 'plus' }) + '</div></div></div>';
     }
 
-    var switcher = kids.length > 1 ? '<div class="child-switch" role="group" aria-label="Choose child">' + kids.map(function (c) {
-      return '<button type="button" data-action="child" data-child="' + c.id + '" aria-pressed="' + (c.id === child.id) + '">' + ui.avatar(c.name, 'sm') + '<span>' + esc(c.name.split(' ')[0]) + '</span></button>';
+    var switcher = members.length > 1 ? '<div class="segmented member-switch" role="group" aria-label="Choose family member">' + members.map(function (c) {
+      return '<button type="button" data-action="member" data-id="' + c.id + '" aria-pressed="' + (c.id === member.id) + '">' + ui.avatar(c.name, 'xs') + esc(c.name.split(' ')[0]) + '</button>';
     }).join('') + '</div>' : '';
 
-    var updates = P.updates.map(function (u) { return ui.alert('info', u.title, esc(u.body) + '<div class="alert__meta">' + esc(u.meta) + '</div>'); }).join('');
+    var updates = P.updates.map(function (u) { return ui.notice('neutral', u.title, esc(u.body), { meta: u.meta, icon: 'megaphone' }); }).join('');
 
-    return '<div class="page page--parent">' +
-      '<header class="parent-hero"><span class="eyebrow">Thursday 1 October</span><h1 class="display parent-hero__title">Welcome back, ' + esc(first) + '</h1>' + switcher + '</header>' +
-      '<div class="grid-2"><div class="stack">' + updates + nextSession(child.next) + feedback(child) + '</div>' +
-      '<div class="stack">' + family(kids) + '</div></div>' +
-      '</div>';
+    return '<div class="page page--client">' +
+      '<header class="page-head"><div class="page-head__text"><div class="overline">Thursday 1 October</div><h1 class="page-title client-title">Welcome back, ' + esc(first) + '</h1></div>' + switcher + '</header>' +
+      '<div class="layout"><div class="col">' + updates + nextPanel(member.next) + feedback(member) + '</div>' +
+      '<div class="col">' +
+        '<section class="section">' + ui.sectionHead('Your family', { link: 'Manage', href: '#parent-more' }) + '<div class="panel">' + ui.rows(members.map(function (c) {
+          return ui.row({ lead: ui.avatar(c.name, 'md'), title: esc(c.name), sub: [esc(c.sessions.join(', '))], trail: ui.status('Active', 'ok'), action: 'member', data: { id: c.id }, chevron: false });
+        }), 'rows--lead') + '</div></section>' +
+        '<section class="section">' + ui.sectionHead('Payments') + ui.notice('neutral', 'Coming soon', 'Payments and bookings will be managed here. For now, the office handles them as usual.', { icon: 'card' }) + '</section>' +
+      '</div></div></div>';
   };
 
-  Hub.actions.child = function (el) { activeId = el.dataset.child; Hub.render(); };
+  Hub.actions.member = function (el) { activeId = el.dataset.id; Hub.render(); };
 })();

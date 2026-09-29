@@ -1,190 +1,169 @@
 /* ==========================================================================
-   Hub visual system: tokens
+   Relvor design tokens (visual pass 2)
    --------------------------------------------------------------------------
-   Three layers, in this order:
+   Three layers. Components only ever use layer 3.
 
-   1. BRAND   The only values an organisation supplies: primary, accent and
-              secondary colour, plus a display face. js/brand.js overwrites
-              these from the organisation's branding record at runtime.
-              Everything else derives from them, so a white-label org
-              changes three colours and nothing else.
-   2. SYSTEM  Neutrals, status colours, type, spacing, radius, elevation.
-              Organisation-agnostic. Never set per client.
-   3. ROLE    Semantic aliases components actually use (--surface,
-              --text-2, --action-bg...). Components never reference a
-              brand token or a raw hex directly.
+   1. ORGANISATION  What a client may supply: an accent colour, an identity
+                    colour and a mark. js/brand.js clamps the accent for
+                    contrast in both themes before it reaches the UI, so no
+                    choice of colours can make the product illegible.
+                    Organisation colour never fills large areas.
+   2. PLATFORM      Relvor's own system: neutrals, semantic colours, type,
+                    space, radius, elevation. Never set per client. This is
+                    what keeps Relvor recognisable under any brand.
+   3. ROLE          Semantic aliases: surfaces, text, lines, actions,
+                    status.
 
-   Layout concept: one shell, three areas. Management is calm and dense,
-   Coach is quick and session-first, Parent is warm and spacious. Each area
-   sets --area-* tokens on the shell rather than restyling components.
+   Principle: normal fades back, exceptions come forward. Healthy state is
+   neutral; colour is reserved for selection, action and risk.
    ========================================================================== */
 
 :root {
-  /* ---------- 1. BRAND (configurable) ---------- */
-  --brand-primary: #062a59;      /* Josh Evans navy: headers, strong surfaces */
-  --brand-accent: #1187ee;       /* Josh Evans blue: links, active state, focus */
-  --brand-secondary: #c8ed21;    /* Josh Evans lime: one highlight per screen */
-  --brand-on-secondary: #062a59; /* text on secondary; brand.js computes it */
-  --font-display: "Anton", "Oswald", Impact, "Arial Narrow", sans-serif;
+  /* ---------- 1. ORGANISATION (set by brand.js) ---------- */
+  --accent-l: #33589e;   /* accent, clamped for light surfaces */
+  --accent-d: #8ea8dc;   /* accent, clamped for dark surfaces */
+  --identity: #1c2230;   /* organisation identity colour: mark/monogram only */
 
-  /* Derived brand shades. color-mix keeps these working for any brand. */
-  --brand-primary-2: color-mix(in oklab, var(--brand-primary) 82%, white);
-  --brand-primary-3: color-mix(in oklab, var(--brand-primary) 70%, var(--brand-accent));
-  --brand-accent-strong: color-mix(in oklab, var(--brand-accent) 78%, black);
+  /* ---------- 2. PLATFORM ---------- */
+  --font-sans: "Instrument Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
 
-  /* ---------- 2. SYSTEM ---------- */
-  --font-sans: "Manrope", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  /* Type scale. Desktop body is 14px; touch devices step body up to 15px. */
+  --t-11: 0.6875rem;  /* overlines, tab-bar labels */
+  --t-12: 0.75rem;    /* captions, column headers, meta */
+  --t-13: 0.8125rem;  /* secondary text, table cells */
+  --t-14: 0.875rem;   /* body, row titles, nav */
+  --t-15: 0.9375rem;  /* emphasised body */
+  --t-16: 1rem;       /* panel titles */
+  --t-18: 1.125rem;   /* drawer titles, section titles (client) */
+  --t-20: 1.25rem;    /* key figures */
+  --t-24: 1.5rem;     /* page titles */
+  --t-28: 1.75rem;    /* client greeting */
 
-  /* Type scale. Mobile first; body copy never drops below 15px and meta
-     text never below 12px (the current Hub runs 8-11px in many places). */
-  --fs-xs: 0.75rem;    /* 12  meta, captions, pill text */
-  --fs-sm: 0.8125rem;  /* 13  secondary lines */
-  --fs-md: 0.9375rem;  /* 15  body, list titles */
-  --fs-lg: 1.0625rem;  /* 17  card titles */
-  --fs-xl: 1.25rem;    /* 20  section headings */
-  --fs-2xl: 1.625rem;  /* 26  page titles */
-  --fs-3xl: 2.125rem;  /* 34  display (brand moments only) */
+  --w-regular: 400;
+  --w-medium: 500;
+  --w-semibold: 600;
+  --w-bold: 700;      /* rarely: large figures only */
 
-  --fw-regular: 450;
-  --fw-medium: 550;
-  --fw-semibold: 650;
-  --fw-bold: 750;
-
-  --lh-tight: 1.15;
-  --lh-snug: 1.3;
+  --lh-tight: 1.2;
+  --lh-snug: 1.35;
   --lh-body: 1.5;
+  --track-title: -0.018em;
+  --track-head: -0.01em;
+  --track-over: 0.06em;
 
-  /* Spacing: 4pt grid */
-  --sp-1: 4px;  --sp-2: 8px;  --sp-3: 12px; --sp-4: 16px;
-  --sp-5: 20px; --sp-6: 24px; --sp-8: 32px; --sp-10: 40px; --sp-12: 48px;
+  /* Space: 4pt grid */
+  --s-1: 4px; --s-2: 8px; --s-3: 12px; --s-4: 16px; --s-5: 20px;
+  --s-6: 24px; --s-8: 32px; --s-10: 40px; --s-12: 48px; --s-16: 64px;
 
-  /* Radius: four steps (the current Hub uses sixteen) */
-  --r-sm: 8px;     /* chips, small controls */
-  --r-md: 12px;    /* buttons, inputs, list groups inside cards */
-  --r-lg: 16px;    /* cards */
-  --r-xl: 24px;    /* sheets, hero surfaces */
-  --r-pill: 999px;
+  /* Radius: precise, four steps */
+  --r-xs: 4px;   /* markers, tags, kbd */
+  --r-sm: 6px;   /* buttons, inputs, nav items */
+  --r-md: 8px;   /* panels, grouped lists */
+  --r-lg: 12px;  /* sheets, dialogs, menus */
+  --r-full: 999px;
 
-  --tap: 44px;     /* minimum touch target */
-  --page-max: 1120px;
-  --read-max: 720px;
+  /* Control heights */
+  --h-sm: 28px;
+  --h-md: 32px;
+  --h-lg: 40px;
+  --row-h: 48px;
+
   --sidebar-w: 248px;
+  --canvas-max: 1360px;
+  --ease: cubic-bezier(.2, .6, .2, 1);
+  --dur: 140ms;
 
-  --ease: cubic-bezier(.2,.7,.2,1);
-  --dur: 160ms;
+  /* ---------- 3. ROLE: light ---------- */
+  /* Neutrals: a quiet stone grey (faintly warm) under ink text (faintly
+     cool). The pairing reads calm and human rather than clinical. */
+  --app: #f5f5f3;          /* app ground, sidebar */
+  --canvas: #ffffff;       /* primary workspace */
+  --inset: #fafaf8;        /* secondary / inset areas, table heads */
+  --hover: #f3f3f1;        /* interactive hover */
+  --press: #ececea;
+  --selected: #ffffff;     /* selected nav item sits "lifted" on --app */
+  --strong: #17191e;       /* ink surface: toasts, tooltips */
+  --on-strong: #f5f5f3;
 
-  /* ---------- Light palette ---------- */
-  /* Neutrals carry a slight navy bias so they sit with the brand. */
-  --n-0: #ffffff;
-  --n-25: #f8fafc;
-  --n-50: #f2f5f9;
-  --n-100: #e8edf3;
-  --n-200: #d9e0ea;
-  --n-300: #bcc7d6;
-  --n-500: #6a7a90;
-  --n-600: #4b5b72;
-  --n-800: #1d2d45;
-  --n-900: #0e1d33;
+  --line: #e6e6e3;         /* panel borders, dividers */
+  --line-strong: #d6d6d2;  /* inputs, secondary buttons */
+  --line-faint: #efefec;   /* row separators */
 
-  /* ---------- 3. ROLE ---------- */
-  --bg: var(--n-50);
-  --surface: var(--n-0);
-  --surface-2: var(--n-25);      /* inset areas inside a card */
-  --surface-sunken: var(--n-100);
-  --border: var(--n-100);
-  --border-strong: var(--n-200);
-  --text: var(--n-900);
-  --text-2: var(--n-600);
-  --text-3: var(--n-500);
-  --text-on-strong: #ffffff;
+  --text: #16181d;
+  --text-2: #4f535a;
+  --text-3: #787c83;
+  --text-4: #a4a7ac;
 
-  --link: var(--brand-accent-strong);
-  --focus: color-mix(in oklab, var(--brand-accent) 55%, transparent);
+  --accent: var(--accent-l);
+  --accent-hover: color-mix(in oklab, var(--accent) 86%, #000);
+  --accent-soft: color-mix(in oklab, var(--accent) 7%, var(--canvas));
+  --accent-line: color-mix(in oklab, var(--accent) 22%, var(--canvas));
+  --on-accent: #ffffff;
+  --link: var(--accent);
 
-  /* The strong brand surface (Next Session, profile headers). */
-  --strong-bg: var(--brand-primary);
-  --strong-bg-2: var(--brand-primary-3);
-  --strong-text: #ffffff;
-  --strong-text-2: color-mix(in oklab, #ffffff 74%, var(--brand-primary));
-  --strong-line: color-mix(in oklab, #ffffff 16%, var(--brand-primary));
+  --danger: #b93a30;  --danger-soft: #fcf1ef; --danger-line: #f2d3cf;
+  --warn: #9c5f0e;    --warn-soft: #fcf6ea;   --warn-line: #efdcb8;
+  --ok: #2e7650;      --ok-soft: #eff7f2;     --ok-line: #cfe6d8;
+  --info: #45628f;    --info-soft: #f1f4f9;   --info-line: #d6dfeb;
 
-  /* Buttons */
-  --action-bg: var(--brand-primary);
-  --action-text: #ffffff;
-  --action-hover: var(--brand-primary-2);
-  --accent-soft: color-mix(in oklab, var(--brand-accent) 10%, var(--surface));
-  --accent-soft-text: var(--brand-accent-strong);
+  --shadow-xs: 0 1px 1px rgba(20, 22, 26, .04);
+  --shadow-sm: 0 1px 2px rgba(20, 22, 26, .06), 0 1px 1px rgba(20, 22, 26, .03);
+  --shadow-lg: 0 16px 40px -12px rgba(20, 22, 26, .22), 0 3px 8px rgba(20, 22, 26, .06);
+  --scrim: rgba(22, 24, 29, .32);
+  --focus: 0 0 0 2px var(--canvas), 0 0 0 4px color-mix(in oklab, var(--accent) 45%, transparent);
 
-  /* Status. Semantic, not brand: these never change per organisation. */
-  --ok: #117a4f;         --ok-soft: #e5f5ec;     --ok-line: #bfe5cf;
-  --warn: #9a5b00;       --warn-soft: #fff3dc;   --warn-line: #f5d9a3;
-  --danger: #b4283c;     --danger-soft: #fdecee; --danger-line: #f4c3ca;
-  --info: #1b5fb0;       --info-soft: #e8f1fc;   --info-line: #c6dbf5;
-  --neutral: var(--n-600); --neutral-soft: var(--n-50); --neutral-line: var(--n-200);
-
-  /* Elevation: three levels, used by role (the Hub uses 23 variants). */
-  --shadow-1: 0 1px 2px rgba(14,29,51,.05), 0 1px 1px rgba(14,29,51,.03);
-  --shadow-2: 0 6px 20px -6px rgba(14,29,51,.14), 0 2px 6px rgba(14,29,51,.05);
-  --shadow-3: 0 24px 60px -12px rgba(14,29,51,.28);
-  --scrim: rgba(8,18,34,.5);
-
-  /* Area emphasis (overridden per area in shell.css) */
-  --area-density: 1;
+  /* Avatar tint strength (per-person hue set inline as --h) */
+  --av-l: 0.94; --av-c: 0.028; --av-tl: 0.42; --av-tc: 0.06;
 }
 
-/* ---------- Dark palette: redefines tokens only ---------- */
+/* ---------- ROLE: dark (charcoal, faintly blue; never pure black) ---------- */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --n-0: #121c2c; --n-25: #152033; --n-50: #0b1320; --n-100: #1d2a3f; --n-200: #2a3a54;
-    --n-300: #3b4d6a; --n-500: #8a9ab1; --n-600: #a8b6c9; --n-800: #d5deea; --n-900: #eef3f9;
-    --surface-2: #172336;
-    --surface-sunken: #0f1827;
-    --text-on-strong: #ffffff;
-    --link: color-mix(in oklab, var(--brand-accent) 70%, white);
-    --strong-bg: color-mix(in oklab, var(--brand-primary) 80%, #1a2b44);
-    --strong-bg-2: color-mix(in oklab, var(--brand-primary-3) 75%, #1a2b44);
-    --action-bg: color-mix(in oklab, var(--brand-accent) 82%, black);
-    --action-hover: var(--brand-accent);
-    --accent-soft: color-mix(in oklab, var(--brand-accent) 18%, #121c2c);
-    --accent-soft-text: color-mix(in oklab, var(--brand-accent) 55%, white);
-    --ok: #5fd39c;     --ok-soft: #10301f;     --ok-line: #1f5236;
-    --warn: #f3bf5c;   --warn-soft: #33250a;   --warn-line: #5a4213;
-    --danger: #ff8b99; --danger-soft: #3a141b; --danger-line: #62222d;
-    --info: #86b8f5;   --info-soft: #11263f;   --info-line: #1f3f66;
-    --shadow-1: 0 1px 2px rgba(0,0,0,.4);
-    --shadow-2: 0 8px 24px -8px rgba(0,0,0,.6);
-    --shadow-3: 0 24px 60px -12px rgba(0,0,0,.7);
-    --scrim: rgba(0,0,0,.6);
+    --app: #0f1115; --canvas: #15171c; --inset: #191c21; --hover: #1d2026; --press: #22262d; --selected: #1f2329;
+    --strong: #eceef1; --on-strong: #15171c;
+    --line: #262a31; --line-strong: #333842; --line-faint: #1f2228;
+    --text: #e8eaee; --text-2: #aab0b9; --text-3: #7f8690; --text-4: #5c626c;
+    --accent: var(--accent-d);
+    --accent-hover: color-mix(in oklab, var(--accent) 86%, #fff);
+    --accent-soft: color-mix(in oklab, var(--accent) 10%, var(--canvas));
+    --accent-line: color-mix(in oklab, var(--accent) 28%, var(--canvas));
+    --on-accent: #111318;
+    --danger: #ec8a80; --danger-soft: #2a1a1a; --danger-line: #4a2724;
+    --warn: #dfae63;   --warn-soft: #2a2317; --warn-line: #4a3b1f;
+    --ok: #7cc49b;     --ok-soft: #17261e;   --ok-line: #24402f;
+    --info: #9bb2d8;   --info-soft: #1a2130; --info-line: #2a364c;
+    --shadow-xs: 0 1px 1px rgba(0, 0, 0, .3);
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, .4);
+    --shadow-lg: 0 18px 44px -12px rgba(0, 0, 0, .7), 0 0 0 1px var(--line);
+    --scrim: rgba(5, 6, 8, .6);
+    --av-l: 0.3; --av-c: 0.03; --av-tl: 0.86; --av-tc: 0.05;
     color-scheme: dark;
   }
 }
 :root[data-theme="dark"] {
-  --n-0: #121c2c; --n-25: #152033; --n-50: #0b1320; --n-100: #1d2a3f; --n-200: #2a3a54;
-  --n-300: #3b4d6a; --n-500: #8a9ab1; --n-600: #a8b6c9; --n-800: #d5deea; --n-900: #eef3f9;
-  --surface-2: #172336;
-  --surface-sunken: #0f1827;
-  --text-on-strong: #ffffff;
-  --link: color-mix(in oklab, var(--brand-accent) 70%, white);
-  --strong-bg: color-mix(in oklab, var(--brand-primary) 80%, #1a2b44);
-  --strong-bg-2: color-mix(in oklab, var(--brand-primary-3) 75%, #1a2b44);
-  --action-bg: color-mix(in oklab, var(--brand-accent) 82%, black);
-  --action-hover: var(--brand-accent);
-  --accent-soft: color-mix(in oklab, var(--brand-accent) 18%, #121c2c);
-  --accent-soft-text: color-mix(in oklab, var(--brand-accent) 55%, white);
-  --ok: #5fd39c;     --ok-soft: #10301f;     --ok-line: #1f5236;
-  --warn: #f3bf5c;   --warn-soft: #33250a;   --warn-line: #5a4213;
-  --danger: #ff8b99; --danger-soft: #3a141b; --danger-line: #62222d;
-  --info: #86b8f5;   --info-soft: #11263f;   --info-line: #1f3f66;
-  --shadow-1: 0 1px 2px rgba(0,0,0,.4);
-  --shadow-2: 0 8px 24px -8px rgba(0,0,0,.6);
-  --shadow-3: 0 24px 60px -12px rgba(0,0,0,.7);
-  --scrim: rgba(0,0,0,.6);
+  --app: #0f1115; --canvas: #15171c; --inset: #191c21; --hover: #1d2026; --press: #22262d; --selected: #1f2329;
+  --strong: #eceef1; --on-strong: #15171c;
+  --line: #262a31; --line-strong: #333842; --line-faint: #1f2228;
+  --text: #e8eaee; --text-2: #aab0b9; --text-3: #7f8690; --text-4: #5c626c;
+  --accent: var(--accent-d);
+  --accent-hover: color-mix(in oklab, var(--accent) 86%, #fff);
+  --accent-soft: color-mix(in oklab, var(--accent) 10%, var(--canvas));
+  --accent-line: color-mix(in oklab, var(--accent) 28%, var(--canvas));
+  --on-accent: #111318;
+  --danger: #ec8a80; --danger-soft: #2a1a1a; --danger-line: #4a2724;
+  --warn: #dfae63;   --warn-soft: #2a2317; --warn-line: #4a3b1f;
+  --ok: #7cc49b;     --ok-soft: #17261e;   --ok-line: #24402f;
+  --info: #9bb2d8;   --info-soft: #1a2130; --info-line: #2a364c;
+  --shadow-xs: 0 1px 1px rgba(0, 0, 0, .3);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, .4);
+  --shadow-lg: 0 18px 44px -12px rgba(0, 0, 0, .7), 0 0 0 1px var(--line);
+  --scrim: rgba(5, 6, 8, .6);
+  --av-l: 0.3; --av-c: 0.03; --av-tl: 0.86; --av-tc: 0.05;
   color-scheme: dark;
 }
 
-@media (min-width: 900px) {
-  :root {
-    --fs-2xl: 1.875rem; /* 30 */
-    --fs-3xl: 2.5rem;   /* 40 */
-  }
+/* Touch: larger body text and controls; same hierarchy. */
+@media (pointer: coarse), (max-width: 759px) {
+  :root { --t-14: 0.9375rem; --t-13: 0.875rem; --h-md: 40px; --h-sm: 34px; --row-h: 56px; }
 }

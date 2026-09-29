@@ -1,69 +1,71 @@
-/* Visual system reference: every shared token and component on one page. */
+/* Relvor visual system reference: tokens and components on one page. */
 (function () {
   var ui = Hub.ui, I = Hub.icon, esc = ui.esc;
-
-  function swatch(name, token, note) {
-    return '<div class="swatch"><span class="swatch__chip" style="background:var(' + token + ')"></span><span><b>' + esc(name) + '</b><small><code>' + token + '</code>' + (note ? ' · ' + esc(note) : '') + '</small></span></div>';
-  }
-  function block(title, note, body) {
-    return '<section class="section sys-block"><div class="section-head"><h2 class="section-title">' + esc(title) + '</h2></div>' + (note ? '<p class="text-2 fs-sm sys-note">' + note + '</p>' : '') + body + '</section>';
-  }
+  function sw(name, token) { return '<div class="swatch"><span class="swatch__chip" style="background:var(' + token + ')"></span><span><b>' + esc(name) + '</b><small class="mono">' + token + '</small></span></div>'; }
+  function block(title, note, body) { return '<section class="section sys">' + '<div class="sys__head"><h2 class="section-title">' + esc(title) + '</h2>' + (note ? '<p class="text-3 fs-13">' + note + '</p>' : '') + '</div>' + body + '</section>'; }
 
   Hub.screens.system = function () {
-    var type = [['--fs-3xl', 'Display', 'Brand moments only', 'display'], ['--fs-2xl', 'Page title', 'One per screen', ''], ['--fs-xl', 'Section / sheet title', '', ''], ['--fs-lg', 'Card title', '', ''], ['--fs-md', 'Body and list titles', 'Never smaller on mobile', ''], ['--fs-sm', 'Secondary lines', '', ''], ['--fs-xs', 'Meta, pills, labels', 'Floor: 12px', '']];
+    var type = [['--t-28', 'Client greeting', 500], ['--t-24', 'Page title', 600], ['--t-18', 'Drawer title', 600], ['--t-16', 'Panel title', 600], ['--t-14', 'Body, row titles, navigation', 500], ['--t-13', 'Secondary text, table cells', 400], ['--t-12', 'Captions, column headers', 500], ['--t-11', 'OVERLINE', 500]];
+    var D = Hub.data;
     return '<div class="page">' +
-      ui.pageHead({ eyebrow: 'Hub visual system', title: 'Tokens & components', sub: 'Everything on the five redesigned screens is built from these pieces. Switch brand, theme and area in the bar above to see them adapt.' }) +
+      ui.pageHead({ overline: 'Relvor', title: 'Visual system', sub: 'Tokens and components behind every screen. Switch theme and organisation in the bar above to see what changes and what stays fixed.' }) +
 
-      block('Brand', 'The only colours an organisation supplies. Everything else derives from them.', '<div class="swatches">' +
-        swatch('Primary', '--brand-primary', 'strong surfaces, buttons') + swatch('Accent', '--brand-accent', 'links, active, focus') + swatch('Secondary', '--brand-secondary', 'one highlight per screen') + '</div>') +
+      block('Surfaces', 'Structure comes from tone and 1px lines. Shadow is kept for things that float.', '<div class="swatches">' + sw('App ground', '--app') + sw('Workspace', '--canvas') + sw('Inset', '--inset') + sw('Hover', '--hover') + sw('Line', '--line') + sw('Line strong', '--line-strong') + sw('Ink', '--strong') + '</div>') +
+      block('Text & accent', 'The accent is the organisation’s colour, clamped for contrast. It marks selection, action and links only.', '<div class="swatches">' + sw('Text', '--text') + sw('Text 2', '--text-2') + sw('Text 3', '--text-3') + sw('Text 4', '--text-4') + sw('Accent', '--accent') + sw('Accent soft', '--accent-soft') + '</div>') +
+      block('Semantic', 'Fixed across organisations. Healthy state is neutral; colour means something needs a look.', '<div class="swatches">' + sw('Danger', '--danger') + sw('Warning', '--warn') + sw('Confirmed', '--ok') + sw('Info', '--info') + '</div>') +
 
-      block('Neutrals & status', 'Status colours are semantic and never change per organisation.', '<div class="swatches">' +
-        swatch('Background', '--bg') + swatch('Surface', '--surface') + swatch('Border', '--border-strong') + swatch('Text', '--text') + swatch('Text 2', '--text-2') +
-        swatch('Success', '--ok') + swatch('Warning', '--warn') + swatch('Danger', '--danger') + swatch('Info', '--info') + '</div>') +
-
-      block('Type', 'Manrope for the interface; the brand display face for one moment per screen.', '<div class="card card--flush">' + ui.list(type.map(function (t) {
-        return '<div class="row row--nolead type-row"><div class="row__body"><span class="' + t[3] + '" style="font-size:var(' + t[0] + ');font-weight:' + (t[3] ? 400 : 'var(--fw-bold)') + ';line-height:1.15">' + esc(t[1]) + '</span><span class="row__meta"><span><code>' + t[0] + '</code></span>' + (t[2] ? '<span>' + esc(t[2]) + '</span>' : '') + '</span></div><div></div></div>';
+      block('Type', 'Instrument Sans throughout. Weight carries emphasis sparingly: 400 for reading, 500 for labels, 600 for headings.', '<div class="panel">' + ui.rows(type.map(function (t) {
+        return '<div class="row row--nolead type-row"><div class="row__body"><span style="font-size:var(' + t[0] + ');font-weight:' + t[2] + ';letter-spacing:' + (t[0] === '--t-11' ? 'var(--track-over)' : '-0.01em') + ';line-height:1.25">' + esc(t[1]) + '</span></div><div class="row__trail mono">' + t[0] + ' · ' + t[2] + '</div></div>';
       })) + '</div>') +
 
-      block('Buttons', 'One primary action per view. Highlight only on the strong brand surface. All at least 44px tall.',
-        '<div class="card card--pad" style="display:grid;gap:12px"><div class="btn-row">' + ui.btn('Primary') + ui.btn('Secondary', { variant: 'secondary' }) + ui.btn('Ghost', { variant: 'ghost' }) + ui.btn('Decline', { variant: 'danger' }) + '</div>' +
-        '<div class="btn-row">' + ui.btn('Small', { size: 'sm' }) + ui.btn('With icon', { variant: 'secondary', size: 'sm', icon: 'refresh' }) + '<button class="btn btn--sm is-busy" type="button"><span>Approving…</span></button><button class="btn btn--secondary btn--sm" disabled type="button"><span>Disabled</span></button></div>' +
-        '<div class="card card--strong card--pad btn-row">' + ui.btn('Highlight', { variant: 'highlight', trail: 'arrowRight' }) + ui.btn('On strong', { variant: 'on-strong' }) + '</div></div>') +
+      block('Buttons', 'Compact and confident. One primary per view; row actions stay quiet until hovered.', '<div class="panel panel--pad sys-stack">' +
+        '<div class="btn-row">' + ui.btn('Primary', { variant: 'primary' }) + ui.btn('Secondary') + ui.btn('Tertiary', { variant: 'tertiary' }) + ui.btn('Link', { variant: 'link' }) + ui.btn('Remove', { variant: 'danger' }) + ui.iconBtn('dotsV', 'More') + '</div>' +
+        '<div class="btn-row">' + ui.btn('Small', { size: 'sm', variant: 'primary' }) + ui.btn('With icon', { size: 'sm', icon: 'refresh' }) + '<button type="button" class="btn btn--sm is-busy"><span>Saving</span></button><button type="button" class="btn btn--sm" disabled><span>Disabled</span></button>' + ui.btn('Large', { size: 'lg', variant: 'primary', trail: 'arrowRight' }) + '</div></div>') +
 
-      block('Status pills', 'Colour plus a dot, with a word that makes sense in greyscale.', '<div class="card card--pad btn-row" style="gap:8px">' +
-        ui.pill('Staffed', 'ok') + ui.pill('Warning', 'warn') + ui.pill('Urgent', 'danger') + ui.pill('Pending', 'info') + ui.pill('Paused') + ui.pill('Today', 'highlight', 'pill--plain') + '<span class="badge num">3</span><span class="badge badge--quiet num">2</span></div>') +
+      block('Status', 'A dot and a word. Normal fades back; exceptions come forward.', '<div class="panel panel--pad sys-inline">' +
+        ui.status('Staffed') + ui.status('Confirmed', 'ok') + ui.status('Expires 13 Oct', 'warn') + ui.status('Unavailable', 'danger') + ui.status('Pending review', 'info') +
+        '<span class="sys-sep"></span>' + ui.sev('Urgent') + ui.sev('Warning') + ui.sev('Normal') +
+        '<span class="sys-sep"></span>' + ui.tag('Evening') + ui.tag('Next', 'accent') + '<span class="count">12</span><span class="count count--alert">2 urgent</span></div>') +
 
-      block('List rows', 'The workhorse. One tap target per row, 64px minimum, meta separated by dots.', '<div class="card card--flush">' + ui.list([
-        ui.row({ lead: '<span class="row__time">17:30<small>18:30</small></span>', title: 'U9/10 Development', meta: ['City of London Freemen’s', '12 players'], trail: ui.pill('Staffed', 'ok'), action: 'soon' }),
-        ui.row({ lead: ui.sev('Urgent'), title: 'U13/14 Development has no coach', meta: ['Fri 2 Oct, 18:00 · Therfield School'], action: 'soon' }),
-        ui.row({ lead: ui.avatar('Alfie Whitfield'), title: 'Alfie Whitfield', meta: ['U9/10 Development'], trail: ui.pill('Active', 'ok') }),
-        ui.row({ compact: true, lead: '<span class="tile__icon">' + I('inbox', 'icon-sm') + '</span>', title: 'Session requests', trail: '<span class="badge num">2</span>' + I('chevron', 'icon-sm'), action: 'soon' })
-      ]) + '</div>') +
+      block('Rows', 'The core pattern. Separators start at the text; trailing detail aligns right.', '<div class="panel">' + ui.rows([
+        ui.row({ lead: '<span class="row__time">17:30<small>18:30</small></span>', title: 'U9/10 Development', sub: ['City of London Freemen’s', '12 expected'], trail: ui.status('Staffed'), action: 'soon' }),
+        ui.row({ lead: ui.sev('Urgent'), title: 'U13/14 Development has no staff assigned', sub: ['Fri 2 Oct, 18:00', 'Therfield School'], trail: '<span class="num when when--urgent">Starts in 28 h</span>', action: 'soon', chevron: false }),
+        ui.row({ lead: ui.avatar('Jack Morgan', 'md'), title: 'Jack Morgan', sub: ['Coach', 'Evening'], trail: ui.status('DBS expires 13 Oct', 'warn'), action: 'soon' }),
+        ui.row({ lead: '<span class="row__icon">' + I('inbox', 'icon-sm') + '</span>', title: 'Session requests', trail: '<span class="num">2 waiting</span>', action: 'soon' })
+      ], 'rows--lead') + '</div>') +
 
-      block('Alerts', 'Inline, in the flow of the page. Title says what happened; body says what to do.', '<div style="display:grid;gap:8px">' +
-        ui.alert('info', 'Tonight’s sessions are on the back astro', 'Please meet at the astro gate.') +
-        ui.alert('warn', 'Today’s cancellations and cover couldn’t be loaded', 'What you see may not reflect a last-minute change.') +
-        ui.alert('danger', 'Couldn’t approve this request', 'The session is full. Choose another session and try again.') +
-        ui.alert('ok', 'Coach approved', 'Their Coach record has been linked.') + '</div>') +
+      block('Table', 'Columns where alignment helps scanning. Collapses to rows on phones.', '<div class="panel">' + ui.table({
+        cols: '36px minmax(0, 1.6fr) minmax(0, 1fr) 80px minmax(0, 1.2fr)',
+        head: ['', 'Name', { label: 'Role', cls: 'wide' }, { label: 'This week', cls: 'c-num wide' }, { label: 'Compliance', cls: 'wide' }],
+        body: D.staff.slice(2, 6).map(function (p) {
+          return ui.tr([{ html: ui.avatar(p.name, 'md') }, { cls: 'c-main', html: '<span class="c-title">' + esc(p.name) + '</span><span class="c-sub">' + esc(p.email) + '</span>' }, { cls: 'c-cell wide', html: esc(p.role) }, { cls: 'c-num wide', html: String(p.sessions) }, { cls: 'wide', html: p.compliance === 'ok' ? ui.status('Current') : ui.status(p.complianceText, p.compliance) }]);
+        }).join('') }) + '</div>') +
 
-      block('Empty & loading', null, '<div class="tiles tiles--wide"><div class="card">' + ui.empty('checkCircle', 'Nothing needs attention', 'New items appear as soon as they come up.', 'ok') + '</div><div class="card">' + ui.empty('clock', 'No sessions today', 'Your next session is U9/10 Development, Thursday.') + '</div>' +
-        '<div class="card card--pad" style="display:grid;gap:10px"><span class="skeleton" style="height:16px;width:50%"></span><span class="skeleton" style="height:44px"></span><span class="skeleton" style="height:44px"></span></div></div>') +
+      block('Identity header & fields', null, '<div class="panel panel--pad sys-stack"><div class="identity">' + ui.avatar('Charlie Hughes', 'lg') + '<div style="display:grid;gap:2px"><span class="identity__name">Charlie Hughes</span><span class="identity__meta"><span>Lead Coach</span><span>Evening</span><span>charlie@example.com</span></span></div>' + ui.btn('Open drawer', { attrs: { 'data-action': 'demo-sheet' } }) + '</div>' +
+        '<div class="rule"></div>' + ui.fields([['Sessions this week', '<span class="num">8</span>'], ['Compliance', ui.status('Current')], ['Last active', 'Yesterday'], ['Team', 'Evening']], true) + '</div>') +
 
-      block('Forms', '16px input text so iOS never zooms. Labels above, hints below.', '<div class="card card--pad form-demo">' +
-        '<div class="field"><label class="label" for="f-name">Child’s full name</label><input class="input" id="f-name" value="Alfie Whitfield"></div>' +
-        '<div class="field"><label class="label" for="f-dob">Date of birth</label><input class="input" id="f-dob" type="date" value="2016-05-10"><span class="hint">We use this to match the right player record.</span></div>' +
-        '<div class="field field--error"><label class="label" for="f-rel">Relationship</label><select class="select" id="f-rel"><option>Choose…</option><option>Parent</option><option>Guardian</option></select><span class="hint">Choose how you’re related to continue.</span></div>' +
-        '<div class="field"><span class="label">View</span><div class="segmented" role="group"><button type="button" aria-pressed="true">Today</button><button type="button" aria-pressed="false">This week</button><button type="button" aria-pressed="false">Calendar</button></div></div>' +
+      block('Notices', 'Inline and proportionate. Title says what happened; body says what to do.', '<div class="sys-stack">' +
+        ui.notice('neutral', 'Tonight’s sessions have moved to the back pitch', 'Please use the sports hall car park.', { meta: 'From the office · 11:20', icon: 'megaphone' }) +
+        ui.notice('warn', 'Cancellations couldn’t be loaded', 'What you see may not reflect a last-minute change.') +
+        ui.notice('danger', 'Couldn’t approve this request', 'The session is full. Choose another session and try again.') +
+        ui.notice('ok', 'Approved', 'Their record has been linked.') + '</div>') +
+
+      block('Controls', null, '<div class="panel panel--pad sys-form">' +
+        '<div class="field"><label class="label" for="f1">Full name</label><input class="input" id="f1" value="Alfie Whitfield"></div>' +
+        '<div class="field"><label class="label" for="f2">Date of birth</label><input class="input" id="f2" type="date" value="2016-05-10"><span class="hint">Used to match the right record.</span></div>' +
+        '<div class="field field--error"><label class="label" for="f3">Relationship</label><select class="select" id="f3"><option>Choose…</option></select><span class="hint">Choose a relationship to continue.</span></div>' +
+        '<div class="field"><label class="label" for="f4">Search</label><label class="search">' + I('search') + '<input class="input" id="f4" placeholder="Search people"></label></div>' +
+        '<div class="field"><span class="label">Segmented</span><div class="segmented"><button type="button" aria-pressed="true">Today</button><button type="button" aria-pressed="false">This week</button><button type="button" aria-pressed="false">Calendar</button></div></div>' +
+        '<div class="field"><span class="label">Tabs</span><div class="tabs"><button type="button" class="tab-btn" aria-selected="true">All<span class="count">9</span></button><button type="button" class="tab-btn" aria-selected="false">Staffing<span class="count">4</span></button><button type="button" class="tab-btn" aria-selected="false">Compliance<span class="count">4</span></button></div></div>' +
         '</div>') +
 
-      block('Profile header & sheet', null, '<div class="card card--pad" style="display:grid;gap:16px"><div class="profile-head">' + ui.avatar('Charlie Hughes', 'lg') + '<div><div class="profile-head__name">Charlie Hughes</div><div class="profile-head__meta"><span>Lead Coach</span>' + ui.pill('Compliant', 'ok') + '</div></div></div>' +
-        ui.btn('Open a drawer', { variant: 'secondary', attrs: { 'data-action': 'demo-sheet' } }) + '</div>') +
+      block('Empty & loading', null, '<div class="layout layout--even"><div class="panel">' + ui.empty('checkCircle', 'Nothing needs attention', 'New items appear as soon as they come up.', 'ok') + '</div><div class="panel panel--pad sys-stack"><span class="skeleton" style="height:12px;width:40%"></span><span class="skeleton" style="height:36px"></span><span class="skeleton" style="height:36px"></span></div></div>') +
 
-      block('Icons', 'One stroke set, 24px grid. Replaces the Hub’s unicode glyphs.', '<div class="card card--pad icon-grid">' + Hub.iconNames.map(function (n) { return '<span title="' + n + '">' + I(n) + '</span>'; }).join('') + '</div>') +
+      block('Icons', 'One stroke weight, 16px default, drawn on a 24px grid.', '<div class="panel panel--pad icon-grid">' + Hub.iconNames.map(function (n) { return '<span title="' + n + '">' + I(n) + '</span>'; }).join('') + '</div>') +
       '</div>';
   };
 
   Hub.actions['demo-sheet'] = function () {
-    Hub.openSheet('<div class="sheet__head"><h2 id="sheet-title" style="font-size:var(--fs-xl)">Drawer</h2><button type="button" class="icon-btn" data-action="close-sheet" aria-label="Close">' + I('x') + '</button></div><div class="sheet__body"><p class="text-2">A bottom sheet on phones and a side drawer on desktop. It is used for detail one level behind a summary, so the list stays in place underneath.</p>' + ui.btn('Done', { block: true, attrs: { 'data-action': 'close-sheet' } }) + '</div>');
+    Hub.openSheet({ title: 'Drawer', body: '<p class="text-2">A bottom sheet on phones and a full-height side panel on desktop. Detail one level behind a summary, so the list stays in place underneath.</p>', foot: Hub.ui.btn('Cancel', { attrs: { 'data-action': 'close-sheet' } }) + Hub.ui.btn('Save', { variant: 'primary', attrs: { 'data-action': 'close-sheet' } }) });
   };
 })();

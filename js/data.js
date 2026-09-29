@@ -8,7 +8,7 @@
   var NOW = new Date(2026, 9, 1, 14, 10);
 
   var coaches = {
-    david: { id: 'david', name: 'David Cole', role: 'Head Coach', email: 'david@joshevans.example' },
+    david: { id: 'david', name: 'David Cole', role: 'Head Coach', email: 'david@example.com' },
     josh: { id: 'josh', name: 'Josh Evans', role: 'Director' },
     charlie: { id: 'charlie', name: 'Charlie Hughes', role: 'Lead Coach' },
     jack: { id: 'jack', name: 'Jack Morgan', role: 'Coach' },
@@ -91,10 +91,23 @@
     ]
   };
 
+
+  /* People: staff list canvas (visual language for staff/client rows). */
+  var staff = [
+    { id: 'david', name: 'David Cole', email: 'david@example.com', role: 'Head Coach', team: 'Management', sessions: 9, compliance: 'ok', complianceText: 'Current', last: 'Active now', flag: null },
+    { id: 'josh', name: 'Josh Evans', email: 'josh@example.com', role: 'Director', team: 'Management', sessions: 3, compliance: 'ok', complianceText: 'Current', last: '2 h ago', flag: null },
+    { id: 'charlie', name: 'Charlie Hughes', email: 'charlie@example.com', role: 'Lead Coach', team: 'Evening', sessions: 8, compliance: 'ok', complianceText: 'Current', last: 'Yesterday', flag: { tone: 'danger', text: 'Unavailable today' } },
+    { id: 'jack', name: 'Jack Morgan', email: 'jack@example.com', role: 'Coach', team: 'Evening', sessions: 6, compliance: 'warn', complianceText: 'DBS expires 13 Oct', last: '3 h ago', flag: null },
+    { id: 'tom', name: 'Tom Reid', email: 'tom@example.com', role: 'Coach', team: 'Schools', sessions: 7, compliance: 'danger', complianceText: 'First aid missing', last: 'Today, 09:12', flag: { tone: 'warn', text: 'Holiday 12\u201316 Oct' } },
+    { id: 'ellie', name: 'Ellie Shaw', email: 'ellie@example.com', role: 'Learning Coach', team: 'Evening', sessions: 4, compliance: 'ok', complianceText: 'Current', last: '1 day ago', flag: null },
+    { id: 'priya', name: 'Priya Nair', email: 'priya@example.com', role: 'Coach', team: 'Schools', sessions: 5, compliance: 'ok', complianceText: 'Current', last: '4 days ago', flag: null },
+    { id: 'sam', name: 'Sam Okafor', email: 'sam@example.com', role: 'Office', team: 'Operations', sessions: 0, compliance: 'none', complianceText: 'Not required', last: 'Active now', flag: null }
+  ];
+
   Hub.data = {
     now: NOW, coaches: coaches, venues: venues, occurrences: occurrences, attention: attention,
-    approvals: approvals, areas: areas, parent: parent,
-    me: { id: 'david', name: 'David Cole', email: 'david@joshevans.example', roleLabel: 'Management' },
+    approvals: approvals, areas: areas, parent: parent, staff: staff,
+    me: { id: 'david', name: 'David Cole', email: 'david@example.com', roleLabel: 'Management' },
     term: 'Term 1 · Week 4'
   };
 })();

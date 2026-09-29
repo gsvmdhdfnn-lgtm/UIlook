@@ -1,87 +1,92 @@
-/* Management screens: Home, Needs Attention, More. */
+/* Management: Home, Needs Attention, People, More. Content is placeholder
+   material; the screens exist to prove the visual system. */
 (function () {
   var ui = Hub.ui, I = Hub.icon, D = Hub.data, esc = ui.esc;
+  function venue(o) { return D.venues[o.venue].name; }
+  function todayOcc() { return D.occurrences.filter(function (o) { return o.date === '2026-10-01'; }); }
+  function tomorrowOcc() { return D.occurrences.filter(function (o) { return o.date === '2026-10-02'; }); }
+  function occStatus(o) {
+    if (!o.staff.length) return ui.status('No staff assigned', 'danger');
+    if (o.staff.some(function (s) { return s.unavailable; })) return ui.status('Staff unavailable', 'danger');
+    return '<span class="wide-inline">' + ui.status('Staffed') + '</span>';
+  }
+  function skeletonRows(n) { var r = ''; for (var i = 0; i < n; i++) r += '<div class="row"><span class="skeleton" style="width:18px;height:18px;border-radius:50%"></span><div style="display:grid;gap:6px"><span class="skeleton" style="height:12px;width:' + (60 - i * 8) + '%"></span><span class="skeleton" style="height:10px;width:35%"></span></div><span></span></div>'; return ui.rows([r]); }
 
-  function todayOccurrences() { return D.occurrences.filter(function (o) { return o.date === '2026-10-01'; }); }
-  function tomorrowOccurrences() { return D.occurrences.filter(function (o) { return o.date === '2026-10-02'; }); }
-
-  function occurrenceRow(o, opts) {
-    opts = opts || {};
-    var v = D.venues[o.venue];
-    var unavailable = o.staff.some(function (s) { return s.unavailable; });
-    var status = !o.staff.length ? ui.pill('No coach', 'danger') : unavailable ? ui.pill('Coach unavailable', 'danger') : ui.pill('Staffed', 'ok', 'hide-narrow');
+  /* ---------- Needs attention rows (used on Home) ---------- */
+  function caseRow(c) {
     return ui.row({
-      lead: '<span class="row__time">' + o.start + '<small>' + o.end + '</small></span>',
-      title: esc(o.session),
-      meta: [esc(v.name), o.players + ' players', o.staff.length ? ui.staffLine(o.staff) : null],
-      trail: status,
-      action: 'occurrence', data: { id: o.id }
+      stretch: true, action: 'case', data: { key: c.caseKey },
+      lead: ui.sev(c.severity), title: esc(c.title), sub: [esc(c.detail)], cls: 'case-row',
+      after: '<div class="row__sub only-narrow"><span class="num when when--' + c.severity.toLowerCase() + '">' + esc(c.when) + '</span></div>',
+      trail: '<span class="wide-inline trail-swap"><span class="num when when--' + c.severity.toLowerCase() + '">' + esc(c.when) + '</span>' + ui.btn(c.actionLabel, { variant: 'secondary', size: 'sm', cls: 'hover-action', attrs: { 'data-action': 'case', 'data-key': c.caseKey } }) + '</span>',
+      chevron: false
     });
   }
 
-  function caseRow(c, o) {
-    o = o || {};
-    return ui.row({
-      lead: ui.sev(c.severity),
-      title: esc(c.title),
-      meta: o.compact ? [esc(c.when)] : [esc(c.detail), esc(c.when)],
-      trail: o.compact ? I('chevron', 'icon-sm') :
-        '<span class="case-trail"><span class="case-when">' + esc(c.when) + '</span><span class="case-action">' + ui.btn(c.actionLabel, { variant: 'secondary', size: 'sm', attrs: { 'data-action': 'case', 'data-key': c.caseKey } }) + '</span>' + I('chevron', 'icon-sm case-chev') + '</span>',
-      action: 'case', data: { key: c.caseKey }, stretch: !o.compact
+  function todayTable(list) {
+    return ui.table({
+      cols: '72px minmax(0, 1.6fr) minmax(0, 1.4fr) minmax(0, 1.2fr) 80px 160px',
+      head: ['Time', 'Session', { label: 'Location', cls: 'wide' }, { label: 'Staff', cls: 'wide' }, { label: 'Expected', cls: 'c-num wide' }, { label: 'Status', cls: 'c-end' }],
+      body: list.map(function (o) {
+        return ui.tr([
+          { cls: 'c-time', html: o.start + '<small>' + o.end + '</small>' },
+          { cls: 'c-main', html: '<span class="c-title">' + esc(o.session) + '</span><span class="c-sub wide-sub">' + esc(o.programme) + ' programme</span><span class="c-sub only-narrow">' + esc(venue(o)) + ' · ' + o.players + ' expected</span>' },
+          { cls: 'c-cell c-mute wide', html: esc(venue(o)) },
+          { cls: 'wide staff-cell', html: o.staff.length ? ui.staffAvatars(o.staff) + '<span class="c-cell">' + ui.staffNames(o.staff) + '</span>' : '<span class="c-mute">—</span>' },
+          { cls: 'c-num wide', html: String(o.players) },
+          { cls: 'c-end', html: occStatus(o) }
+        ], { action: 'soon', label: 'Open ' + o.session });
+      }).join('')
     });
   }
+
+  function metrics(cls) {
+    var c = D.attention.summary.counts;
+    return '<div class="metrics ' + (cls || '') + '">' +
+      ui.metric('Sessions today', '4', '15:30 – 20:30') +
+      ui.metric('Expected attendance', '53', 'Across 2 locations') +
+      ui.metric('Staff on duty', '6', '1 unavailable') +
+      ui.metric('Open items', String(D.attention.summary.total), '<span class="count count--alert">' + c.Urgent + ' urgent</span>', 'danger') +
+      (String(cls).indexOf('metrics--compact') >= 0 ? '' : ui.metric('Awaiting approval', '4', 'Oldest 2 days')) +
+      '</div>';
+  }
+
+  function todayHead(ctx) { return ui.sectionHead('Today', { meta: ctx.state === 'live' ? '4 sessions \u00b7 53 expected' : '', link: 'Schedule', href: '#mgmt-schedule' }); }
 
   /* ---------------------------------------------------------------- HOME */
-  function attentionCard(state) {
-    var A = D.attention, c = A.summary.counts;
-    if (state === 'loading') return '<section class="card card--pad" aria-busy="true"><span class="skeleton" style="height:18px;width:40%"></span><div style="height:16px"></div><span class="skeleton" style="height:56px"></span><div style="height:12px"></div><span class="skeleton" style="height:44px"></span></section>';
-    if (state === 'error') return '<section class="card card--pad">' + ui.alert('danger', 'Needs Attention couldn’t be checked', 'The queue didn’t finish loading, so it isn’t safe to treat it as clear. Try again in a moment.', ui.btn('Try again', { variant: 'secondary', size: 'sm', icon: 'refresh' })) + '</section>';
-    if (state === 'empty') return '<section class="card attention-card is-clear"><div class="card__head"><h2 class="card__title">Needs Attention</h2>' + ui.pill('Clear', 'ok') + '</div>' + ui.empty('checkCircle', 'Nothing needs attention', 'Staffing, compliance and cover are all in order. New items appear here as soon as they come up.', 'ok') + '</section>';
-    var top = A.cases.slice(0, 3);
-    return '<section class="card card--flush attention-card">' +
-      '<div class="card__head"><h2 class="card__title">Needs Attention</h2>' + ui.pill(c.Urgent + ' urgent', 'danger') + '</div>' +
-      '<div class="attention-card__stats"><div class="stats">' +
-        '<div class="stat stat--danger"><span class="stat__value">' + c.Urgent + '</span><span class="stat__label">Urgent</span></div>' +
-        '<div class="stat stat--warn"><span class="stat__value">' + c.Warning + '</span><span class="stat__label">Warning</span></div>' +
-        '<div class="stat"><span class="stat__value">' + c.Normal + '</span><span class="stat__label">To do</span></div>' +
-      '</div></div>' +
-      ui.list(top.map(function (x) { return caseRow(x, { compact: true }); })) +
-      '<div class="card__foot"><span class="text-3 fs-sm">Updated 14:05</span>' + ui.btn('Open queue (' + A.summary.total + ')', { variant: 'ghost', size: 'sm', trail: 'arrowRight', href: '#mgmt-attention' }) + '</div>' +
-      '</section>';
-  }
-
-  function todayCard(state) {
-    var list = todayOccurrences();
-    var players = list.reduce(function (a, o) { return a + o.players; }, 0);
-    var body = state === 'empty' ? ui.empty('calendar', 'No sessions today', 'Nothing is scheduled for today. Tomorrow has ' + tomorrowOccurrences().length + ' sessions.')
-      : state === 'loading' ? '<div class="card--pad" style="display:grid;gap:12px"><span class="skeleton" style="height:44px"></span><span class="skeleton" style="height:44px"></span><span class="skeleton" style="height:44px"></span></div>'
-      : ui.list(list.map(function (o) { return occurrenceRow(o); }));
-    return '<section class="section">' +
-      ui.sectionHead('Today', { count: state === 'empty' ? null : list.length + ' sessions · ' + players + ' players', link: 'Schedule', href: '#mgmt-schedule' }) +
-      '<div class="card card--flush">' + body + '</div></section>';
-  }
-
-  function approvalsCard() {
-    return '<section class="section">' + ui.sectionHead('Waiting for approval') +
-      '<div class="card card--flush">' + ui.list(D.approvals.filter(function (a) { return a.id !== 'player-migration'; }).map(function (a) {
-        return ui.row({ compact: true, lead: '<span class="tile__icon">' + I(a.icon, 'icon-sm') + '</span>', title: esc(a.label),
-          trail: (a.count ? '<span class="badge badge--quiet num">' + a.count + '</span>' : '<span class="text-3 fs-sm">None</span>') + I('chevron', 'icon-sm'),
-          href: '#mgmt-' + a.id });
-      })) + '</div></section>';
-  }
-
-  function tomorrowCard() {
-    var list = tomorrowOccurrences();
-    return '<section class="section">' + ui.sectionHead('Tomorrow', { count: list.length + ' sessions' }) +
-      '<div class="card card--flush">' + ui.list(list.map(function (o) { return occurrenceRow(o); })) + '</div></section>';
-  }
-
   Hub.screens['mgmt-home'] = function (ctx) {
-    var hour = D.now.getHours(), greet = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
-    return '<div class="page">' +
-      ui.pageHead({ eyebrow: 'Thursday 1 October · ' + D.term, title: greet + ', ' + D.me.name.split(' ')[0] }) +
-      '<div class="grid-2"><div class="stack">' + attentionCard(ctx.state) + todayCard(ctx.state) + '</div>' +
-      '<div class="stack">' + approvalsCard() + (ctx.state === 'loading' ? '' : tomorrowCard()) + '</div></div>' +
+    var A = D.attention;
+    var head = ui.pageHead({ overline: 'Thursday 1 October 2026 · ' + D.term, title: 'Good afternoon, ' + D.me.name.split(' ')[0],
+      actions: ui.btn('View schedule', { href: '#mgmt-schedule', icon: 'calendar', cls: 'wide-inline' }) + ui.btn('Review queue', { variant: 'primary', href: '#mgmt-attention' }) });
+
+    var attention;
+    if (ctx.state === 'loading') attention = '<div class="panel">' + skeletonRows(4) + '</div>';
+    else if (ctx.state === 'error') attention = ui.notice('danger', 'Open items couldn’t be checked', 'The queue didn’t finish loading, so it isn’t shown as clear. Try again in a moment.', { action: ui.btn('Retry', { size: 'sm', icon: 'refresh' }) });
+    else if (ctx.state === 'empty') attention = '<div class="panel">' + ui.empty('checkCircle', 'Nothing needs attention', 'Staffing, cover and compliance are in order.', 'ok') + '</div>';
+    else attention = '<div class="panel">' + ui.rows(A.cases.slice(0, 5).map(caseRow), 'rows--lead') + '<div class="panel__foot"><span>Showing 5 of ' + A.summary.total + '</span><a class="section-link" href="#mgmt-attention">Open queue' + I('chevron', 'icon-sm') + '</a></div></div>';
+
+    var today = ctx.state === 'loading' ? '<div class="panel">' + skeletonRows(4) + '</div>'
+      : ctx.state === 'empty' ? '<div class="panel">' + ui.empty('calendar', 'Nothing scheduled today', 'Tomorrow has 2 sessions.') + '</div>'
+      : '<div class="panel">' + todayTable(todayOcc()) + '</div>';
+
+    var approvals = '<div class="panel">' + ui.rows(D.approvals.filter(function (a) { return a.count; }).map(function (a) {
+      return ui.row({ lead: '<span class="row__icon">' + I(a.icon, 'icon-sm') + '</span>', title: esc(a.label), trail: '<span class="num">' + a.count + ' waiting</span>', href: '#mgmt-' + a.id });
+    }), 'rows--lead') + '</div>';
+
+    var tomorrow = '<div class="panel">' + ui.rows(tomorrowOcc().map(function (o) {
+      return ui.row({ lead: '<span class="row__time">' + o.start + '<small>' + o.end + '</small></span>', title: esc(o.session), sub: [esc(venue(o))], trail: o.staff.length ? '' : ui.status('No staff', 'danger'), action: 'soon', chevron: false });
+    }), 'rows--time') + '</div>';
+
+    return '<div class="page page--home">' + head + metrics('only-wide') +
+      '<div class="layout"><div class="col">' +
+        '<section class="section">' + ui.sectionHead('Needs attention', { meta: ctx.state === 'live' ? A.summary.total + ' open' : '', link: 'View all', href: '#mgmt-attention' }) + attention + '</section>' +
+        metrics('metrics--compact only-narrow-block') +
+        '<section class="section only-narrow-block">' + todayHead(ctx) + today + '</section>' +
+      '</div><div class="col">' +
+        '<section class="section">' + ui.sectionHead('Awaiting approval', { meta: '4' }) + approvals + '</section>' +
+        '<section class="section">' + ui.sectionHead('Tomorrow', { meta: 'Friday 2 October' }) + tomorrow + '</section>' +
+      '</div></div>' +
+      '<section class="section only-wide">' + todayHead(ctx) + today + '</section>' +
       '</div>';
   };
 
@@ -90,43 +95,37 @@
   Hub.screens['mgmt-attention'] = function (ctx) {
     var A = D.attention, cats = {};
     A.cases.forEach(function (c) { cats[c.category] = (cats[c.category] || 0) + 1; });
-    var head = ui.pageHead({ eyebrow: 'Management', title: 'Needs Attention',
-      sub: ctx.state === 'empty' ? 'Everything is in order.' : ctx.state === 'loading' ? 'Checking…' : 'Things that need a decision or an action, most urgent first.',
-      actions: ctx.state === 'loading' ? '' : ui.btn('Refresh', { variant: 'secondary', size: 'sm', icon: 'refresh', attrs: { 'data-action': 'refresh' } }) });
+    var head = ui.pageHead({ overline: 'Management', title: 'Needs attention',
+      sub: ctx.state === 'live' ? A.summary.total + ' open · <span class="text-danger">' + A.summary.counts.Urgent + ' urgent</span> · updated 14:05' : ctx.state === 'empty' ? 'Everything is in order · updated 14:05' : '',
+      actions: ui.btn('Refresh', { icon: 'refresh', attrs: { 'data-action': 'refresh' } }) });
 
-    if (ctx.state === 'loading') {
-      return '<div class="page">' + head + '<div class="card card--pad" style="display:grid;gap:14px" aria-busy="true">' +
-        [1, 2, 3, 4].map(function () { return '<div style="display:flex;gap:12px;align-items:center"><span class="skeleton" style="width:32px;height:32px"></span><div style="flex:1;display:grid;gap:6px"><span class="skeleton" style="height:14px;width:70%"></span><span class="skeleton" style="height:12px;width:45%"></span></div></div>'; }).join('') + '</div></div>';
-    }
-    if (ctx.state === 'error') {
-      return '<div class="page">' + head + ui.alert('danger', 'The queue couldn’t be checked', 'One of the checks didn’t complete, so this page won’t show a partial list or call it clear. Refresh to try again. If it keeps happening, let the office know.', ui.btn('Refresh', { variant: 'secondary', size: 'sm', icon: 'refresh' })) + '</div>';
-    }
-    if (ctx.state === 'empty') {
-      return '<div class="page">' + head + '<div class="card">' + ui.empty('checkCircle', 'Nothing needs attention', 'No staffing gaps, compliance issues, cover or summaries are waiting. Last checked 14:05.', 'ok') + '</div></div>';
-    }
+    if (ctx.state === 'loading') return '<div class="page">' + head + '<div class="panel">' + skeletonRows(6) + '</div></div>';
+    if (ctx.state === 'error') return '<div class="page">' + head + ui.notice('danger', 'The queue couldn’t be checked', 'One of the checks didn’t complete, so this page won’t show a partial list or call it clear. Refresh to try again.', { action: ui.btn('Retry', { size: 'sm', icon: 'refresh' }) }) + '</div>';
+    if (ctx.state === 'empty') return '<div class="page">' + head + '<div class="panel">' + ui.empty('checkCircle', 'Nothing needs attention', 'No staffing gaps, compliance issues, cover or summaries are waiting.', 'ok') + '</div></div>';
 
-    var chips = ['All'].concat(Object.keys(cats)).map(function (k) {
-      var n = k === 'All' ? A.cases.length : cats[k];
-      return '<button type="button" class="chip" data-action="filter" data-filter="' + esc(k) + '" aria-pressed="' + (filter === k) + '">' + esc(k) + ' <span class="n">' + n + '</span></button>';
-    }).join('');
+    var tabs = '<div class="tabs" role="tablist">' + ['All'].concat(Object.keys(cats)).map(function (k) {
+      return '<button type="button" class="tab-btn" role="tab" data-action="filter" data-filter="' + esc(k) + '" aria-selected="' + (filter === k) + '">' + esc(k) + '<span class="count">' + (k === 'All' ? A.cases.length : cats[k]) + '</span></button>';
+    }).join('') + '</div>';
 
     var shown = A.cases.filter(function (c) { return filter === 'All' || c.category === filter; });
-    var groups = ['Urgent', 'Warning', 'Normal'].map(function (sev) {
+    var body = ['Urgent', 'Warning', 'Normal'].map(function (sev) {
       var list = shown.filter(function (c) { return c.severity === sev; });
       if (!list.length) return '';
-      var label = { Urgent: 'Urgent', Warning: 'Warning', Normal: 'To do' }[sev];
-      return '<section class="section"><div class="section-head"><h2 class="section-title sev-title sev-title--' + sev.toLowerCase() + '">' + label + '<span class="count num">' + list.length + '</span></h2></div>' +
-        '<div class="card card--flush case-list">' + ui.list(list.map(function (c) { return caseRow(c); })) + '</div></section>';
+      return ui.group(ui.sevWord(sev), list.length, ui.sev(sev)) + list.map(function (c) {
+        return ui.tr([
+          { html: ui.sev(c.severity) },
+          { cls: 'c-main', html: '<span class="c-title">' + esc(c.title) + '</span><span class="c-sub">' + esc(c.detail) + '</span><span class="c-sub only-narrow"><span class="when when--' + sev.toLowerCase() + '">' + esc(c.when) + '</span> · ' + esc(c.category) + '</span>' },
+          { cls: 'c-cell c-mute wide', html: esc(c.category) },
+          { cls: 'c-cell wide num when when--' + sev.toLowerCase(), html: esc(c.when) },
+          { cls: 'c-end wide', html: ui.btn(c.actionLabel, { variant: 'secondary', size: 'sm', attrs: { 'data-action': 'case', 'data-key': c.caseKey } }) }
+        ], { action: 'case', data: { key: c.caseKey }, label: c.title });
+      }).join('');
     }).join('');
 
     return '<div class="page page--queue">' + head +
-      '<div class="queue-summary"><div class="stats">' +
-        '<div class="stat stat--danger"><span class="stat__value">' + A.summary.counts.Urgent + '</span><span class="stat__label">Urgent</span></div>' +
-        '<div class="stat stat--warn"><span class="stat__value">' + A.summary.counts.Warning + '</span><span class="stat__label">Warning</span></div>' +
-        '<div class="stat"><span class="stat__value">' + A.summary.counts.Normal + '</span><span class="stat__label">To do</span></div>' +
-      '</div><p class="text-3 fs-sm">Updated 14:05 · checks staffing, cover, compliance and coach summaries</p></div>' +
-      '<div class="chips" role="group" aria-label="Filter by category">' + chips + '</div>' +
-      groups + '</div>';
+      '<div class="section">' + tabs +
+      '<div class="panel queue">' + ui.table({ cols: '18px minmax(0, 1fr) 170px 130px 150px', head: ['', 'Item', { label: 'Area', cls: 'wide' }, { label: 'Due', cls: 'wide' }, { label: '', cls: 'wide' }], body: body }) + '</div>' +
+      '</div></div>';
   };
 
   Hub.actions.filter = function (el) { filter = el.dataset.filter; Hub.render(); };
@@ -138,60 +137,78 @@
     var occ = c.related && c.related.occurrence && D.occurrences.filter(function (o) { return o.id === c.related.occurrence; })[0];
     var occHtml = '';
     if (occ) {
-      var v = D.venues[occ.venue];
-      occHtml = '<section class="section"><h3 class="label">Session</h3><div class="card card--quiet card--pad occ-mini">' +
-        '<div class="row__title">' + esc(occ.session) + '</div>' +
-        '<div class="row__meta"><div><span>' + (occ.date === '2026-10-01' ? 'Today' : 'Fri 2 Oct') + ', ' + occ.start + '–' + occ.end + '</span><span>' + esc(v.name) + '</span></div></div>' +
-        '<div class="staff-list">' + (occ.staff.length ? occ.staff.map(function (s) {
+      occHtml = '<section class="section">' + ui.sectionHead('Session') + '<div class="panel">' +
+        '<div class="panel__head"><div><div class="panel__title">' + esc(occ.session) + '</div><div class="text-3 fs-13">' + (occ.date === '2026-10-01' ? 'Today' : 'Fri 2 Oct') + ', ' + occ.start + '–' + occ.end + ' · ' + esc(venue(occ)) + '</div></div></div>' +
+        (occ.staff.length ? ui.rows(occ.staff.map(function (s) {
           var co = D.coaches[s.coach];
-          return '<div class="staff-item">' + ui.avatar(co.name, 'sm') + '<span><b>' + esc(co.name) + '</b><small>' + (s.lead ? 'Lead coach' : 'Coach') + '</small></span>' + (s.unavailable ? ui.pill('Unavailable', 'danger') : ui.pill('Confirmed', 'ok')) + '</div>';
-        }).join('') : '<div class="staff-item staff-item--none">' + I('alertCircle', 'icon-sm') + '<span>No coach assigned to this session yet</span></div>') + '</div></div></section>';
+          return ui.row({ lead: ui.avatar(co.name, 'md'), title: esc(co.name), sub: [s.lead ? 'Lead' : 'Assistant'], trail: s.unavailable ? ui.status('Unavailable', 'danger') : ui.status('Confirmed') });
+        }), 'rows--lead') : '<div class="panel--pad">' + ui.status('No staff assigned yet', 'danger') + '</div>') +
+        '</div></section>';
     }
-    Hub.openSheet(
-      '<div class="sheet__head"><div style="display:grid;gap:8px">' +
-        '<div class="btn-row" style="gap:6px">' + ui.pill(c.severity === 'Normal' ? 'To do' : c.severity, ui.sevTone(c.severity)) + ui.pill(c.category, null, 'pill--plain') + '</div>' +
-        '<h2 id="sheet-title" style="font-size:var(--fs-xl)">' + esc(c.title) + '</h2></div>' +
-        '<button type="button" class="icon-btn" data-action="close-sheet" aria-label="Close">' + I('x') + '</button></div>' +
-      '<div class="sheet__body">' +
-        ui.kv([['When', esc(c.when)], ['Details', esc(c.detail)], ['Why it’s ' + (c.severity === 'Normal' ? 'listed' : c.severity.toLowerCase()), esc(c.severityReason)], ['Check', esc(c.ruleName) + ' <span class="text-3">· ' + esc(c.ruleId) + '</span>']]) +
-        occHtml +
-        '<div style="display:grid;gap:8px">' + ui.btn(c.actionLabel, { block: true, trail: 'arrowRight', attrs: { 'data-action': 'go-area', 'data-area': c.destination.area } }) +
-        '<p class="text-3 fs-xs" style="text-align:center">Opens ' + esc(c.destination.area) + '. This item clears when the underlying issue is fixed.</p></div>' +
-      '</div>');
+    Hub.openSheet({
+      overline: '<div class="overline" style="display:flex;gap:10px;align-items:center">' + ui.sev(c.severity) + '<span class="' + (c.severity === 'Urgent' ? 'text-danger' : '') + '">' + ui.sevWord(c.severity) + '</span><span>·</span><span>' + esc(c.category) + '</span></div>',
+      title: esc(c.title),
+      body: ui.fields([['Due', '<span class="num">' + esc(c.when) + '</span>'], ['Details', esc(c.detail)], ['Priority', esc(c.severityReason)], ['Check', esc(c.ruleName) + ' <span class="text-3 mono">' + esc(c.ruleId) + '</span>']]) + occHtml +
+        '<p class="text-3 fs-13">This item clears on its own once the underlying issue is fixed.</p>',
+      foot: ui.btn('Close', { attrs: { 'data-action': 'close-sheet' } }) + ui.btn(c.actionLabel, { variant: 'primary', trail: 'arrowRight', attrs: { 'data-action': 'go-area', 'data-area': c.destination.area } })
+    });
   };
-  Hub.actions['go-area'] = function (el) { Hub.closeSheet(); Hub.toast('Would open ' + el.dataset.area + ' (not in this pass)'); };
-  Hub.actions.occurrence = function () { Hub.toast('Session detail is not part of this pass'); };
+  Hub.actions['go-area'] = function (el) { Hub.closeSheet(); Hub.toast('Would open ' + el.dataset.area); };
+
+  /* --------------------------------------------------------------- PEOPLE */
+  var peopleFilter = 'all';
+  Hub.screens['mgmt-coaches'] = function (ctx) {
+    var list = D.staff.filter(function (p) { return peopleFilter === 'all' || p.compliance === 'warn' || p.compliance === 'danger' || p.flag; });
+    var flagged = D.staff.filter(function (p) { return p.compliance === 'warn' || p.compliance === 'danger' || p.flag; }).length;
+    var head = ui.pageHead({ overline: 'Management', title: 'People', sub: 'Staff, clients and families across ' + esc(Hub.brand.orgName) + '.' });
+    var toolbar = '<div class="toolbar"><div class="tabs" role="tablist"><button type="button" class="tab-btn" role="tab" aria-selected="true">Staff<span class="count">' + D.staff.length + '</span></button><button type="button" class="tab-btn" role="tab" aria-selected="false" data-action="soon">' + esc(Hub.brand.terms.client) + 's<span class="count">214</span></button><button type="button" class="tab-btn" role="tab" aria-selected="false" data-action="soon">Families<span class="count">163</span></button></div>' +
+      '<div class="toolbar__row"><label class="search"><span class="visually-hidden">Search people</span>' + I('search') + '<input class="input" id="people-search" placeholder="Search people"></label>' +
+      '<div class="segmented" role="group" aria-label="Filter"><button type="button" data-action="pfilter" data-val="all" aria-pressed="' + (peopleFilter === 'all') + '">All</button><button type="button" data-action="pfilter" data-val="flag" aria-pressed="' + (peopleFilter === 'flag') + '">Needs attention <span class="count">' + flagged + '</span></button></div></div></div>';
+    if (ctx.state === 'loading') return '<div class="page">' + head + toolbar + '<div class="panel">' + skeletonRows(6) + '</div></div>';
+    var body = list.map(function (p) {
+      var comp = p.compliance === 'danger' ? ui.status(p.complianceText, 'danger') : p.compliance === 'warn' ? ui.status(p.complianceText, 'warn') : ui.status(p.complianceText, p.compliance === 'none' ? 'plain' : '');
+      return ui.tr([
+        { cls: 'c-lead', html: ui.avatar(p.name, 'md') },
+        { cls: 'c-main', html: '<span class="c-title">' + esc(p.name) + '</span><span class="c-sub wide-sub">' + esc(p.email) + '</span><span class="c-sub only-narrow">' + esc(p.role) + ' · ' + esc(p.team) + '</span>' },
+        { cls: 'c-main wide', html: '<span class="c-cell" style="color:var(--text)">' + esc(p.role) + '</span><span class="c-sub">' + esc(p.team) + '</span>' },
+        { cls: 'c-num wide', html: String(p.sessions) },
+        { cls: 'c-main wide', html: comp + (p.flag ? '<span class="c-sub">' + esc(p.flag.text) + '</span>' : '') },
+        { cls: 'c-cell c-mute wide', html: esc(p.last) },
+        { cls: 'c-end', html: (p.compliance === 'danger' || p.compliance === 'warn' || p.flag ? '<span class="only-narrow">' + ui.sev(p.compliance === 'danger' || (p.flag && p.flag.tone === 'danger') ? 'Urgent' : 'Warning') + '</span>' : '') + '<span class="wide hover-action">' + ui.iconBtn('dotsV', 'Actions for ' + p.name, { 'data-action': 'soon' }) + '</span>' }
+      ], { action: 'person', data: { id: p.id }, label: p.name });
+    }).join('');
+    return '<div class="page">' + head + toolbar +
+      '<div class="panel">' + ui.table({ cols: '36px minmax(0, 1.6fr) minmax(0, 1fr) 80px minmax(0, 1.2fr) 110px 40px', head: ['', 'Name', { label: 'Role', cls: 'wide' }, { label: 'This week', cls: 'c-num wide' }, { label: 'Compliance', cls: 'wide' }, { label: 'Last active', cls: 'wide' }, ''], body: body }) +
+      '<div class="panel__foot"><span>' + list.length + ' of ' + D.staff.length + ' staff</span><span>Sorted by name</span></div></div></div>';
+  };
+  Hub.actions.pfilter = function (el) { peopleFilter = el.dataset.val; Hub.render(); };
+  Hub.actions.person = function (el) {
+    var p = D.staff.filter(function (x) { return x.id === el.dataset.id; })[0];
+    if (!p) return;
+    var comp = [['Enhanced DBS', p.compliance === 'warn' ? ui.status('Expires 13 Oct', 'warn') : ui.status('Valid to Mar 2028')], ['First aid', p.compliance === 'danger' ? ui.status('Missing', 'danger') : ui.status('Valid to Jan 2027')], ['Safeguarding', ui.status('Level 2 · current')]];
+    Hub.openSheet({
+      title: '<span class="identity" style="grid-template-columns:auto minmax(0,1fr)">' + ui.avatar(p.name, 'lg') + '<span style="display:grid;gap:4px"><span class="identity__name">' + esc(p.name) + '</span><span class="identity__meta"><span>' + esc(p.role) + '</span><span>' + esc(p.team) + '</span></span></span></span>',
+      body: ui.fields([['Sessions this week', '<span class="num">' + p.sessions + '</span>'], ['Last active', esc(p.last)], ['Email', esc(p.email)], ['Team', esc(p.team)]], true) +
+        (p.flag ? ui.notice(p.flag.tone === 'danger' ? 'danger' : 'warn', p.flag.text, null) : '') +
+        '<section class="section">' + ui.sectionHead('Compliance') + '<div class="panel">' + ui.rows(comp.map(function (c) { return ui.row({ title: c[0], trail: c[1] }); })) + '</div></section>',
+      foot: ui.btn('Message', { icon: 'chat' }) + ui.btn('Open profile', { variant: 'primary' })
+    });
+  };
 
   /* ---------------------------------------------------------------- MORE */
   Hub.screens['mgmt-more'] = function () {
-    var me = D.me;
+    var me = D.me, t = Hub.brand.terms;
+    function group(title, rows) { return '<section class="section">' + ui.sectionHead(title) + '<div class="panel">' + ui.rows(rows, 'rows--lead') + '</div></section>'; }
     var areaRows = D.areas.map(function (a) {
-      return ui.row({ lead: '<span class="tile__icon">' + I(a.icon, 'icon-sm') + '</span>', title: esc(a.label),
-        meta: [esc(a.sub)], trail: (a.on ? (a.restricted ? '<span class="lock-note">' + esc(a.restricted) + '</span>' : '') : ui.pill('Off', null, 'pill--plain')) + I('chevron', 'icon-sm'),
-        href: '#mgmt-' + a.id });
+      var id = a.id === 'coaches' ? 'mgmt-coaches' : 'mgmt-' + a.id;
+      return ui.row({ lead: '<span class="row__icon">' + I(a.id === 'coaches' ? 'users' : a.id === 'players' ? 'family' : a.icon, 'icon-sm') + '</span>', title: esc(a.id === 'coaches' ? 'People' : a.label), sub: [esc(a.sub)], trail: a.on ? (a.restricted ? '<span class="wide-inline">' + esc(a.restricted) + '</span>' : '') : ui.tag('Off'), href: '#' + id });
     });
-    var approvalRows = D.approvals.map(function (a) {
-      return ui.row({ lead: '<span class="tile__icon">' + I(a.icon, 'icon-sm') + '</span>', title: esc(a.label), meta: [esc(a.sub)],
-        trail: (a.count ? '<span class="badge num">' + a.count + '</span>' : '') + I('chevron', 'icon-sm'), href: '#mgmt-' + a.id });
-    });
-    var accountRows = [
-      ['user', 'My profile', me.email, 'profile'], ['bell', 'Notifications', 'Manage alerts', 'soon'],
-      ['chat', 'Feedback', 'Share ideas or report an issue', 'soon'], ['phone', 'Contact the office', 'Get in touch', 'soon']
-    ].map(function (r) { return ui.row({ compact: true, lead: '<span class="tile__icon tile__icon--quiet">' + I(r[0], 'icon-sm') + '</span>', title: esc(r[1]), meta: [esc(r[2])], action: r[3] }); });
-    accountRows.push(ui.row({ compact: true, lead: '<span class="tile__icon tile__icon--quiet">' + I('logout', 'icon-sm') + '</span>', title: 'Log out', action: 'soon', trail: '' }));
-
-    return '<div class="page page--more">' +
-      ui.pageHead({ eyebrow: 'Management', title: 'More' }) +
-      '<section class="card card--pad me-card"><div class="profile-head">' + ui.avatar(me.name, 'lg') +
-        '<div><div class="profile-head__name">' + esc(me.name) + '</div><div class="profile-head__meta"><span>' + esc(me.email) + '</span>' + ui.pill('Management', 'info', 'pill--plain') + '</div></div></div>' +
-        '<div class="me-card__switch">' + ui.btn('Switch to Coach view', { variant: 'secondary', icon: 'swap', block: true, attrs: { 'data-action': 'area', 'data-area': 'coach' } }) + '</div></section>' +
-      '<div class="more-grid">' +
-        '<section class="section more-areas">' + ui.sectionHead('Areas') + '<div class="card card--flush">' + ui.list(areaRows) + '</div></section>' +
-        '<div class="stack">' +
-          '<section class="section">' + ui.sectionHead('Approvals') + '<div class="card card--flush">' + ui.list(approvalRows) + '</div></section>' +
-          '<section class="section">' + ui.sectionHead('Settings') + '<div class="card card--flush">' + ui.list([ui.row({ compact: true, lead: '<span class="tile__icon tile__icon--quiet">' + I('settings', 'icon-sm') + '</span>', title: 'Settings & System', meta: ['Branding, modules and system health'], href: '#mgmt-settings' })]) + '</div></section>' +
-          '<section class="section">' + ui.sectionHead('Account') + '<div class="card card--flush">' + ui.list(accountRows) + '</div></section>' +
-        '</div>' +
-      '</div></div>';
+    var approvalRows = D.approvals.map(function (a) { return ui.row({ lead: '<span class="row__icon">' + I(a.icon, 'icon-sm') + '</span>', title: esc(a.label), sub: [esc(a.sub)], trail: a.count ? '<span class="num">' + a.count + ' waiting</span>' : '', href: '#mgmt-' + a.id }); });
+    var accountRows = [['user', 'Profile', me.email], ['bell', 'Notifications', 'Email and in-app alerts'], ['chat', 'Send feedback', 'Ideas or problems'], ['phone', 'Contact the office', '']].map(function (r) { return ui.row({ lead: '<span class="row__icon">' + I(r[0], 'icon-sm') + '</span>', title: r[1], sub: [esc(r[2])], action: 'soon' }); });
+    accountRows.push(ui.row({ lead: '<span class="row__icon">' + I('logout', 'icon-sm') + '</span>', title: 'Log out', action: 'soon', chevron: false }));
+    return '<div class="page">' + ui.pageHead({ overline: 'Management', title: 'More' }) +
+      '<div class="panel panel--pad me-panel"><div class="identity">' + ui.avatar(me.name, 'lg') + '<div style="display:grid;gap:2px;min-width:0"><span class="identity__name">' + esc(me.name) + '</span><span class="identity__meta"><span>Management</span><span>' + esc(me.email) + '</span></span></div>' +
+        ui.btn('Switch to ' + t.staff.toLowerCase() + ' view', { icon: 'swap', attrs: { 'data-action': 'area', 'data-area': 'staff' } }) + '</div></div>' +
+      '<div class="layout layout--even"><div class="col">' + group('Workspace', areaRows) + '</div><div class="col">' + group('Approvals', approvalRows) + group('Organisation', [ui.row({ lead: '<span class="row__icon">' + I('settings', 'icon-sm') + '</span>', title: 'Settings', sub: ['Branding, modules, system health'], href: '#mgmt-settings' })]) + group('Account', accountRows) + '</div></div></div>';
   };
 })();
