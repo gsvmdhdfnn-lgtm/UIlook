@@ -4,7 +4,8 @@ A visual-design prototype for Relvor, the operations platform (Josh Evans is
 one example organisation using it). It is a static, mock-data front end for
 trying out the look and feel. It is not a second Hub.
 
-- **Visual pass 2 (current):** see `docs/VISUAL-PASS-2.md` and `docs/screenshots/pass-2/`.
+- **Visual pass 3 (current):** see `docs/VISUAL-PASS-3.md` and `docs/screenshots/pass-3/`.
+- **Visual pass 2:** branch `claude/visual-pass-2`; `docs/VISUAL-PASS-2.md`, `docs/screenshots/pass-2/`.
 - **Visual pass 1:** branch `claude/visual-pass-1`, screenshots in `docs/screenshots/pass-1/`.
 
 - The real product lives in `gsvmdhdfnn-lgtm/Coach-allocation-TEST`. This repo
@@ -49,8 +50,9 @@ js/data.js          mock data
 js/screens/*.js     Management Home, Needs Attention, More; Coach Home;
                     Parent Home; Visual system reference
 docs/AUDIT.md       audit of the current Hub
-docs/VISUAL-PASS-2.md  the pass-2 visual direction and rules
-docs/screenshots/   pass-1 and pass-2 renders (phone, desktop, dark)
+docs/VISUAL-PASS-2.md  pass-2 visual direction and rules
+docs/VISUAL-PASS-3.md  pass-3 changes: composition, spacing, surfaces, navigation
+docs/screenshots/   pass-1, pass-2 and pass-3 renders (phone, desktop, dark)
 ```
 
 ## First pass: what was built

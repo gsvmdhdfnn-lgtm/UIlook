@@ -5,10 +5,10 @@ html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 html, body { height: 100%; }
 body {
   margin: 0;
-  background: var(--app);
+  background: var(--ground);
   color: var(--text);
   font-family: var(--font-sans);
-  font-size: var(--t-14);
+  font-size: var(--t-15);
   font-weight: var(--w-regular);
   line-height: var(--lh-body);
   -webkit-font-smoothing: antialiased;

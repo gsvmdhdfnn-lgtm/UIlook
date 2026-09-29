@@ -1,169 +1,174 @@
 /* ==========================================================================
-   Relvor design tokens (visual pass 2)
+   Relvor design tokens (visual pass 3)
    --------------------------------------------------------------------------
    Three layers. Components only ever use layer 3.
 
-   1. ORGANISATION  What a client may supply: an accent colour, an identity
-                    colour and a mark. js/brand.js clamps the accent for
-                    contrast in both themes before it reaches the UI, so no
-                    choice of colours can make the product illegible.
-                    Organisation colour never fills large areas.
-   2. PLATFORM      Relvor's own system: neutrals, semantic colours, type,
-                    space, radius, elevation. Never set per client. This is
-                    what keeps Relvor recognisable under any brand.
-   3. ROLE          Semantic aliases: surfaces, text, lines, actions,
-                    status.
+   1. ORGANISATION  Accent, identity colour and mark, supplied per client.
+                    js/brand.js clamps the accent for contrast in both
+                    themes. Organisation colour never fills large areas.
+   2. PLATFORM      Relvor's own system: warm neutrals, semantic colour,
+                    type, space, radius, elevation. Never set per client.
+   3. ROLE          Semantic aliases components use.
 
-   Principle: normal fades back, exceptions come forward. Healthy state is
-   neutral; colour is reserved for selection, action and risk.
+   Pass 3 principles
+   - Structure through surface tone and space; lines only where a line
+     does work nobody else can (table rows, the edge of a floating panel).
+   - Five surfaces: ground (sidebar, staff/client page), workspace,
+     inset (secondary zones), selected, floating.
+   - Rhythm: 4-8 px inside a unit, 12-20 px inside a group, 40-64 px
+     between zones.
    ========================================================================== */
 
 :root {
   /* ---------- 1. ORGANISATION (set by brand.js) ---------- */
-  --accent-l: #33589e;   /* accent, clamped for light surfaces */
-  --accent-d: #8ea8dc;   /* accent, clamped for dark surfaces */
-  --identity: #1c2230;   /* organisation identity colour: mark/monogram only */
+  --accent-l: #98681e;   /* clamped for light surfaces */
+  --accent-d: #d6a553;   /* clamped for dark surfaces */
+  --identity: #1d1b18;   /* organisation mark / monogram */
 
   /* ---------- 2. PLATFORM ---------- */
   --font-sans: "Instrument Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --font-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
 
-  /* Type scale. Desktop body is 14px; touch devices step body up to 15px. */
-  --t-11: 0.6875rem;  /* overlines, tab-bar labels */
-  --t-12: 0.75rem;    /* captions, column headers, meta */
-  --t-13: 0.8125rem;  /* secondary text, table cells */
-  --t-14: 0.875rem;   /* body, row titles, nav */
-  --t-15: 0.9375rem;  /* emphasised body */
-  --t-16: 1rem;       /* panel titles */
-  --t-18: 1.125rem;   /* drawer titles, section titles (client) */
-  --t-20: 1.25rem;    /* key figures */
-  --t-24: 1.5rem;     /* page titles */
-  --t-28: 1.75rem;    /* client greeting */
+  /* Type scale: fewer, clearer steps. 11px is reserved for tertiary
+     metadata; 12px for captions only. */
+  --t-11: 0.6875rem;
+  --t-12: 0.75rem;
+  --t-13: 0.8125rem;
+  --t-14: 0.875rem;     /* secondary text */
+  --t-15: 0.9375rem;    /* body, row titles, navigation */
+  --t-17: 1.0625rem;    /* section titles */
+  --t-20: 1.25rem;      /* sub-headings, drawer titles */
+  --t-26: 1.625rem;     /* important values, feature titles */
+  --t-30: 1.875rem;     /* page titles */
+  --t-34: 2.125rem;     /* client greeting */
 
   --w-regular: 400;
   --w-medium: 500;
   --w-semibold: 600;
-  --w-bold: 700;      /* rarely: large figures only */
 
-  --lh-tight: 1.2;
+  --lh-tight: 1.15;
   --lh-snug: 1.35;
-  --lh-body: 1.5;
-  --track-title: -0.018em;
-  --track-head: -0.01em;
-  --track-over: 0.06em;
+  --lh-body: 1.55;
+  --track-display: -0.024em;
+  --track-title: -0.016em;
+  --track-head: -0.008em;
+  --track-over: 0.08em;
 
-  /* Space: 4pt grid */
-  --s-1: 4px; --s-2: 8px; --s-3: 12px; --s-4: 16px; --s-5: 20px;
-  --s-6: 24px; --s-8: 32px; --s-10: 40px; --s-12: 48px; --s-16: 64px;
+  /* Space */
+  --s-1: 4px; --s-2: 8px; --s-3: 12px; --s-4: 16px; --s-5: 20px; --s-6: 24px;
+  --s-7: 28px; --s-8: 32px; --s-10: 40px; --s-12: 48px; --s-14: 56px; --s-16: 64px; --s-20: 80px;
 
-  /* Radius: precise, four steps */
-  --r-xs: 4px;   /* markers, tags, kbd */
-  --r-sm: 6px;   /* buttons, inputs, nav items */
-  --r-md: 8px;   /* panels, grouped lists */
-  --r-lg: 12px;  /* sheets, dialogs, menus */
+  /* Rhythm aliases */
+  --gap-unit: var(--s-1);    /* inside a unit: title + sub */
+  --gap-group: var(--s-4);   /* inside a group: head + list */
+  --gap-zone: var(--s-14);   /* between major zones */
+
+  /* Radius: slightly softer, still precise */
+  --r-sm: 6px;    /* buttons, inputs, small controls */
+  --r-md: 10px;   /* nav items, rows on hover, tags */
+  --r-lg: 14px;   /* panels, zones */
+  --r-xl: 18px;   /* feature surfaces, sheets, dialogs */
   --r-full: 999px;
 
-  /* Control heights */
-  --h-sm: 28px;
-  --h-md: 32px;
-  --h-lg: 40px;
-  --row-h: 48px;
+  --h-sm: 32px;
+  --h-md: 36px;
+  --h-lg: 44px;
+  --row-h: 60px;
 
-  --sidebar-w: 248px;
-  --canvas-max: 1360px;
+  --sidebar-w: 264px;
+  --work-max: 1180px;   /* the central working width */
+  --wide-max: 1360px;   /* tables that need more */
   --ease: cubic-bezier(.2, .6, .2, 1);
-  --dur: 140ms;
+  --dur: 160ms;
 
-  /* ---------- 3. ROLE: light ---------- */
-  /* Neutrals: a quiet stone grey (faintly warm) under ink text (faintly
-     cool). The pairing reads calm and human rather than clinical. */
-  --app: #f5f5f3;          /* app ground, sidebar */
-  --canvas: #ffffff;       /* primary workspace */
-  --inset: #fafaf8;        /* secondary / inset areas, table heads */
-  --hover: #f3f3f1;        /* interactive hover */
-  --press: #ececea;
-  --selected: #ffffff;     /* selected nav item sits "lifted" on --app */
-  --strong: #17191e;       /* ink surface: toasts, tooltips */
-  --on-strong: #f5f5f3;
+  /* ---------- 3. ROLE: light (warm porcelain) ---------- */
+  --ground: #f3f1ec;        /* sidebar, staff/client page ground */
+  --canvas: #fcfbf9;        /* primary workspace */
+  --inset: #f6f4f0;         /* secondary zones */
+  --hover: #efece6;
+  --press: #e8e4dc;
+  --selected: #fcfbf9;      /* selected nav item: lifts to workspace tone */
+  --raised: #ffffff;        /* feature surfaces on the ground */
+  --float: #ffffff;         /* drawers, menus */
+  --strong: #1d1b18;        /* obsidian: toasts, tooltips */
+  --on-strong: #f6f4f0;
 
-  --line: #e6e6e3;         /* panel borders, dividers */
-  --line-strong: #d6d6d2;  /* inputs, secondary buttons */
-  --line-faint: #efefec;   /* row separators */
+  --line: #e7e3dc;          /* the only line most screens need */
+  --line-soft: #efece6;     /* row separators */
+  --line-strong: #d8d3c9;   /* inputs, secondary buttons */
 
-  --text: #16181d;
-  --text-2: #4f535a;
-  --text-3: #787c83;
-  --text-4: #a4a7ac;
+  --text: #1d1b18;          /* obsidian */
+  --text-2: #57534c;        /* graphite */
+  --text-3: #8a857c;
+  --text-4: #b3ada3;
 
   --accent: var(--accent-l);
   --accent-hover: color-mix(in oklab, var(--accent) 86%, #000);
-  --accent-soft: color-mix(in oklab, var(--accent) 7%, var(--canvas));
-  --accent-line: color-mix(in oklab, var(--accent) 22%, var(--canvas));
+  --accent-soft: color-mix(in oklab, var(--accent) 9%, var(--canvas));
+  --accent-line: color-mix(in oklab, var(--accent) 26%, var(--canvas));
   --on-accent: #ffffff;
-  --link: var(--accent);
+  --link: var(--text);
 
-  --danger: #b93a30;  --danger-soft: #fcf1ef; --danger-line: #f2d3cf;
-  --warn: #9c5f0e;    --warn-soft: #fcf6ea;   --warn-line: #efdcb8;
-  --ok: #2e7650;      --ok-soft: #eff7f2;     --ok-line: #cfe6d8;
-  --info: #45628f;    --info-soft: #f1f4f9;   --info-line: #d6dfeb;
+  /* Semantic: never branded. Warning is rust so it never reads as the
+     amber accent. */
+  --danger: #b2382c;  --danger-soft: #faefec;
+  --warn: #a9521b;    --warn-soft: #f9f0e7;
+  --ok: #2f7550;      --ok-soft: #edf5ef;
+  --info: #4b6286;    --info-soft: #eff2f6;
 
-  --shadow-xs: 0 1px 1px rgba(20, 22, 26, .04);
-  --shadow-sm: 0 1px 2px rgba(20, 22, 26, .06), 0 1px 1px rgba(20, 22, 26, .03);
-  --shadow-lg: 0 16px 40px -12px rgba(20, 22, 26, .22), 0 3px 8px rgba(20, 22, 26, .06);
-  --scrim: rgba(22, 24, 29, .32);
-  --focus: 0 0 0 2px var(--canvas), 0 0 0 4px color-mix(in oklab, var(--accent) 45%, transparent);
+  --shadow-xs: 0 1px 2px rgba(29, 27, 24, .05);
+  --shadow-float: 0 24px 60px -18px rgba(29, 27, 24, .28), 0 4px 12px rgba(29, 27, 24, .06);
+  --scrim: rgba(29, 27, 24, .28);
+  --focus: 0 0 0 2px var(--canvas), 0 0 0 4px color-mix(in oklab, var(--accent) 50%, transparent);
 
-  /* Avatar tint strength (per-person hue set inline as --h) */
-  --av-l: 0.94; --av-c: 0.028; --av-tl: 0.42; --av-tc: 0.06;
+  --av-l: 0.93; --av-c: 0.025; --av-tl: 0.43; --av-tc: 0.055;
 }
 
-/* ---------- ROLE: dark (charcoal, faintly blue; never pure black) ---------- */
+/* ---------- ROLE: dark (graphite and obsidian; never pure black) ---------- */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --app: #0f1115; --canvas: #15171c; --inset: #191c21; --hover: #1d2026; --press: #22262d; --selected: #1f2329;
-    --strong: #eceef1; --on-strong: #15171c;
-    --line: #262a31; --line-strong: #333842; --line-faint: #1f2228;
-    --text: #e8eaee; --text-2: #aab0b9; --text-3: #7f8690; --text-4: #5c626c;
+    --ground: #121110; --canvas: #191816; --inset: #1f1e1b; --hover: #24221f; --press: #2a2824;
+    --selected: #24221f; --raised: #1d1c19; --float: #1f1e1b; --strong: #ece9e3; --on-strong: #191816;
+    --line: #2b2925; --line-soft: #232120; --line-strong: #37342f;
+    --text: #ece9e3; --text-2: #b0aaa0; --text-3: #857f76; --text-4: #5e5952;
     --accent: var(--accent-d);
     --accent-hover: color-mix(in oklab, var(--accent) 86%, #fff);
-    --accent-soft: color-mix(in oklab, var(--accent) 10%, var(--canvas));
-    --accent-line: color-mix(in oklab, var(--accent) 28%, var(--canvas));
-    --on-accent: #111318;
-    --danger: #ec8a80; --danger-soft: #2a1a1a; --danger-line: #4a2724;
-    --warn: #dfae63;   --warn-soft: #2a2317; --warn-line: #4a3b1f;
-    --ok: #7cc49b;     --ok-soft: #17261e;   --ok-line: #24402f;
-    --info: #9bb2d8;   --info-soft: #1a2130; --info-line: #2a364c;
-    --shadow-xs: 0 1px 1px rgba(0, 0, 0, .3);
-    --shadow-sm: 0 1px 2px rgba(0, 0, 0, .4);
-    --shadow-lg: 0 18px 44px -12px rgba(0, 0, 0, .7), 0 0 0 1px var(--line);
-    --scrim: rgba(5, 6, 8, .6);
-    --av-l: 0.3; --av-c: 0.03; --av-tl: 0.86; --av-tc: 0.05;
+    --accent-soft: color-mix(in oklab, var(--accent) 12%, var(--canvas));
+    --accent-line: color-mix(in oklab, var(--accent) 30%, var(--canvas));
+    --on-accent: #191816;
+    --danger: #e8897d; --danger-soft: #2a1a17;
+    --warn: #e0a06b;   --warn-soft: #2a2018;
+    --ok: #7fbf98;     --ok-soft: #17241c;
+    --info: #9fb2d1;   --info-soft: #1b2029;
+    --shadow-xs: 0 1px 2px rgba(0, 0, 0, .35);
+    --shadow-float: 0 24px 60px -18px rgba(0, 0, 0, .75), 0 0 0 1px var(--line);
+    --scrim: rgba(0, 0, 0, .55);
+    --av-l: 0.3; --av-c: 0.03; --av-tl: 0.85; --av-tc: 0.05;
     color-scheme: dark;
   }
 }
 :root[data-theme="dark"] {
-  --app: #0f1115; --canvas: #15171c; --inset: #191c21; --hover: #1d2026; --press: #22262d; --selected: #1f2329;
-  --strong: #eceef1; --on-strong: #15171c;
-  --line: #262a31; --line-strong: #333842; --line-faint: #1f2228;
-  --text: #e8eaee; --text-2: #aab0b9; --text-3: #7f8690; --text-4: #5c626c;
+  --ground: #121110; --canvas: #191816; --inset: #1f1e1b; --hover: #24221f; --press: #2a2824;
+  --selected: #24221f; --raised: #1d1c19; --float: #1f1e1b; --strong: #ece9e3; --on-strong: #191816;
+  --line: #2b2925; --line-soft: #232120; --line-strong: #37342f;
+  --text: #ece9e3; --text-2: #b0aaa0; --text-3: #857f76; --text-4: #5e5952;
   --accent: var(--accent-d);
   --accent-hover: color-mix(in oklab, var(--accent) 86%, #fff);
-  --accent-soft: color-mix(in oklab, var(--accent) 10%, var(--canvas));
-  --accent-line: color-mix(in oklab, var(--accent) 28%, var(--canvas));
-  --on-accent: #111318;
-  --danger: #ec8a80; --danger-soft: #2a1a1a; --danger-line: #4a2724;
-  --warn: #dfae63;   --warn-soft: #2a2317; --warn-line: #4a3b1f;
-  --ok: #7cc49b;     --ok-soft: #17261e;   --ok-line: #24402f;
-  --info: #9bb2d8;   --info-soft: #1a2130; --info-line: #2a364c;
-  --shadow-xs: 0 1px 1px rgba(0, 0, 0, .3);
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, .4);
-  --shadow-lg: 0 18px 44px -12px rgba(0, 0, 0, .7), 0 0 0 1px var(--line);
-  --scrim: rgba(5, 6, 8, .6);
-  --av-l: 0.3; --av-c: 0.03; --av-tl: 0.86; --av-tc: 0.05;
+  --accent-soft: color-mix(in oklab, var(--accent) 12%, var(--canvas));
+  --accent-line: color-mix(in oklab, var(--accent) 30%, var(--canvas));
+  --on-accent: #191816;
+  --danger: #e8897d; --danger-soft: #2a1a17;
+  --warn: #e0a06b;   --warn-soft: #2a2018;
+  --ok: #7fbf98;     --ok-soft: #17241c;
+  --info: #9fb2d1;   --info-soft: #1b2029;
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, .35);
+  --shadow-float: 0 24px 60px -18px rgba(0, 0, 0, .75), 0 0 0 1px var(--line);
+  --scrim: rgba(0, 0, 0, .55);
+  --av-l: 0.3; --av-c: 0.03; --av-tl: 0.85; --av-tc: 0.05;
   color-scheme: dark;
 }
 
-/* Touch: larger body text and controls; same hierarchy. */
-@media (pointer: coarse), (max-width: 759px) {
-  :root { --t-14: 0.9375rem; --t-13: 0.875rem; --h-md: 40px; --h-sm: 34px; --row-h: 56px; }
+/* Phones: calmer still. Same scale, more room, bigger targets. */
+@media (max-width: 759px) {
+  :root { --t-30: 1.75rem; --t-34: 2rem; --h-md: 44px; --h-sm: 38px; --row-h: 68px; --gap-zone: var(--s-12); }
 }

@@ -11,8 +11,8 @@
       orgName: 'Northfield Group',
       orgSub: 'Operations',
       mark: null,
-      identity: '#1c2230',
-      accent: '#33589e',
+      identity: '#1d1b18',
+      accent: '#b7832f',
       terms: { staff: 'Staff', client: 'Client' }
     },
     joshevans: {

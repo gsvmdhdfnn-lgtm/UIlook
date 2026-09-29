@@ -62,7 +62,7 @@
     }
     var urgent = D.attention.summary.counts.Urgent;
     return '<aside class="sidebar" aria-label="Management navigation">' +
-      '<button type="button" class="workspace" data-action="soon" aria-label="Switch organisation">' + Hub.orgMark() + '<span class="org__name">' + esc(Hub.brand.orgName) + '</span>' + I('selector', 'icon-sm') + '</button>' +
+      '<button type="button" class="workspace" data-action="soon" aria-label="Switch organisation">' + Hub.orgMark() + '<span class="org__name">' + esc(Hub.brand.orgName) + '<span class="org__sub">' + esc(Hub.brand.orgSub) + '</span></span>' + I('selector', 'icon-sm') + '</button>' +
       '<nav class="nav">' + link('mgmt-home', 'Home', 'home') + link('mgmt-attention', 'Needs attention', 'attention', '<span class="count count--alert" title="' + urgent + ' urgent">' + attentionCount + '</span>') + '</nav>' +
       '<nav class="nav"><div class="nav__label">Workspace</div>' + D.areas.map(function (a) {
         var id = a.id === 'coaches' ? 'mgmt-coaches' : 'mgmt-' + a.id;
@@ -70,8 +70,8 @@
         return link(id, label, a.id === 'coaches' ? 'users' : a.id === 'players' ? 'family' : a.icon, a.on ? '' : '<span class="off">Off</span>');
       }).join('') + '</nav>' +
       '<nav class="nav"><div class="nav__label">Approvals</div>' + D.approvals.map(function (a) { return link('mgmt-' + a.id, a.label, a.icon, a.count ? '<span class="count">' + a.count + '</span>' : ''); }).join('') + '</nav>' +
-      '<nav class="nav nav--quiet">' + link('mgmt-settings', 'Settings', 'settings') + link('mgmt-more', 'All tools', 'grid') + '</nav>' +
-      '<div class="sidebar__foot">' + areaSwitch() +
+      '<div class="sidebar__foot"><nav class="nav nav--quiet">' + link('mgmt-settings', 'Settings', 'settings') + link('mgmt-more', 'All tools', 'grid') + '</nav>' +
+        '<div class="sidebar__rule"></div>' + areaSwitch() +
         '<button type="button" class="user-chip" data-action="profile">' + ui.avatar(D.me.name, 'md') + '<span class="truncate" style="text-align:left"><b>' + esc(D.me.name) + '</b><small>Management</small></span>' + I('dotsV', 'icon-sm') + '</button>' +
         '<div class="powered">' + Hub.relvorMark + '<span>Relvor</span></div>' +
       '</div></aside>';
@@ -82,7 +82,7 @@
     var extra = { 'mgmt-coaches': 'People' };
     var title = extra[S.route] || (n && (n.long || n.label)) || pageTitle();
     return '<div class="canvas-bar"><div class="crumbs"><span>Management</span>' + I('chevron') + '<b>' + esc(title) + '</b></div><span class="canvas-bar__spacer"></span>' +
-      '<button type="button" class="search-trigger" data-action="soon">' + I('search') + '<span>Search</span><span class="kbd">⌘K</span></button>' +
+      '<button type="button" class="search-trigger" data-action="soon">' + I('search') + '<span>Search people, sessions, items</span><span class="kbd">⌘K</span></button>' +
       '<button type="button" class="icon-btn" data-action="soon" aria-label="Notifications">' + I('bell') + '<span class="dot"></span></button></div>';
   }
 
@@ -114,7 +114,7 @@
   }
   function placeholder() {
     return '<div class="page page--narrow">' + ui.pageHead({ overline: areaLabel(S.area), title: pageTitle() }) +
-      '<div class="panel">' + ui.empty('grid', 'Not part of this visual pass', 'The shared system is ready to apply here. This screen keeps its place in navigation so the shell reads as complete.') + '</div></div>';
+      '<div class="zone-inset">' + ui.empty('grid', 'Not part of this visual pass', 'The shared system is ready to apply here. This screen keeps its place in navigation so the shell reads as complete.') + '</div></div>';
   }
 
   Hub.state = S;
@@ -175,7 +175,7 @@
     var who = S.area === 'client' ? { name: D.parent.name, email: D.parent.email, role: terms().client } : { name: D.me.name, email: D.me.email, role: S.role === 'management' ? 'Management' : terms().staff };
     Hub.openSheet({
       title: esc(who.name), meta: '<div class="identity__meta"><span>' + esc(who.role) + '</span><span>' + esc(who.email) + '</span></div>',
-      body: '<div class="panel">' + ui.rows([
+      body: '<div>' + ui.rows([
         ui.row({ lead: '<span class="row__icon">' + I('user', 'icon-sm') + '</span>', title: 'Profile', action: 'soon' }),
         ui.row({ lead: '<span class="row__icon">' + I('bell', 'icon-sm') + '</span>', title: 'Notifications', action: 'soon' }),
         ui.row({ lead: '<span class="row__icon">' + I('logout', 'icon-sm') + '</span>', title: 'Log out', action: 'soon', chevron: false })
