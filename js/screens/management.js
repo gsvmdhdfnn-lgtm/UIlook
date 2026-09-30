@@ -55,40 +55,83 @@
       actions: ui.btn(c.actionLabel, { variant: 'primary', trail: 'arrowRight', attrs: { 'data-action': 'case', 'data-key': c.caseKey } }) + ui.btn('Details', { variant: 'tertiary', attrs: { 'data-action': 'case', 'data-key': c.caseKey } }) });
   }
 
+  /* ---------------------------------------------------------------- HOME
+     Pass 7: composed from the supplied reference. Greeting, four soft
+     summary cards, two primary surfaces (schedule, attention), a quiet
+     right-hand rail (today, recent activity) and three feature panels. */
+  function backdrop() {
+    /* A soft, misty ridgeline behind the greeting: tonal layers only. */
+    return '<div class="hx__backdrop" aria-hidden="true"><svg viewBox="0 0 1200 420" preserveAspectRatio="xMidYMin slice">' +
+      '<path class="r1" d="M0 250 C140 205 250 190 360 212 C470 234 560 170 690 140 C800 115 880 150 960 128 C1050 104 1130 70 1200 86 L1200 420 L0 420Z"/>' +
+      '<path class="r2" d="M0 300 C120 270 230 262 350 280 C480 300 590 236 720 214 C840 194 930 232 1030 206 C1110 186 1160 170 1200 176 L1200 420 L0 420Z"/>' +
+      '<path class="r3" d="M0 350 C180 322 330 330 470 340 C620 350 760 300 900 292 C1030 285 1120 300 1200 290 L1200 420 L0 420Z"/>' +
+      '</svg></div>';
+  }
+  function stat(icon, tone, value, label, href) {
+    return '<a class="hx-stat" href="' + href + '"><span class="hx-stat__icon hx-tone--' + tone + '">' + I(icon, 'icon-sm') + '</span><span class="hx-stat__text"><b class="num">' + value + '</b><small>' + esc(label) + '</small></span>' + I('chevron', 'icon-sm hx-chev') + '</a>';
+  }
+  function schedRow(o) {
+    var risk = !o.staff.length || o.staff.some(function (s) { return s.unavailable; });
+    return '<button type="button" class="hx-sched" data-action="' + (risk ? 'case' : 'soon') + '"' + (risk ? ' data-key="' + (o.id === 'o4' ? 'assigned_coach_unavailable|occurrence:o4|coach:charlie' : 'session_no_coach|occurrence:o5') + '"' : '') + '>' +
+      '<span class="hx-sched__bar hx-tone--' + (risk ? 'warn' : 'ok') + '"></span>' +
+      '<span class="hx-sched__time num">' + o.start + '<small>' + o.end + '</small></span>' +
+      '<span class="hx-sched__main"><b>' + esc(o.session) + '</b><small>' + esc(venue(o)) + '</small></span>' +
+      '<span class="hx-sched__count num">' + I('users', 'icon-sm') + o.players + '</span>' +
+      '<span class="hx-pill hx-pill--' + (risk ? 'warn' : 'ok') + '">' + (risk ? 'At risk' : 'On track') + '</span>' + I('chevron', 'icon-sm hx-chev') + '</button>';
+  }
+  function attnRow(c) {
+    return '<button type="button" class="hx-attn" data-action="case" data-key="' + esc(c.caseKey) + '"><span class="hx-dot hx-tone--' + (c.severity === 'Urgent' ? 'danger' : c.severity === 'Warning' ? 'warn' : 'muted') + '"></span>' +
+      '<span class="hx-attn__main"><b>' + esc(c.title) + '</b><small>' + esc(c.when) + ' · ' + esc(c.category) + '</small></span>' + I('chevron', 'icon-sm hx-chev') + '</button>';
+  }
+  function feature(tone, title, body, cta, href, icon) {
+    return '<a class="hx-feature hx-feature--' + tone + '" href="' + href + '"><span class="hx-feature__text"><span class="hx-feature__title serif">' + title + '</span><span class="hx-feature__body">' + esc(body) + '</span>' +
+      '<span class="hx-feature__cta">' + esc(cta) + I('arrowRight', 'icon-sm') + '</span></span><span class="hx-feature__icon">' + I(icon) + '</span></a>';
+  }
+
   Hub.screens['mgmt-home'] = function (ctx) {
-    var A = D.attention, c = A.summary.counts, T = ui.tok;
-    var urgent = A.cases.filter(function (x) { return x.severity === 'Urgent'; });
-    var rest = A.cases.filter(function (x) { return x.severity !== 'Urgent'; });
+    var A = D.attention, c = A.summary.counts, first = D.me.name.split(' ')[0];
+    var hello = '<header class="hx__hello"><div class="overline">Thursday 1 October</div><h1 class="hx__title serif">Good afternoon, ' + esc(first) + '.</h1>' +
+      '<p class="hx__lede">Here’s what’s happening across ' + esc(Hub.brand.orgFull || Hub.brand.orgName) + ' today.</p></header>';
 
-    if (ctx.state === 'loading') return '<div class="page"><div class="home"><div class="brief"><span class="skeleton" style="height:12px;width:140px"></span><span class="skeleton" style="height:34px;width:360px"></span><span class="skeleton" style="height:20px;width:80%"></span><span class="skeleton" style="height:20px;width:60%"></span></div><span class="skeleton" style="height:150px;border-radius:14px"></span></div></div>';
-    if (ctx.state === 'error') return '<div class="page"><div class="home">' + ui.brief({ kicker: 'Brief', title: 'Good afternoon, ' + D.me.name.split(' ')[0], lines: ['The operation couldn’t be checked just now, so Relvor isn’t showing a brief it can’t stand behind.'] }) + ui.notice('danger', 'Couldn’t load today’s operation', 'Try again in a moment. Nothing is shown as clear until the checks complete.', { action: ui.btn('Retry', { size: 'sm', icon: 'refresh' }) }) + '</div></div>';
+    if (ctx.state === 'loading') return '<div class="hx">' + backdrop() + '<div class="hx__grid"><div class="hx__main">' + hello + '<div class="hx__stats">' + [1, 2, 3, 4].map(function () { return '<span class="skeleton" style="height:72px;border-radius:16px"></span>'; }).join('') + '</div><span class="skeleton" style="height:320px;border-radius:20px"></span></div></div></div>';
+    if (ctx.state === 'error') return '<div class="hx">' + backdrop() + '<div class="hx__grid"><div class="hx__main">' + hello + ui.notice('danger', 'Couldn’t load today’s operation', 'Nothing is shown as clear until the checks complete. Try again in a moment.', { action: ui.btn('Retry', { size: 'sm', icon: 'refresh' }) }) + '</div></div></div>';
 
-    var brief = ctx.state === 'empty'
-      ? ui.brief({ kicker: 'Brief · updated 14:10', title: 'Good afternoon, ' + D.me.name.split(' ')[0], lines: ['Nothing is scheduled today and nothing needs a decision. ' + T('2 sessions', '', '#mgmt-schedule') + ' run tomorrow.'] })
-      : ui.brief({ kicker: 'Brief · updated 14:10', title: 'Good afternoon, ' + D.me.name.split(' ')[0],
-          lines: [T('4 sessions', '', '#mgmt-schedule') + ' run today across ' + T('2 locations') + ', 15:30 to 20:30, with ' + T('53 expected') + '. ' +
-            T(c.Urgent + ' need a decision', 'danger', '#mgmt-attention') + ' before tonight, and ' + T('4 approvals', '', '#mgmt-more') + ' are waiting. Everything else is on track.'],
-          since: D.lastVisit, changes: D.changes });
+    var empty = ctx.state === 'empty';
+    var stats = '<div class="hx__stats">' +
+      stat('attention', 'danger', empty ? 0 : c.Urgent, 'Need a decision', '#mgmt-attention') +
+      stat('inbox', 'warn', empty ? 0 : 4, 'Awaiting approval', '#mgmt-more') +
+      stat('calendar', 'ok', empty ? 0 : 4, 'Sessions today', '#mgmt-schedule') +
+      stat('users', 'muted', empty ? 0 : 53, 'Players expected', '#mgmt-schedule') + '</div>';
 
-    var day = ctx.state === 'empty' ? '' : ui.dayline({ label: 'Today', meta: 'Thursday 1 October · ' + D.term, start: 14, end: 21, now: '14:10', items: dayItems(todayOcc()), legend: true });
+    var sched = '<section class="hx-card"><div class="hx-card__head"><h2 class="serif">Today’s schedule</h2><a class="hx-link" href="#mgmt-schedule">View full day' + I('arrowRight', 'icon-sm') + '</a></div>' +
+      (empty ? ui.empty('calendar', 'Nothing scheduled today', 'Tomorrow has 2 sessions.') : '<div class="hx-list">' + todayOcc().slice().sort(function (a, b) { return a.start < b.start ? -1 : 1; }).map(schedRow).join('') + '</div>') + '</section>';
 
-    var decisions = ctx.state === 'empty' ? '' : '<section class="section section--primary">' + ui.chapter('Decisions', { meta: urgent.length + ' before tonight', link: 'Open queue', href: '#mgmt-attention' }) + '<div class="decisions">' + urgent.map(decisionFor).join('') + '</div></section>';
+    var attn = '<section class="hx-card"><div class="hx-card__head"><h2 class="serif">Needs attention</h2><a class="hx-link" href="#mgmt-attention">View all' + I('arrowRight', 'icon-sm') + '</a></div>' +
+      (empty ? ui.empty('checkCircle', 'Nothing needs attention', 'Staffing, cover and compliance are in order.', 'ok') : '<div class="hx-list">' + A.cases.slice(0, 5).map(attnRow).join('') + '</div>') + '</section>';
 
-    var list = ctx.state === 'empty' ? '<div class="zone-inset">' + ui.empty('checkCircle', 'Nothing needs attention', 'Staffing, cover and compliance are in order.', 'ok') + '</div>'
-      : ui.rows(rest.slice(0, 3).map(caseRow), 'rows--lead') + '<a class="more-link" href="#mgmt-attention">' + (rest.length - 3) + ' more in the queue' + I('arrowRight', 'icon-sm') + '</a>';
+    var week = [['Mon', 28], ['Tue', 29], ['Wed', 30], ['Thu', 1], ['Fri', 2], ['Sat', 3], ['Sun', 4]];
+    var today = '<section class="hx-card hx-card--rail"><div class="hx-card__head"><div><h2 class="serif">Today</h2><small class="hx-sub">Thu 1 Oct 2026</small></div><span class="hx-arrows"><button type="button" class="icon-btn" aria-label="Previous day" data-action="soon">' + I('chevron', 'icon-sm flip') + '</button><button type="button" class="icon-btn" aria-label="Next day" data-action="soon">' + I('chevron', 'icon-sm') + '</button></span></div>' +
+      '<div class="hx-week">' + week.map(function (d, i) { return '<span class="hx-week__day' + (i === 3 ? ' is-today' : '') + '"><small>' + d[0] + '</small><b>' + d[1] + '</b></span>'; }).join('') + '</div>' +
+      '<div class="hx-timeline">' + (empty ? '<p class="hx-sub">Nothing scheduled.</p>' : todayOcc().slice().sort(function (a, b) { return a.start < b.start ? -1 : 1; }).map(function (o) {
+        var risk = o.staff.some(function (s) { return s.unavailable; });
+        return '<div class="hx-tl"><span class="hx-tl__time num">' + o.start + '</span><span class="hx-dot hx-tone--' + (risk ? 'warn' : 'ok') + '"></span><span class="hx-tl__main"><b>' + esc(o.session) + '</b><small>' + esc(venue(o)) + '</small></span></div>';
+      }).join('')) + '</div></section>';
 
-    var approvals = '<div class="zone-inset">' + ui.rows(D.approvals.filter(function (a) { return a.count; }).map(function (a) {
-      return ui.row({ title: esc(a.label), trail: '<span class="num">' + a.count + '</span>', href: '#mgmt-' + a.id, cls: 'row--quiet' });
-    }), 'rows--quiet') + '</div>';
-    var tomorrow = '<div class="zone-inset">' + ui.rows(tomorrowOcc().slice().sort(function (a, b) { return a.start < b.start ? -1 : 1; }).map(function (o) {
-      return ui.row({ title: esc(o.session), sub: [o.start + '–' + o.end, esc(venue(o))], trail: o.staff.length ? '' : '<span class="status status--danger status--plain">No staff</span>', action: 'soon', chevron: false, cls: 'row--quiet' });
-    }), 'rows--quiet') + '</div>';
+    var icons = { danger: 'userCheck', '': 'shield' };
+    var activity = '<section class="hx-card hx-card--rail"><div class="hx-card__head"><h2 class="serif">Recent activity</h2><a class="hx-link" href="#mgmt-attention">View all' + I('arrowRight', 'icon-sm') + '</a></div><div class="hx-activity">' +
+      D.changes.map(function (ch, i) {
+        var tone = ['warn', 'ok', 'blue'][i % 3], icon = ['calendar', 'shield', 'inbox'][i % 3];
+        return '<div class="hx-act"><span class="hx-act__icon hx-tone--' + tone + '">' + I(icon, 'icon-sm') + '</span><span><b>' + esc(ch.text) + '</b><small>' + esc(ch.time) + '</small></span></div>';
+      }).join('') + '</div></section>';
 
-    /* Pass 6: less at once. Approvals live in the Brief; tomorrow lives in
-       Schedule. Home is Brief, Today, Decisions, and a short remainder. */
-    return '<div class="page page--home6"><div class="home">' + brief + day + decisions +
-      '<section class="section home-rest">' + ui.chapter('Also on your list', { meta: ctx.state === 'empty' ? '' : rest.length + ' items' }) + list + '</section>' +
-      '</div></div>';
+    var features = '<div class="hx__features">' +
+      feature('teal', 'Manage<br>your schedule', 'View, edit and manage all upcoming sessions.', 'Open schedule', '#mgmt-schedule', 'calendar') +
+      feature('clay', 'View and<br>manage people', 'Staff, players and families in one place.', 'Go to people', '#mgmt-coaches', 'users') +
+      feature('graphite', 'Financial<br>overview', 'Billing, invoices and session finances.', 'View finance', '#mgmt-finance', 'development') + '</div>';
+
+    return '<div class="hx">' + backdrop() + '<div class="hx__grid"><div class="hx__main">' + hello + stats +
+      '<div class="hx__pair">' + sched + attn + '</div>' + features + '</div>' +
+      '<aside class="hx__rail">' + today + activity + '</aside></div></div>';
   };
 
   /* Section-tab state per module, and the crumb tail for the context bar */

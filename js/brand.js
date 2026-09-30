@@ -18,6 +18,7 @@
     joshevans: {
       id: 'joshevans',
       orgName: 'Josh Evans',
+      orgFull: 'Josh Evans Coaching',
       orgSub: 'Coaching',
       mark: 'assets/je-mark.png',
       identity: '#062a59',
@@ -52,6 +53,8 @@
     if (b.mark) return '<img class="org-mark" src="' + b.mark + '" alt="">';
     return '<span class="org-mark org-mark--mono" aria-hidden="true">' + initials(b.orgName) + '</span>';
   };
+  /* The Relvor logo: a champagne 'r' built from a stem and a leaf. */
+  Hub.relvorLogo = '<svg class="rv-logo" viewBox="0 0 32 32" aria-hidden="true"><defs><linearGradient id="rvg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f6e7cf"/><stop offset="1" stop-color="#c9a574"/></linearGradient></defs><rect x="5" y="6" width="7.5" height="21" rx="3.75" fill="url(#rvg)"/><path d="M14.5 13.5C14.5 8.8 18.3 5 23 5h2.2c1 0 1.8.8 1.8 1.8v1.4c0 4.7-3.8 8.5-8.5 8.5h-4v-3.2Z" fill="url(#rvg)" opacity=".92"/></svg>';
   /* Relvor's own mark: used quietly, never over the organisation. */
   Hub.relvorMark = '<svg viewBox="0 0 16 16" aria-hidden="true"><rect x="0.5" y="0.5" width="15" height="15" rx="3.5" fill="currentColor"/><path d="M5.5 11.5v-7h3.1a2.1 2.1 0 0 1 0 4.2H5.5M8.4 8.7l2.3 2.8" fill="none" stroke="var(--canvas)" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 })();

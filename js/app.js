@@ -56,26 +56,27 @@
     return '<div class="area-switch" role="group" aria-label="Switch workspace view"><button type="button" data-action="area" data-area="management" aria-pressed="' + (S.area === 'management') + '">Manage</button><button type="button" data-action="area" data-area="staff" aria-pressed="' + (S.area === 'staff') + '">' + esc(terms().staff) + '</button></div>';
   }
 
+  /* Pass 7 sidebar: a floating obsidian card. Relvor at the top, the
+     organisation switcher beneath it, one calm list of destinations, and
+     settings, help and the person anchored at the bottom. */
   function sidebar() {
     function link(id, label, icon, trail) {
       return '<a class="nav-link" href="#' + id + '"' + (S.route === id ? ' aria-current="page"' : '') + '>' + I(icon) + '<span>' + esc(label) + '</span>' + (trail || '') + '</a>';
     }
-    var urgent = D.attention.summary.counts.Urgent;
+    var mark = { schedule: 'Urgent', coaches: 'Warning' };
     return '<aside class="sidebar" aria-label="Management navigation">' +
-      '<button type="button" class="workspace" data-action="soon" aria-label="Switch organisation">' + Hub.orgMark() + '<span class="org__name">' + esc(Hub.brand.orgName) + '<span class="org__sub org-live">Live \u00b7 4 sessions today</span></span>' + I('selector', 'icon-sm') + '</button>' +
-      '<nav class="nav">' + link('mgmt-home', 'Home', 'home') + link('mgmt-attention', 'Needs attention', 'attention', '<span class="count count--alert" title="' + urgent + ' urgent">' + attentionCount + '</span>') + '</nav>' +
-      '<nav class="nav"><div class="nav__label">Workspace</div>' + D.areas.map(function (a) {
-        var id = a.id === 'coaches' ? 'mgmt-coaches' : 'mgmt-' + a.id;
-        var label = a.id === 'coaches' ? 'People' : a.label;
-        /* State marks travel up: a module shows the worst state inside it */
-        var mark = { schedule: 'Urgent', coaches: 'Warning', players: 'Normal', finance: 'Normal' }[a.id];
-        return link(id, label, a.id === 'coaches' ? 'users' : a.id === 'players' ? 'family' : a.icon, a.on ? (mark ? ui.sev(mark) : '') : '<span class="off">Off</span>');
-      }).join('') + '</nav>' +
-      '<nav class="nav"><div class="nav__label">Approvals</div>' + D.approvals.map(function (a) { return link('mgmt-' + a.id, a.label, a.icon, a.count ? '<span class="count">' + a.count + '</span>' : ''); }).join('') + '</nav>' +
-      '<div class="sidebar__foot"><nav class="nav nav--quiet">' + link('mgmt-settings', 'Settings', 'settings') + link('mgmt-more', 'All tools', 'grid') + '</nav>' +
-        '<div class="sidebar__rule"></div>' + areaSwitch() +
-        '<button type="button" class="user-chip" data-action="profile">' + ui.avatar(D.me.name, 'md') + '<span class="truncate" style="text-align:left"><b>' + esc(D.me.name) + '</b><small>Management</small></span>' + I('dotsV', 'icon-sm') + '</button>' +
-        '<div class="powered">' + Hub.relvorMark + '<span>Relvor</span></div>' +
+      '<a class="rv-brand" href="#mgmt-home" aria-label="Relvor home">' + Hub.relvorLogo + '<span>Relvor</span></a>' +
+      '<button type="button" class="org-card" data-action="soon" aria-label="Switch organisation"><span class="org-card__mark">' + esc(ui.initials(Hub.brand.orgName)) + '</span><span class="org-card__text"><b>' + esc(Hub.brand.orgFull || Hub.brand.orgName) + '</b><small>Switch organisation</small></span>' + I('chevron', 'icon-sm') + '</button>' +
+      '<nav class="nav nav--main">' + link('mgmt-home', 'Home', 'home') + link('mgmt-attention', 'Needs attention', 'attention', '<span class="count count--alert">' + attentionCount + '</span>') +
+        D.areas.map(function (a) {
+          var id = a.id === 'coaches' ? 'mgmt-coaches' : 'mgmt-' + a.id;
+          var label = a.id === 'coaches' ? 'People' : a.label;
+          return link(id, label, a.id === 'coaches' ? 'users' : a.id === 'players' ? 'family' : a.icon, a.on ? (mark[a.id] ? ui.sev(mark[a.id]) : '') : '<span class="off">Off</span>');
+        }).join('') + '</nav>' +
+      '<nav class="nav nav--sub"><div class="nav__label">Approvals</div>' + D.approvals.map(function (a) { return link('mgmt-' + a.id, a.label, a.icon, a.count ? '<span class="count">' + a.count + '</span>' : ''); }).join('') + '</nav>' +
+      '<div class="sidebar__foot"><nav class="nav nav--quiet">' + link('mgmt-settings', 'Settings', 'settings') + link('mgmt-more', 'Help & all tools', 'info') + '</nav>' +
+        areaSwitch() +
+        '<button type="button" class="user-card" data-action="profile">' + ui.avatar(D.me.name, 'md') + '<span class="truncate"><b>' + esc(D.me.name) + '</b><small>Management</small></span>' + I('chevron', 'icon-sm') + '</button>' +
       '</div></aside>';
   }
 
@@ -84,6 +85,12 @@
     var extra = { 'mgmt-coaches': 'People', 'mgmt-schedule': 'Schedule & Sessions', 'mgmt-finance': 'Finance' };
     var title = extra[S.route] || (n && (n.long || n.label)) || pageTitle();
     var tail = Hub.crumbTail ? I('chevron') + '<b>' + esc(Hub.crumbTail) + '</b>' : '';
+    if (S.route === 'mgmt-home') {
+      return '<div class="canvas-bar canvas-bar--home"><button type="button" class="search-trigger" data-action="soon">' + I('search') + '<span>Search anything\u2026</span><span class="kbd">\u2318K</span></button><span class="canvas-bar__spacer"></span>' +
+        ui.btn('Add new', { variant: 'primary', size: 'sm', icon: 'plus', attrs: { 'data-action': 'soon' } }) +
+        '<button type="button" class="icon-btn" data-action="soon" aria-label="Notifications">' + I('bell') + '<span class="dot"></span></button>' +
+        '<button type="button" class="me-btn" data-action="profile" aria-label="Account">' + ui.avatar(D.me.name, 'sm') + '</button></div>';
+    }
     return '<div class="canvas-bar"><div class="crumbs"><span>Management</span>' + I('chevron') + (tail ? '<span>' + esc(title) + '</span>' + tail : '<b>' + esc(title) + '</b>') + '</div><span class="canvas-bar__spacer"></span>' +
       '<button type="button" class="search-trigger" data-action="soon">' + I('search') + '<span>Search people, sessions, items</span><span class="kbd">⌘K</span></button>' +
       '<button type="button" class="icon-btn" data-action="soon" aria-label="Notifications">' + I('bell') + '<span class="dot"></span></button></div>';

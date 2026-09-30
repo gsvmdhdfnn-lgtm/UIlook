@@ -4,7 +4,8 @@ A visual-design prototype for Relvor, the operations platform (Josh Evans is
 one example organisation using it). It is a static, mock-data front end for
 trying out the look and feel. It is not a second Hub.
 
-- **Pass 6, Atelier (current):** `docs/VISUAL-PASS-6.md`, `docs/screenshots/pass-6/`. Obsidian spine, glide rail, editorial serif, glass and motion.
+- **Pass 7, reference Management Home (current):** `docs/VISUAL-PASS-7.md`, `docs/screenshots/pass-7/`. Floating obsidian sidebar on porcelain; greeting, soft summary cards, primary surfaces, quiet rail, feature panels.
+- **Pass 6, Atelier:** branch `claude/visual-pass-6`; `docs/VISUAL-PASS-6.md`, `docs/screenshots/pass-6/`. Obsidian spine, glide rail, editorial serif, glass and motion.
 - **Pass 5, product identity:** `docs/VISUAL-PASS-5.md`, `docs/screenshots/pass-5/`. The Brief, the Day Line, state marks and decisions, index tabs.
 - **Pass 4, section navigation:** `docs/VISUAL-PASS-4.md`, `docs/screenshots/pass-4/`.
 - **Visual pass 3:** `docs/VISUAL-PASS-3.md`, `docs/screenshots/pass-3/`.
@@ -48,6 +49,7 @@ css/shell.css       top bar, bottom tab bar, desktop sidebar, area switch
 css/screens.css     per-screen composition only
 css/signature.css   Relvor's signature patterns (Brief, Day Line, marks, decisions, index tabs)
 css/atelier.css     pass 6: spine, inset panel, glide rail, serif chapters, glass, depth, motion
+css/home.css        pass 7: floating sidebar shell and the Management Home composition
 js/brand.js         branding boundary (name, mark, accent, terms; accent clamped for contrast)
 js/icons.js         stroke icon set
 js/ui.js            component helpers (one per pattern)
