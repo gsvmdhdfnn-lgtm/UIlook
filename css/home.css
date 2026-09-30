@@ -24,6 +24,15 @@
   --ridge-2: rgba(178, 168, 152, .32);
   --ridge-3: rgba(160, 150, 136, .26);
   --hx-ease: cubic-bezier(.22, 1, .36, 1);
+  /* Shell accents (the obsidian sidebar and top bar); palettes override these */
+  --shell-active: linear-gradient(100deg, rgba(246, 231, 207, .17), rgba(201, 165, 116, .09));
+  --shell-active-edge: rgba(246, 231, 207, .07);
+  --shell-active-icon: #e9cfa5;
+  --shell-active-text: #fbf4e8;
+  --shell-mark: linear-gradient(150deg, #f3e3c8, #b8905c);
+  --shell-mark-ink: #2a2118;
+  --shell-solid: #1f1c19;
+  --tab-bar: linear-gradient(180deg, #c9a574, #a67a44);
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
@@ -80,7 +89,7 @@
 .org-card:hover { background: rgba(255, 246, 230, .08); }
 .org-card__mark {
   width: 36px; height: 36px; flex: none; display: grid; place-items: center; border-radius: 50%;
-  background: linear-gradient(150deg, #f3e3c8, #b8905c); color: #2a2118; font-size: 12px; font-weight: 700; letter-spacing: .02em;
+  background: var(--shell-mark); color: var(--shell-mark-ink); font-size: 12px; font-weight: 700; letter-spacing: .02em;
 }
 .org-card__text { flex: 1; min-width: 0; display: grid; gap: 2px; }
 .org-card__text b { font-size: 14px; font-weight: 600; line-height: 1.25; }
@@ -92,10 +101,10 @@
 .sidebar .nav--main .nav-link, .sidebar .nav--sub .nav-link { height: 42px; padding: 0 14px; border-radius: 12px; font-size: 14.5px; gap: 14px; }
 .sidebar .nav-link { transition: background var(--dur-1) var(--hx-ease), color var(--dur-1) var(--hx-ease); }
 .sidebar .nav-link[aria-current="page"] {
-  background: linear-gradient(100deg, rgba(246, 231, 207, .17), rgba(201, 165, 116, .09));
-  color: #fbf4e8; box-shadow: inset 0 1px 0 rgba(255, 246, 230, .1), inset 0 0 0 1px rgba(246, 231, 207, .07);
+  background: var(--shell-active);
+  color: var(--shell-active-text); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .1), inset 0 0 0 1px var(--shell-active-edge);
 }
-.sidebar .nav-link[aria-current="page"] .icon { color: #e9cfa5; }
+.sidebar .nav-link[aria-current="page"] .icon { color: var(--shell-active-icon); }
 .sidebar .nav--sub .nav-link { height: 34px; font-size: 13.5px; color: var(--spine-text-3); }
 .sidebar .nav--sub .nav__label { padding-left: 14px; }
 .sidebar__foot { margin-top: auto; padding-top: 20px; display: grid; gap: 10px; }
@@ -222,13 +231,13 @@
 .hx-week__day { display: grid; justify-items: center; gap: 4px; padding: 9px 0 10px; border-radius: 12px; color: var(--text-3); transition: background var(--dur-1); }
 .hx-week__day small { font-size: 11px; letter-spacing: .04em; }
 .hx-week__day b { font-size: 15px; font-weight: 600; color: var(--text-2); }
-.hx-week__day.is-today { background: #1f1c19; color: rgba(255, 246, 230, .6); box-shadow: 0 8px 18px -10px rgba(20, 14, 8, .6); }
-.hx-week__day.is-today b { color: #fbf4e8; }
-:root[data-theme="dark"] .hx-week__day.is-today { background: linear-gradient(160deg, #e9d3ae, #b8905c); color: rgba(42, 33, 24, .7); }
-:root[data-theme="dark"] .hx-week__day.is-today b { color: #2a2118; }
+.hx-week__day.is-today { background: var(--shell-solid); color: rgba(255, 246, 230, .6); box-shadow: 0 8px 18px -10px rgba(20, 14, 8, .6); }
+.hx-week__day.is-today b { color: var(--shell-active-text); }
+:root[data-theme="dark"] .hx-week__day.is-today { background: var(--shell-mark); color: color-mix(in oklab, var(--shell-mark-ink) 70%, transparent); }
+:root[data-theme="dark"] .hx-week__day.is-today b { color: var(--shell-mark-ink); }
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) .hx-week__day.is-today { background: linear-gradient(160deg, #e9d3ae, #b8905c); color: rgba(42, 33, 24, .7); }
-  :root:not([data-theme="light"]) .hx-week__day.is-today b { color: #2a2118; }
+  :root:not([data-theme="light"]) .hx-week__day.is-today { background: var(--shell-mark); color: color-mix(in oklab, var(--shell-mark-ink) 70%, transparent); }
+  :root:not([data-theme="light"]) .hx-week__day.is-today b { color: var(--shell-mark-ink); }
 }
 .hx-timeline { display: grid; gap: 2px; position: relative; }
 .hx-tl { display: grid; grid-template-columns: 44px 9px minmax(0, 1fr); gap: 14px; align-items: start; padding: 10px 0; position: relative; }

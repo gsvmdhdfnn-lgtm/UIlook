@@ -1,0 +1,89 @@
+/* =====================================================================
+   Palette experiment (generated). Three colour schemes on the same
+   structure; the prototype bar picks one per area or one for all.
+   Each palette sets the shell (sidebar / top bar), its active state, the
+   canvas and surfaces (light theme), and the platform accent (Relvor brand
+   only: an organisation's own accent always wins). Status colours never
+   change.
+   ===================================================================== */
+
+/* Slate & Ice: cool, precise, automotive */
+.app[data-palette="slate"] {
+  --spine-image: linear-gradient(180deg, #1a2433 0%, #0f1621 100%);
+  --spine-text: #e6ecf3; --spine-text-2: #a8b5c3; --spine-text-3: #6f7d8c;
+  --shell-active: linear-gradient(100deg, rgba(206,224,242,.18), rgba(140,172,204,.09)); --shell-active-edge: rgba(206,224,242,.08); --shell-active-icon: #b7d0e8; --shell-active-text: #f3f7fb;
+  --shell-mark: linear-gradient(150deg, #e3ecf5, #8ea9c3); --shell-mark-ink: #122030; --shell-solid: #1a2433; --tab-bar: linear-gradient(180deg, #8fb1d0, #4f7aa0);
+}
+.app[data-brand="relvor"][data-palette="slate"] { --accent: #33617f; --accent-hover: color-mix(in oklab, #33617f 86%, #000); --accent-soft: color-mix(in oklab, #33617f 9%, #fff); --accent-line: color-mix(in oklab, #33617f 26%, #fff); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .app[data-brand="relvor"][data-palette="slate"] { --accent: #8fb8d8; --accent-hover: color-mix(in oklab, #8fb8d8 86%, #fff); --accent-soft: color-mix(in oklab, #8fb8d8 12%, #1a1a1a); --accent-line: color-mix(in oklab, #8fb8d8 30%, #1a1a1a); } }
+:root[data-theme="dark"] .app[data-brand="relvor"][data-palette="slate"] { --accent: #8fb8d8; --accent-hover: color-mix(in oklab, #8fb8d8 86%, #fff); --accent-soft: color-mix(in oklab, #8fb8d8 12%, #1a1a1a); --accent-line: color-mix(in oklab, #8fb8d8 30%, #1a1a1a); }
+@media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) .app[data-palette="slate"] {
+  --porcelain: #eef1f4; --porcelain-image: radial-gradient(1200px 600px at 78% -10%, rgba(255,255,255,.95), transparent 60%), radial-gradient(900px 700px at 10% 110%, rgba(214,224,234,.6), transparent 60%), linear-gradient(180deg, #f2f4f6 0%, #eaeef2 100%);
+  --hx-surface: color-mix(in oklab, #fbfcfd 80%, transparent); --hx-surface-solid: #fbfcfd; --hx-rail: rgba(255,255,255,.55); --hx-edge: rgba(30,45,62,.07); --hx-row-hover: rgba(40,70,100,.05);
+  --hx-shadow: 0 1px 1px rgba(22,36,52,.03), 0 8px 24px -12px rgba(22,36,52,.12), 0 24px 48px -32px rgba(22,36,52,.14);
+  --hx-shadow-hover: 0 1px 1px rgba(22,36,52,.04), 0 14px 30px -14px rgba(22,36,52,.18), 0 30px 60px -36px rgba(22,36,52,.2);
+  --ridge-1: rgba(166,180,194,.34); --ridge-2: rgba(150,166,182,.28); --ridge-3: rgba(134,150,168,.22);
+  --ridge-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1200 420' preserveAspectRatio='xMidYMin slice'><path fill='rgba(166,180,194,.34)' d='M0 250 C140 205 250 190 360 212 C470 234 560 170 690 140 C800 115 880 150 960 128 C1050 104 1130 70 1200 86 L1200 420 L0 420Z'/><path fill='rgba(150,166,182,.28)' d='M0 300 C120 270 230 262 350 280 C480 300 590 236 720 214 C840 194 930 232 1030 206 C1110 186 1160 170 1200 176 L1200 420 L0 420Z'/><path fill='rgba(134,150,168,.22)' d='M0 350 C180 322 330 330 470 340 C620 350 760 300 900 292 C1030 285 1120 300 1200 290 L1200 420 L0 420Z'/></svg>");
+} }
+:root[data-theme="light"] .app[data-palette="slate"] {
+  --porcelain: #eef1f4; --porcelain-image: radial-gradient(1200px 600px at 78% -10%, rgba(255,255,255,.95), transparent 60%), radial-gradient(900px 700px at 10% 110%, rgba(214,224,234,.6), transparent 60%), linear-gradient(180deg, #f2f4f6 0%, #eaeef2 100%);
+  --hx-surface: color-mix(in oklab, #fbfcfd 80%, transparent); --hx-surface-solid: #fbfcfd; --hx-rail: rgba(255,255,255,.55); --hx-edge: rgba(30,45,62,.07); --hx-row-hover: rgba(40,70,100,.05);
+  --hx-shadow: 0 1px 1px rgba(22,36,52,.03), 0 8px 24px -12px rgba(22,36,52,.12), 0 24px 48px -32px rgba(22,36,52,.14);
+  --hx-shadow-hover: 0 1px 1px rgba(22,36,52,.04), 0 14px 30px -14px rgba(22,36,52,.18), 0 30px 60px -36px rgba(22,36,52,.2);
+  --ridge-1: rgba(166,180,194,.34); --ridge-2: rgba(150,166,182,.28); --ridge-3: rgba(134,150,168,.22);
+  --ridge-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1200 420' preserveAspectRatio='xMidYMin slice'><path fill='rgba(166,180,194,.34)' d='M0 250 C140 205 250 190 360 212 C470 234 560 170 690 140 C800 115 880 150 960 128 C1050 104 1130 70 1200 86 L1200 420 L0 420Z'/><path fill='rgba(150,166,182,.28)' d='M0 300 C120 270 230 262 350 280 C480 300 590 236 720 214 C840 194 930 232 1030 206 C1110 186 1160 170 1200 176 L1200 420 L0 420Z'/><path fill='rgba(134,150,168,.22)' d='M0 350 C180 322 330 330 470 340 C620 350 760 300 900 292 C1030 285 1120 300 1200 290 L1200 420 L0 420Z'/></svg>");
+}
+
+/* Forest & Brass: hospitality, grounded, club-house */
+.app[data-palette="forest"] {
+  --spine-image: linear-gradient(180deg, #17291f 0%, #0e1b14 100%);
+  --spine-text: #e9efe7; --spine-text-2: #abbaae; --spine-text-3: #728479;
+  --shell-active: linear-gradient(100deg, rgba(232,218,170,.18), rgba(184,160,96,.09)); --shell-active-edge: rgba(232,218,170,.08); --shell-active-icon: #e2cb8b; --shell-active-text: #f8f5ea;
+  --shell-mark: linear-gradient(150deg, #f1e6c0, #a8843a); --shell-mark-ink: #1b2a1f; --shell-solid: #17291f; --tab-bar: linear-gradient(180deg, #d4b66e, #a8843a);
+}
+.app[data-brand="relvor"][data-palette="forest"] { --accent: #80631f; --accent-hover: color-mix(in oklab, #80631f 86%, #000); --accent-soft: color-mix(in oklab, #80631f 9%, #fff); --accent-line: color-mix(in oklab, #80631f 26%, #fff); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .app[data-brand="relvor"][data-palette="forest"] { --accent: #d6b56a; --accent-hover: color-mix(in oklab, #d6b56a 86%, #fff); --accent-soft: color-mix(in oklab, #d6b56a 12%, #1a1a1a); --accent-line: color-mix(in oklab, #d6b56a 30%, #1a1a1a); } }
+:root[data-theme="dark"] .app[data-brand="relvor"][data-palette="forest"] { --accent: #d6b56a; --accent-hover: color-mix(in oklab, #d6b56a 86%, #fff); --accent-soft: color-mix(in oklab, #d6b56a 12%, #1a1a1a); --accent-line: color-mix(in oklab, #d6b56a 30%, #1a1a1a); }
+@media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) .app[data-palette="forest"] {
+  --porcelain: #f3f1e8; --porcelain-image: radial-gradient(1200px 600px at 78% -10%, rgba(255,255,250,.9), transparent 60%), radial-gradient(900px 700px at 10% 110%, rgba(222,220,200,.55), transparent 60%), linear-gradient(180deg, #f6f4ec 0%, #eeebdf 100%);
+  --hx-surface: color-mix(in oklab, #fdfcf7 80%, transparent); --hx-surface-solid: #fdfcf7; --hx-rail: rgba(255,255,250,.55); --hx-edge: rgba(40,52,32,.07); --hx-row-hover: rgba(70,90,50,.05);
+  --hx-shadow: 0 1px 1px rgba(30,40,24,.03), 0 8px 24px -12px rgba(30,40,24,.12), 0 24px 48px -32px rgba(30,40,24,.14);
+  --hx-shadow-hover: 0 1px 1px rgba(30,40,24,.04), 0 14px 30px -14px rgba(30,40,24,.18), 0 30px 60px -36px rgba(30,40,24,.2);
+  --ridge-1: rgba(176,180,154,.36); --ridge-2: rgba(158,166,138,.30); --ridge-3: rgba(140,150,122,.24);
+  --ridge-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1200 420' preserveAspectRatio='xMidYMin slice'><path fill='rgba(176,180,154,.36)' d='M0 250 C140 205 250 190 360 212 C470 234 560 170 690 140 C800 115 880 150 960 128 C1050 104 1130 70 1200 86 L1200 420 L0 420Z'/><path fill='rgba(158,166,138,.30)' d='M0 300 C120 270 230 262 350 280 C480 300 590 236 720 214 C840 194 930 232 1030 206 C1110 186 1160 170 1200 176 L1200 420 L0 420Z'/><path fill='rgba(140,150,122,.24)' d='M0 350 C180 322 330 330 470 340 C620 350 760 300 900 292 C1030 285 1120 300 1200 290 L1200 420 L0 420Z'/></svg>");
+} }
+:root[data-theme="light"] .app[data-palette="forest"] {
+  --porcelain: #f3f1e8; --porcelain-image: radial-gradient(1200px 600px at 78% -10%, rgba(255,255,250,.9), transparent 60%), radial-gradient(900px 700px at 10% 110%, rgba(222,220,200,.55), transparent 60%), linear-gradient(180deg, #f6f4ec 0%, #eeebdf 100%);
+  --hx-surface: color-mix(in oklab, #fdfcf7 80%, transparent); --hx-surface-solid: #fdfcf7; --hx-rail: rgba(255,255,250,.55); --hx-edge: rgba(40,52,32,.07); --hx-row-hover: rgba(70,90,50,.05);
+  --hx-shadow: 0 1px 1px rgba(30,40,24,.03), 0 8px 24px -12px rgba(30,40,24,.12), 0 24px 48px -32px rgba(30,40,24,.14);
+  --hx-shadow-hover: 0 1px 1px rgba(30,40,24,.04), 0 14px 30px -14px rgba(30,40,24,.18), 0 30px 60px -36px rgba(30,40,24,.2);
+  --ridge-1: rgba(176,180,154,.36); --ridge-2: rgba(158,166,138,.30); --ridge-3: rgba(140,150,122,.24);
+  --ridge-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1200 420' preserveAspectRatio='xMidYMin slice'><path fill='rgba(176,180,154,.36)' d='M0 250 C140 205 250 190 360 212 C470 234 560 170 690 140 C800 115 880 150 960 128 C1050 104 1130 70 1200 86 L1200 420 L0 420Z'/><path fill='rgba(158,166,138,.30)' d='M0 300 C120 270 230 262 350 280 C480 300 590 236 720 214 C840 194 930 232 1030 206 C1110 186 1160 170 1200 176 L1200 420 L0 420Z'/><path fill='rgba(140,150,122,.24)' d='M0 350 C180 322 330 330 470 340 C620 350 760 300 900 292 C1030 285 1120 300 1200 290 L1200 420 L0 420Z'/></svg>");
+}
+
+/* Plum & Terracotta: warm, welcoming, family */
+.app[data-palette="plum"] {
+  --spine-image: linear-gradient(180deg, #2b1c25 0%, #1c1218 100%);
+  --spine-text: #f3e8ec; --spine-text-2: #c4adb7; --spine-text-3: #8c7482;
+  --shell-active: linear-gradient(100deg, rgba(244,208,194,.18), rgba(206,144,122,.09)); --shell-active-edge: rgba(244,208,194,.08); --shell-active-icon: #f2bda7; --shell-active-text: #fdf5f2;
+  --shell-mark: linear-gradient(150deg, #f7dccf, #b8705a); --shell-mark-ink: #2b1c25; --shell-solid: #2b1c25; --tab-bar: linear-gradient(180deg, #e3a086, #b25a3c);
+}
+.app[data-brand="relvor"][data-palette="plum"] { --accent: #a3472d; --accent-hover: color-mix(in oklab, #a3472d 86%, #000); --accent-soft: color-mix(in oklab, #a3472d 9%, #fff); --accent-line: color-mix(in oklab, #a3472d 26%, #fff); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .app[data-brand="relvor"][data-palette="plum"] { --accent: #ee9f82; --accent-hover: color-mix(in oklab, #ee9f82 86%, #fff); --accent-soft: color-mix(in oklab, #ee9f82 12%, #1a1a1a); --accent-line: color-mix(in oklab, #ee9f82 30%, #1a1a1a); } }
+:root[data-theme="dark"] .app[data-brand="relvor"][data-palette="plum"] { --accent: #ee9f82; --accent-hover: color-mix(in oklab, #ee9f82 86%, #fff); --accent-soft: color-mix(in oklab, #ee9f82 12%, #1a1a1a); --accent-line: color-mix(in oklab, #ee9f82 30%, #1a1a1a); }
+@media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) .app[data-palette="plum"] {
+  --porcelain: #f6efeb; --porcelain-image: radial-gradient(1200px 600px at 78% -10%, rgba(255,252,250,.92), transparent 60%), radial-gradient(900px 700px at 10% 110%, rgba(236,214,206,.55), transparent 60%), linear-gradient(180deg, #f8f2ee 0%, #f1e7e2 100%);
+  --hx-surface: color-mix(in oklab, #fffbf9 80%, transparent); --hx-surface-solid: #fffbf9; --hx-rail: rgba(255,252,250,.55); --hx-edge: rgba(70,40,44,.07); --hx-row-hover: rgba(110,60,60,.05);
+  --hx-shadow: 0 1px 1px rgba(52,28,32,.03), 0 8px 24px -12px rgba(52,28,32,.12), 0 24px 48px -32px rgba(52,28,32,.14);
+  --hx-shadow-hover: 0 1px 1px rgba(52,28,32,.04), 0 14px 30px -14px rgba(52,28,32,.18), 0 30px 60px -36px rgba(52,28,32,.2);
+  --ridge-1: rgba(206,182,176,.36); --ridge-2: rgba(190,164,160,.30); --ridge-3: rgba(172,146,144,.24);
+  --ridge-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1200 420' preserveAspectRatio='xMidYMin slice'><path fill='rgba(206,182,176,.36)' d='M0 250 C140 205 250 190 360 212 C470 234 560 170 690 140 C800 115 880 150 960 128 C1050 104 1130 70 1200 86 L1200 420 L0 420Z'/><path fill='rgba(190,164,160,.30)' d='M0 300 C120 270 230 262 350 280 C480 300 590 236 720 214 C840 194 930 232 1030 206 C1110 186 1160 170 1200 176 L1200 420 L0 420Z'/><path fill='rgba(172,146,144,.24)' d='M0 350 C180 322 330 330 470 340 C620 350 760 300 900 292 C1030 285 1120 300 1200 290 L1200 420 L0 420Z'/></svg>");
+} }
+:root[data-theme="light"] .app[data-palette="plum"] {
+  --porcelain: #f6efeb; --porcelain-image: radial-gradient(1200px 600px at 78% -10%, rgba(255,252,250,.92), transparent 60%), radial-gradient(900px 700px at 10% 110%, rgba(236,214,206,.55), transparent 60%), linear-gradient(180deg, #f8f2ee 0%, #f1e7e2 100%);
+  --hx-surface: color-mix(in oklab, #fffbf9 80%, transparent); --hx-surface-solid: #fffbf9; --hx-rail: rgba(255,252,250,.55); --hx-edge: rgba(70,40,44,.07); --hx-row-hover: rgba(110,60,60,.05);
+  --hx-shadow: 0 1px 1px rgba(52,28,32,.03), 0 8px 24px -12px rgba(52,28,32,.12), 0 24px 48px -32px rgba(52,28,32,.14);
+  --hx-shadow-hover: 0 1px 1px rgba(52,28,32,.04), 0 14px 30px -14px rgba(52,28,32,.18), 0 30px 60px -36px rgba(52,28,32,.2);
+  --ridge-1: rgba(206,182,176,.36); --ridge-2: rgba(190,164,160,.30); --ridge-3: rgba(172,146,144,.24);
+  --ridge-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1200 420' preserveAspectRatio='xMidYMin slice'><path fill='rgba(206,182,176,.36)' d='M0 250 C140 205 250 190 360 212 C470 234 560 170 690 140 C800 115 880 150 960 128 C1050 104 1130 70 1200 86 L1200 420 L0 420Z'/><path fill='rgba(190,164,160,.30)' d='M0 300 C120 270 230 262 350 280 C480 300 590 236 720 214 C840 194 930 232 1030 206 C1110 186 1160 170 1200 176 L1200 420 L0 420Z'/><path fill='rgba(172,146,144,.24)' d='M0 350 C180 322 330 330 470 340 C620 350 760 300 900 292 C1030 285 1120 300 1200 290 L1200 420 L0 420Z'/></svg>");
+}

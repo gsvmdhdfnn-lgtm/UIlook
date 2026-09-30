@@ -34,9 +34,11 @@
   function areaLabel(a) { var t = terms(); return { management: 'Management', staff: t.staff + ' hub', client: t.client + ' hub' }[a]; }
   var BUILT = { 'mgmt-home': 1, 'mgmt-attention': 1, 'mgmt-more': 1, 'mgmt-coaches': 1, 'mgmt-schedule': 1, 'mgmt-finance': 1, 'coach-home': 1, 'parent-home': 1, system: 1 };
 
-  var S = { role: 'management', area: 'management', route: 'mgmt-home', state: 'live', theme: 'auto', brand: 'relvor' };
-  try { var saved = JSON.parse(localStorage.getItem('relvor-proto') || '{}'); ['theme', 'brand'].forEach(function (k) { if (saved[k]) S[k] = saved[k]; }); } catch (e) {}
-  function persist() { try { localStorage.setItem('relvor-proto', JSON.stringify({ theme: S.theme, brand: S.brand })); } catch (e) {} }
+  var S = { role: 'management', area: 'management', route: 'mgmt-home', state: 'live', theme: 'auto', brand: 'relvor', palette: 'area' };
+  /* Palette experiment: one scheme per area by default */
+  var AREA_PALETTE = { management: 'slate', staff: 'forest', client: 'plum' };
+  try { var saved = JSON.parse(localStorage.getItem('relvor-proto') || '{}'); ['theme', 'brand', 'palette'].forEach(function (k) { if (saved[k]) S[k] = saved[k]; }); } catch (e) {}
+  function persist() { try { localStorage.setItem('relvor-proto', JSON.stringify({ theme: S.theme, brand: S.brand, palette: S.palette })); } catch (e) {} }
 
   function areaOf(route) { return route.indexOf('mgmt-') === 0 ? 'management' : route.indexOf('coach-') === 0 ? 'staff' : route.indexOf('parent-') === 0 ? 'client' : null; }
   function isCurrent(id) {
@@ -113,6 +115,7 @@
       group('state', [['live', 'Data'], ['empty', 'Empty'], ['loading', 'Loading'], ['error', 'Error']]) + '<span class="proto-bar__sep"></span>' +
       group('theme', [['auto', 'Auto'], ['light', 'Light'], ['dark', 'Dark']]) + '<span class="proto-bar__sep"></span>' +
       group('brand', [['relvor', 'Relvor'], ['joshevans', 'Josh Evans']]) + '<span class="proto-bar__sep"></span>' +
+      '<span class="proto-bar__label">Palette</span>' + group('palette', [['area', 'By area'], ['original', 'Original'], ['slate', 'Slate'], ['forest', 'Forest'], ['plum', 'Plum']]) + '<span class="proto-bar__sep"></span>' +
       '<div class="proto-bar__group"><button type="button" data-action="goto" data-route="system" aria-pressed="' + (S.route === 'system') + '">Visual system</button></div></div>';
   }
 
@@ -156,6 +159,9 @@
     Hub.applyBrand(S.brand);
     var app = document.getElementById('app');
     app.dataset.area = S.area;
+    app.dataset.brand = S.brand;
+    var pal = S.palette === 'area' ? AREA_PALETTE[S.area] : S.palette;
+    if (pal && pal !== 'original') app.dataset.palette = pal; else delete app.dataset.palette;
     var screen = Hub.screens[S.route];
     Hub.crumbTail = null;
     var content = screen && BUILT[S.route] ? screen({ state: S.state }) : placeholder();
