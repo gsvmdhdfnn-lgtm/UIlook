@@ -1,0 +1,250 @@
+/* ==========================================================================
+   Relvor pass 6: "Atelier"
+   --------------------------------------------------------------------------
+   Perceived quality through space, depth and motion, applied with
+   restraint. Nothing here changes structure; it overrides presentation.
+
+   - The obsidian SPINE: Management's sidebar is a dark graphite object.
+     The workspace sits beside it as a porcelain PANEL inset from the
+     window, like a display set into a bezel.
+   - The GLIDE RAIL: every tabbed navigation (module sections, Staff and
+     Client areas, the phone bar) is a frosted rail with a raised selector
+     that glides between destinations.
+   - EDITORIAL TYPE: a high-contrast serif for greetings, module titles and
+     chapter headings only. All interface copy stays sans.
+   - DEPTH only on things that float: glass bars, the selector, drawers,
+     toasts and decision cards. Pages themselves stay flat and calm.
+   ========================================================================== */
+
+html { background: var(--ground); }
+html, body { height: auto; min-height: 100%; }
+body { background: var(--ground); background-image: var(--ground-image); background-repeat: no-repeat; min-height: 100%; }
+.main { background: transparent; }
+
+/* ---------- Editorial type ---------- */
+.serif, .brief__title, .ws__title, .chapter__title, .feature__title, .page-title.client-title {
+  font-family: var(--font-display); font-weight: 400; letter-spacing: -0.012em;
+}
+.brief__title { font-size: clamp(2.5rem, 1.6rem + 2.4vw, 3.5rem); line-height: 1.02; }
+.ws__title { font-size: clamp(2.25rem, 1.6rem + 1.6vw, 3rem); line-height: 1.04; }
+.feature__title { font-size: 2.25rem; line-height: 1.05; margin-top: 0; }
+.brief__title em, .ws__title em { font-style: italic; }
+
+/* Chapters: the editorial divider between major zones */
+.chapter { display: grid; grid-template-columns: auto minmax(24px, 1fr) auto; align-items: baseline; gap: var(--s-5); }
+.chapter__title { font-size: 1.875rem; line-height: 1.1; color: var(--text); display: flex; align-items: baseline; gap: 14px; }
+.chapter__meta { font-family: var(--font-sans); font-size: var(--t-14); color: var(--text-3); letter-spacing: 0; }
+.chapter__rule { height: 1px; background: linear-gradient(90deg, var(--line) 0%, rgba(0, 0, 0, 0) 100%); align-self: center; transform: translateY(-4px); }
+.chapter .section-link { white-space: nowrap; }
+@media (max-width: 759px) { .chapter { grid-template-columns: auto 1fr; } .chapter__rule { display: none; } .chapter__title { font-size: 1.625rem; } }
+
+/* ---------- Motion primitives ---------- */
+.btn, .row, .tbl__row, .nav-link, .glide__tab, .decision, .blk, .icon-btn, .search-trigger { transition-timing-function: var(--ease-out); }
+.btn { transition: background var(--dur-1), box-shadow var(--dur-1), transform var(--dur-1), color var(--dur-1); }
+.btn:active { transform: scale(.98); }
+.btn--primary {
+  background: linear-gradient(180deg, color-mix(in oklab, var(--accent) 88%, #fff) 0%, var(--accent) 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .22), 0 1px 1px rgba(33, 27, 18, .12), 0 8px 18px -8px color-mix(in oklab, var(--accent) 70%, transparent);
+}
+.btn--primary:hover { background: linear-gradient(180deg, color-mix(in oklab, var(--accent) 94%, #fff) 0%, var(--accent-hover) 100%); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .24), 0 1px 1px rgba(33, 27, 18, .12), 0 12px 24px -10px color-mix(in oklab, var(--accent) 80%, transparent); }
+
+/* Hover elevation on interactive rows and cards */
+a.row, button.row, .row--stretch, .tbl__row { transition: background var(--dur-2), box-shadow var(--dur-2), transform var(--dur-2); }
+a.row:hover, button.row:hover, .row--stretch:hover, .tbl__row:hover { background: var(--raised); box-shadow: var(--lift); transform: translateY(-1px); }
+.zone-inset a.row:hover, .zone-inset button.row:hover { transform: none; box-shadow: none; background: var(--hover); }
+
+/* ---------- The obsidian spine (desktop Management) ---------- */
+@media (min-width: 900px) {
+  .app[data-area="management"] .frame { background: var(--spine-image); }
+  .app[data-area="management"] .sidebar {
+    background: transparent; color: var(--spine-text); padding: var(--s-6) var(--s-4) var(--s-5);
+  }
+  .app[data-area="management"] .main {
+    margin: 10px 10px 10px 0; border-radius: 22px; background: var(--panel-image); overflow: clip;
+    min-height: calc(100dvh - 20px); box-shadow: 0 0 0 1px rgba(255, 246, 230, .05), 0 30px 80px -40px rgba(0, 0, 0, .6);
+  }
+  .app[data-area="management"] .canvas-bar {
+    top: 0; border-radius: 22px 22px 0 0; height: 72px; background: var(--glass); backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur);
+    box-shadow: inset 0 -1px 0 var(--glass-edge);
+  }
+  .main:has(.ws) .canvas-bar { background: var(--glass); }
+}
+.sidebar .workspace { margin-bottom: var(--s-8); padding: 10px; }
+.sidebar .workspace:hover { background: var(--spine-hover); }
+.sidebar .org__name { color: var(--spine-text); }
+.sidebar .org-live { color: var(--spine-text-3); }
+.sidebar .org-live::before { background: #7fbf98; box-shadow: 0 0 0 3px rgba(127, 191, 152, .16); }
+.sidebar .workspace > .icon { color: var(--spine-text-3); }
+.sidebar img.org-mark { box-shadow: none; }
+.sidebar .org-mark--mono { background: linear-gradient(160deg, #3a3530, #221f1b); box-shadow: inset 0 1px 0 rgba(255, 246, 230, .12), 0 0 0 1px rgba(255, 246, 230, .08); }
+.sidebar .nav__label { color: var(--spine-text-3); }
+.sidebar .nav-link { color: var(--spine-text-2); height: 40px; transition: background var(--dur-2), color var(--dur-2); }
+.sidebar .nav-link .icon { color: var(--spine-text-3); transition: color var(--dur-2); }
+.sidebar .nav-link:hover { background: var(--spine-hover); color: var(--spine-text); }
+.sidebar .nav-link[aria-current="page"] { background: var(--spine-selected); color: #fff; box-shadow: inset 0 1px 0 rgba(255, 246, 230, .06); position: relative; }
+.sidebar .nav-link[aria-current="page"] .icon { color: var(--accent-d); }
+.sidebar .count { color: var(--spine-text-3); }
+.sidebar .count--alert { color: #f09a8e; }
+.sidebar .count--alert::before { background: #f09a8e; }
+.sidebar .sev--normal::before { box-shadow: inset 0 0 0 1.5px var(--spine-text-3); }
+.sidebar .sev--urgent::before { background: #f09a8e; }
+.sidebar .sev--warning::before { background: #e3a56c; }
+.sidebar .nav-link .off { color: var(--spine-text-3); }
+.sidebar .nav--quiet .nav-link { color: var(--spine-text-3); }
+.sidebar .sidebar__rule { background: var(--spine-line); }
+.sidebar .area-switch { background: rgba(255, 246, 230, .06); }
+.sidebar .area-switch button { color: var(--spine-text-3); }
+.sidebar .area-switch button[aria-pressed="true"] { background: rgba(255, 246, 230, .12); color: var(--spine-text); box-shadow: inset 0 1px 0 rgba(255, 246, 230, .08); }
+.sidebar .user-chip:hover { background: var(--spine-hover); }
+.sidebar .user-chip b { color: var(--spine-text); }
+.sidebar .user-chip small, .sidebar .user-chip > .icon { color: var(--spine-text-3); }
+.sidebar .powered { color: var(--spine-text-3); }
+.sidebar .avatar { box-shadow: 0 0 0 1px rgba(255, 246, 230, .1); }
+
+/* Canvas bar contents on glass */
+.search-trigger { background: var(--glass-tint); box-shadow: inset 0 0 0 1px var(--glass-edge); transition: background var(--dur-2), box-shadow var(--dur-2); }
+.search-trigger:hover { background: var(--raised); box-shadow: inset 0 0 0 1px var(--glass-edge), var(--lift); }
+
+/* ---------- Workspace header on the panel (no flat band) ---------- */
+.ws { background: transparent; padding-top: var(--s-14); }
+@media (min-width: 900px) { .ws { padding: var(--s-16) var(--s-16) 0; } }
+.ws__inner { gap: var(--s-10); }
+.ws__sub { margin-top: var(--s-1); }
+.ws + .page { padding-top: var(--s-12); }
+@media (min-width: 900px) { .page { padding-left: var(--s-16); padding-right: var(--s-16); } }
+
+/* ---------- The glide rail ---------- */
+.glide {
+  position: relative; display: inline-flex; gap: 4px; padding: 6px; max-width: 100%; overflow-x: auto; scrollbar-width: none;
+  border-radius: 20px; background: var(--glass); backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur);
+  box-shadow: inset 0 0 0 1px var(--glass-edge), inset 0 1px 0 var(--glass-hi), 0 1px 2px rgba(33, 27, 18, .04);
+  justify-self: start;
+}
+.glide::-webkit-scrollbar { display: none; }
+.glide__puck {
+  position: absolute; top: 6px; bottom: 6px; left: 0; width: 0; border-radius: 15px; background: var(--raised); box-shadow: var(--puck);
+  transition: left var(--dur-3) var(--ease-out), width var(--dur-3) var(--ease-out); pointer-events: none; z-index: 0;
+}
+.glide__puck::after { content: ""; position: absolute; left: 50%; bottom: 6px; width: 18px; height: 2px; margin-left: -9px; border-radius: 2px; background: var(--accent); }
+.glide.no-anim .glide__puck { transition: none; }
+.glide__tab {
+  position: relative; z-index: 1; flex: none; display: grid; gap: 2px; align-content: center; text-align: left;
+  min-width: 176px; padding: 12px 20px 14px; border-radius: 15px; color: var(--text-3); text-decoration: none;
+  transition: color var(--dur-2) var(--ease-out), background var(--dur-2) var(--ease-out);
+}
+.glide__tab:hover { color: var(--text); text-decoration: none; background: var(--glass-tint); }
+.glide__tab[aria-selected="true"], .glide__tab[aria-current="page"] { color: var(--text); background: transparent; }
+.glide__label { font-size: var(--t-15); font-weight: var(--w-medium); letter-spacing: -0.005em; }
+.glide__meta { display: flex; align-items: center; gap: 6px; font-size: var(--t-13); color: var(--text-3); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.glide__meta .sev { width: 12px; height: 16px; }
+.glide__meta .is-alert { color: var(--danger); }
+.glide__tab:focus-visible { box-shadow: inset 0 0 0 2px color-mix(in oklab, var(--accent) 50%, transparent); }
+
+/* Compact rail (top bars): single-line destinations */
+.glide--bar { padding: 5px; border-radius: 16px; }
+.glide--bar .glide__puck { top: 5px; bottom: 5px; border-radius: 12px; }
+.glide--bar .glide__puck::after { bottom: 4px; width: 14px; margin-left: -7px; }
+.glide--bar .glide__tab { min-width: 0; padding: 0 18px; height: 40px; border-radius: 12px; display: inline-flex; align-items: center; font-size: var(--t-15); font-weight: var(--w-medium); }
+
+@media (max-width: 759px) {
+  .glide { margin-inline: calc(var(--s-5) * -1); border-radius: 0; padding-inline: var(--s-4); background: transparent; box-shadow: none; backdrop-filter: none; -webkit-backdrop-filter: none; }
+  .glide__tab { min-width: 150px; padding: 11px 16px 12px; }
+}
+
+/* Section transitions: content slides from the side you moved toward */
+.enter { animation: none; }
+.enter-right { animation: from-right var(--dur-3) var(--ease-out); }
+.enter-left { animation: from-left var(--dur-3) var(--ease-out); }
+@keyframes from-right { from { opacity: 0; transform: translateX(18px); } }
+@keyframes from-left { from { opacity: 0; transform: translateX(-18px); } }
+
+/* ---------- Staff & Client: floating glass bar ---------- */
+@media (min-width: 900px) {
+  .app:not([data-area="management"]) .topbar {
+    position: sticky; top: 14px; margin: 14px 24px 0; height: 68px; padding: 0 14px 0 20px; gap: var(--s-10);
+    border-radius: 22px; background: var(--glass-strong); backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur);
+    box-shadow: inset 0 0 0 1px var(--glass-edge), inset 0 1px 0 var(--glass-hi), var(--elev);
+  }
+  .app:not([data-area="management"]) .topbar__tabs { height: auto; }
+  .app:not([data-area="management"]) .topbar__tabs.glide { background: var(--glass-tint); }
+  .topbar__tabs .glide__tab[aria-current="page"] { box-shadow: none; }
+}
+
+/* ---------- Phones: glass top bar, floating capsule tab bar ---------- */
+@media (max-width: 899px) {
+  .topbar { background: var(--glass-strong) !important; backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur); box-shadow: inset 0 -1px 0 var(--glass-edge); }
+  .tabbar {
+    bottom: 12px; margin: 0 12px 12px; padding: 6px; border-radius: 26px;
+    background: var(--glass-strong); backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur);
+    box-shadow: inset 0 0 0 1px var(--glass-edge), inset 0 1px 0 var(--glass-hi), var(--elev);
+  }
+  .tabbar .glide__puck { top: 6px; bottom: 6px; border-radius: 20px; }
+  .tabbar .glide__puck::after { bottom: 5px; }
+  .tab { height: 56px; border-radius: 20px; position: relative; z-index: 1; transition: color var(--dur-2) var(--ease-out); }
+  .tab[aria-current="page"] { color: var(--text); }
+}
+
+/* ---------- The Brief, refined ---------- */
+.brief { gap: var(--s-7); max-width: 860px; }
+.brief__text { font-size: 1.3125rem; line-height: 1.62; color: var(--text-2); }
+/* Tokens become quiet underlined facts rather than chips: less noise */
+.tok, .app:not([data-area="management"]) .tok { background: none !important; box-shadow: none !important; padding: 0; border-radius: 0; color: var(--text); font-weight: var(--w-medium);
+  text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 6px; text-decoration-color: var(--line-strong); white-space: normal; transition: text-decoration-color var(--dur-2), color var(--dur-2); }
+a.tok:hover { text-decoration-color: currentColor; }
+.tok--danger { color: var(--danger); text-decoration-color: color-mix(in oklab, var(--danger) 40%, transparent); }
+.tok--warn { color: var(--warn); text-decoration-color: color-mix(in oklab, var(--warn) 40%, transparent); }
+.tok--accent { color: var(--accent); text-decoration-color: color-mix(in oklab, var(--accent) 40%, transparent); }
+.changes { padding-top: var(--s-2); }
+.chg { padding: 8px 0; }
+
+/* ---------- Day line, with depth ---------- */
+.dayline__track { padding-top: 32px; }
+.blk { height: 44px; border-radius: 12px; background: var(--raised); box-shadow: inset 0 0 0 1px var(--glass-edge), var(--lift); transition: transform var(--dur-2) var(--ease-out), box-shadow var(--dur-2) var(--ease-out); }
+.blk:hover { transform: translateY(-2px); box-shadow: inset 0 0 0 1px var(--glass-edge), var(--elev); }
+.blk--issue { background: linear-gradient(180deg, color-mix(in oklab, var(--danger-soft) 70%, var(--raised)), var(--danger-soft)); }
+.dayline__now { border-left-width: 2px; }
+.dayline__now::after { content: ""; position: absolute; left: -5px; bottom: -4px; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 4px color-mix(in oklab, var(--accent) 18%, transparent); }
+
+/* ---------- Decisions and feature surfaces float ---------- */
+.decision { padding: var(--s-7); border-radius: 20px; box-shadow: inset 0 0 0 1px var(--glass-edge), var(--lift); transition: transform var(--dur-2) var(--ease-out), box-shadow var(--dur-2) var(--ease-out); }
+.decision:hover { transform: translateY(-2px); box-shadow: inset 0 0 0 1px var(--glass-edge), var(--elev); }
+.decision__title { font-size: 1.375rem; }
+.surface { border-radius: 24px; box-shadow: inset 0 0 0 1px var(--glass-edge), var(--lift); }
+.surface--pad { padding: var(--s-10); }
+@media (max-width: 759px) { .surface--pad { padding: var(--s-7) var(--s-6); } }
+
+/* ---------- Drawers glide, scrim softens the page ---------- */
+.sheet__scrim { backdrop-filter: blur(6px) saturate(1.1); -webkit-backdrop-filter: blur(6px) saturate(1.1); animation: fade var(--dur-2) var(--ease-soft); }
+.sheet__panel { box-shadow: var(--elev); animation: glide-up var(--dur-3) var(--ease-out); }
+@keyframes glide-up { from { transform: translateY(40px); opacity: 0; } }
+@media (min-width: 760px) {
+  .sheet { padding: 14px; }
+  .sheet__panel { border-radius: 24px; animation-name: glide-in; }
+  @keyframes glide-in { from { transform: translateX(56px); opacity: 0; } }
+}
+.sheet.is-closing .sheet__scrim { animation: fade-out var(--dur-2) var(--ease-soft) forwards; }
+.sheet.is-closing .sheet__panel { animation: glide-out var(--dur-2) var(--ease-soft) forwards; }
+@keyframes fade-out { to { opacity: 0; } }
+@keyframes glide-out { to { transform: translateY(40px); opacity: 0; } }
+@media (min-width: 760px) { @keyframes glide-out { to { transform: translateX(56px); opacity: 0; } } }
+
+/* ---------- Toast: dark glass ---------- */
+.toast { background: rgba(24, 22, 19, .86); color: #f4efe6; backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur); border-radius: 14px; box-shadow: inset 0 1px 0 rgba(255, 246, 230, .08), var(--elev); }
+
+/* ---------- Rhythm: fewer, larger zones ---------- */
+.home { gap: var(--s-20); }
+@media (max-width: 759px) { .home { gap: var(--s-14); } }
+.home-grid { column-gap: var(--s-16); }
+
+@media (prefers-reduced-motion: reduce) {
+  .glide__puck { transition: none; }
+  a.row:hover, button.row:hover, .row--stretch:hover, .tbl__row:hover, .decision:hover, .blk:hover { transform: none; }
+}
+
+/* Chapters carrying a control (member switch) keep it compact */
+.chapter .member-switch { justify-self: end; }
+.page--home6 { max-width: 1120px; }
+.home-rest .rows { max-width: 880px; }
+
+/* Phones never show the desktop destination rail in the top bar */
+@media (max-width: 899px) { .topbar__tabs, .topbar__tabs.glide { display: none !important; } }

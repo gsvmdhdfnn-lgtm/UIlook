@@ -72,10 +72,10 @@
 
     var day = ctx.state === 'empty' ? '' : ui.dayline({ label: 'Today', meta: 'Thursday 1 October · ' + D.term, start: 14, end: 21, now: '14:10', items: dayItems(todayOcc()), legend: true });
 
-    var decisions = ctx.state === 'empty' ? '' : '<section class="section section--primary">' + ui.sectionHead('Decisions', { meta: urgent.length + ' before tonight', link: 'Open queue', href: '#mgmt-attention' }) + '<div class="decisions">' + urgent.map(decisionFor).join('') + '</div></section>';
+    var decisions = ctx.state === 'empty' ? '' : '<section class="section section--primary">' + ui.chapter('Decisions', { meta: urgent.length + ' before tonight', link: 'Open queue', href: '#mgmt-attention' }) + '<div class="decisions">' + urgent.map(decisionFor).join('') + '</div></section>';
 
     var list = ctx.state === 'empty' ? '<div class="zone-inset">' + ui.empty('checkCircle', 'Nothing needs attention', 'Staffing, cover and compliance are in order.', 'ok') + '</div>'
-      : ui.rows(rest.slice(0, 4).map(caseRow), 'rows--lead') + '<a class="more-link" href="#mgmt-attention">' + (rest.length - 4) + ' more in the queue' + I('arrowRight', 'icon-sm') + '</a>';
+      : ui.rows(rest.slice(0, 3).map(caseRow), 'rows--lead') + '<a class="more-link" href="#mgmt-attention">' + (rest.length - 3) + ' more in the queue' + I('arrowRight', 'icon-sm') + '</a>';
 
     var approvals = '<div class="zone-inset">' + ui.rows(D.approvals.filter(function (a) { return a.count; }).map(function (a) {
       return ui.row({ title: esc(a.label), trail: '<span class="num">' + a.count + '</span>', href: '#mgmt-' + a.id, cls: 'row--quiet' });
@@ -84,18 +84,20 @@
       return ui.row({ title: esc(o.session), sub: [o.start + '–' + o.end, esc(venue(o))], trail: o.staff.length ? '' : '<span class="status status--danger status--plain">No staff</span>', action: 'soon', chevron: false, cls: 'row--quiet' });
     }), 'rows--quiet') + '</div>';
 
-    return '<div class="page"><div class="home">' + brief + day +
-      '<div class="home-grid"><div class="col">' + decisions +
-        '<section class="section">' + ui.sectionHead('Also on your list', { meta: ctx.state === 'empty' ? '' : rest.length + ' items' }) + list + '</section>' +
-      '</div><aside class="col rail">' +
-        '<section class="section section--quiet">' + ui.sectionHead('Awaiting approval') + approvals + '</section>' +
-        '<section class="section section--quiet">' + ui.sectionHead('Tomorrow') + tomorrow + '</section>' +
-      '</aside></div></div></div>';
+    /* Pass 6: less at once. Approvals live in the Brief; tomorrow lives in
+       Schedule. Home is Brief, Today, Decisions, and a short remainder. */
+    return '<div class="page page--home6"><div class="home">' + brief + day + decisions +
+      '<section class="section home-rest">' + ui.chapter('Also on your list', { meta: ctx.state === 'empty' ? '' : rest.length + ' items' }) + list + '</section>' +
+      '</div></div>';
   };
 
   /* Section-tab state per module, and the crumb tail for the context bar */
   Hub.wsTabs = Hub.wsTabs || { attention: 'All', people: 'staff', schedule: 'today', finance: 'overview' };
-  Hub.actions.wstab = function (el) { Hub.wsTabs[el.dataset.ws] = el.dataset.tab; Hub.animateSection = true; Hub.render(); };
+  Hub.actions.wstab = function (el) {
+    var tabs = Array.prototype.slice.call(el.parentNode.querySelectorAll('.glide__tab')), cur = el.parentNode.querySelector('[aria-selected="true"]');
+    Hub.sectionDir = tabs.indexOf(el) - tabs.indexOf(cur);
+    Hub.wsTabs[el.dataset.ws] = el.dataset.tab; Hub.animateSection = Hub.sectionDir !== 0; Hub.render();
+  };
   function placeholderBody(title, body) { return '<div class="zone-inset ws-placeholder">' + ui.empty('grid', title, body) + '</div>'; }
 
   /* ------------------------------------------------------- NEEDS ATTENTION */

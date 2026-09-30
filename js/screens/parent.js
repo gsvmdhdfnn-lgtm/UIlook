@@ -52,14 +52,13 @@
 
     return '<div class="page page--client"><div class="home">' +
       brief +
-      '<section class="section">' + ui.sectionHead(fn + '\u2019s week', { meta: '28 September \u2013 4 October', right: switcher }) + ui.weekline(week) + '</section>' +
+      '<section class="section">' + ui.chapter(fn + '\u2019s week', { meta: '28 Sep \u2013 4 Oct', right: switcher }) + ui.weekline(week) + '</section>' +
       '<div class="home-grid"><div class="col">' + nextSurface(member.next) + feedback(member) + '</div>' +
       '<aside class="col rail">' +
         '<section class="section section--quiet">' + ui.sectionHead('Your family', { link: 'Manage', href: '#parent-more' }) + ui.rows(members.map(function (c) {
           return ui.row({ lead: ui.avatar(c.name, 'md'), title: esc(c.name), sub: [esc(c.sessions.join(', '))], action: 'member', data: { id: c.id }, chevron: false, cls: 'row--quiet' });
         }), 'rows--quiet rows--avatar') + '</section>' +
-        '<section class="section section--quiet">' + ui.sectionHead('Payments') + '<p class="rail-note">Payments and bookings will be managed here soon. For now, the office handles them as usual.</p></section>' +
-      '</aside></div></div></div>';
+'</aside></div></div></div>';
   };
 
   Hub.actions.member = function (el) { activeId = el.dataset.id; Hub.render(); };

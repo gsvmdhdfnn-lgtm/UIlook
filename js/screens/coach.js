@@ -41,9 +41,6 @@
       '<div class="home-grid"><div class="col">' + nextSurface(today[0]) +
       '</div><aside class="col rail">' +
         '<section class="section section--quiet">' + ui.sectionHead('Shortcuts') + ui.rows(links.map(function (l) { return ui.row({ lead: I(l[0], 'row-glyph'), title: l[1], href: l[2], cls: 'row--quiet' }); }), 'rows--quiet rows--bare') + '</section>' +
-        '<section class="section section--quiet">' + ui.sectionHead('Later this week') + ui.rows(later.map(function (o) {
-          return ui.row({ title: esc(o.session), sub: [(o.date === '2026-10-02' ? 'Fri ' : 'Thu ') + o.start, esc(venue(o))], action: 'soon', chevron: false, cls: 'row--quiet' });
-        }), 'rows--quiet') + '</section>' +
-      '</aside></div></div></div>';
+'</aside></div></div></div>';
   };
 })();

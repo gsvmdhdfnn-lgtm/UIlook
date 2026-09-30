@@ -46,8 +46,8 @@
   }
 
   function tabLinks(area, cls) {
-    return NAV(area).map(function (n) {
-      return '<a class="' + cls + '" href="#' + n.id + '"' + (isCurrent(n.id) ? ' aria-current="page"' : '') + '>' + I(n.icon) + '<span>' + esc(n.label) + '</span>' + (n.bubble && cls === 'tab' ? '<span class="bubble">' + D.attention.summary.counts.Urgent + '</span>' : '') + '</a>';
+    return '<span class="glide__puck" aria-hidden="true"></span>' + NAV(area).map(function (n) {
+      return '<a class="' + cls + (cls === '' ? 'glide__tab' : '') + '" href="#' + n.id + '"' + (isCurrent(n.id) ? ' aria-current="page"' : '') + '>' + I(n.icon) + '<span>' + esc(n.label) + '</span>' + (n.bubble && cls === 'tab' ? '<span class="bubble">' + D.attention.summary.counts.Urgent + '</span>' : '') + '</a>';
     }).join('');
   }
 
@@ -93,7 +93,7 @@
     var who = S.area === 'client' ? D.parent.name : D.me.name;
     return '<header class="topbar">' +
       '<a class="org" href="#' + HOME[S.area] + '">' + Hub.orgMark() + '<span class="org__name">' + esc(Hub.brand.orgName) + '<span class="org__sub">' + esc(areaLabel(S.area)) + '</span></span></a>' +
-      '<nav class="topbar__tabs" aria-label="Main">' + tabLinks(S.area, '') + '</nav>' +
+      '<nav class="topbar__tabs glide glide--bar" data-glide="top-' + S.area + '" aria-label="Main">' + tabLinks(S.area, '') + '</nav>' +
       '<span class="topbar__spacer"></span>' + areaSwitch() +
       '<button type="button" class="me-btn" data-action="profile" aria-label="Account">' + ui.avatar(who, '') + '</button></header>';
   }
@@ -120,6 +120,28 @@
       '<div class="zone-inset">' + ui.empty('grid', 'Not part of this visual pass', 'The shared system is ready to apply here. This screen keeps its place in navigation so the shell reads as complete.') + '</div></div>';
   }
 
+  /* The glide selector: it remembers where it was and glides to where it
+     is now, even across full re-renders. */
+  var puckAt = {};
+  function placePucks(root) {
+    root.querySelectorAll('[data-glide]').forEach(function (rail) {
+      var puck = rail.querySelector('.glide__puck'), key = rail.dataset.glide;
+      var sel = rail.querySelector('[aria-selected="true"], [aria-current="page"]');
+      if (!puck) return;
+      if (!sel || !sel.offsetWidth) { puck.style.opacity = '0'; return; }
+      var to = { left: sel.offsetLeft, width: sel.offsetWidth }, from = puckAt[key];
+      rail.classList.add('no-anim');
+      puck.style.left = (from || to).left + 'px'; puck.style.width = (from || to).width + 'px';
+      void puck.offsetWidth;
+      rail.classList.remove('no-anim');
+      puck.style.left = to.left + 'px'; puck.style.width = to.width + 'px';
+      puckAt[key] = to;
+      if (rail.scrollWidth > rail.clientWidth && sel.offsetLeft + sel.offsetWidth > rail.clientWidth) rail.scrollLeft = sel.offsetLeft - 24;
+    });
+  }
+  window.addEventListener('resize', function () { puckAt = {}; placePucks(document); });
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(function () { puckAt = {}; placePucks(document); });
+
   Hub.state = S;
   Hub.render = function () {
     var root = document.documentElement;
@@ -134,8 +156,9 @@
     app.innerHTML = protoBar() +
       '<div class="frame">' + (S.area === 'management' ? sidebar() : '') +
       '<div class="main">' + topbar() + (S.area === 'management' ? canvasBar() : '') + '<main id="main" tabindex="-1">' + content + '</main></div></div>' +
-      '<nav class="tabbar" aria-label="Main">' + tabLinks(S.area, 'tab') + '</nav>';
-    if (animate) { var sec = app.querySelector('.ws + .page'); if (sec) sec.classList.add('enter'); }
+      '<nav class="tabbar" data-glide="bar-' + S.area + '" aria-label="Main">' + tabLinks(S.area, 'tab') + '</nav>';
+    if (animate) { var sec = app.querySelector('.ws + .page'); if (sec) sec.classList.add(Hub.sectionDir < 0 ? 'enter-left' : 'enter-right'); }
+    placePucks(app);
     /* Day lines that scroll (phones) open on the first thing still to come */
     app.querySelectorAll('.dayline__scroll').forEach(function (sc) {
       if (sc.scrollWidth <= sc.clientWidth) return;
@@ -154,7 +177,7 @@
       else if (a === 'management') S.role = 'management';
       S.area = a; S.route = route;
     }
-    if (!document.getElementById('sheet').hidden) Hub.closeSheet();
+    if (!document.getElementById('sheet').hidden) Hub.closeSheet(true);
     Hub.render(); window.scrollTo(0, 0);
   }
 
@@ -169,7 +192,12 @@
     el.hidden = false; document.body.style.overflow = 'hidden';
     var f = el.querySelector('.sheet__panel button'); if (f) f.focus();
   };
-  Hub.closeSheet = function () { var el = document.getElementById('sheet'); el.hidden = true; el.innerHTML = ''; document.body.style.overflow = ''; if (lastFocus && lastFocus.focus) lastFocus.focus(); };
+  Hub.closeSheet = function (instant) {
+    var el = document.getElementById('sheet');
+    function done() { el.hidden = true; el.classList.remove('is-closing'); el.innerHTML = ''; document.body.style.overflow = ''; if (lastFocus && lastFocus.focus) lastFocus.focus(); }
+    if (instant || el.hidden || matchMedia('(prefers-reduced-motion: reduce)').matches) { done(); return; }
+    el.classList.add('is-closing'); setTimeout(done, 260);
+  };
   var toastTimer;
   Hub.toast = function (t) { var el = document.getElementById('toast'); el.innerHTML = I('check', 'icon-sm') + '<span>' + esc(t) + '</span>'; el.hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(function () { el.hidden = true; }, 2200); };
 

@@ -86,16 +86,23 @@
       var tabs = (o.tabs || []).map(function (t) {
         var sel = t.id === o.active;
         var meta = t.meta != null ? t.meta : (t.count != null ? String(t.count) : '');
-        return '<button type="button" class="itab" role="tab" aria-selected="' + sel + '" data-action="wstab" data-ws="' + esc(o.id) + '" data-tab="' + esc(t.id) + '"><i aria-hidden="true"></i>' +
-          '<span class="itab__label">' + esc(t.label) + '</span>' +
-          '<span class="itab__meta">' + (t.state ? ui.sev(t.state) : '') + '<span>' + meta + '</span></span></button>';
+        return '<button type="button" class="glide__tab" role="tab" aria-selected="' + sel + '" data-action="wstab" data-ws="' + esc(o.id) + '" data-tab="' + esc(t.id) + '">' +
+          '<span class="glide__label">' + esc(t.label) + '</span>' +
+          '<span class="glide__meta">' + (t.state ? ui.sev(t.state) : '') + '<span>' + meta + '</span></span></button>';
       }).join('');
       return '<header class="ws"><div class="ws__inner">' +
         '<div class="ws__top"><div class="ws__text">' + (o.overline ? '<div class="overline">' + esc(o.overline) + '</div>' : '') +
         '<h1 class="ws__title">' + esc(o.title) + '</h1>' + (o.sub ? '<div class="summary-line ws__sub"><p>' + o.sub + '</p></div>' : '') + '</div>' +
         (o.actions ? '<div class="ws__actions">' + o.actions + '</div>' : '') + '</div>' +
-        (tabs ? '<nav class="itabs" role="tablist" aria-label="' + esc(o.title) + ' sections">' + tabs + '</nav>' : '') +
+        (tabs ? '<nav class="glide" data-glide="ws-' + esc(o.id) + '" role="tablist" aria-label="' + esc(o.title) + ' sections"><span class="glide__puck" aria-hidden="true"></span>' + tabs + '</nav>' : '') +
         '</div></header>';
+    },
+
+    /* Chapter: the editorial divider between major zones of a page */
+    chapter: function (title, o) {
+      o = o || {};
+      return '<div class="chapter"><h2 class="chapter__title">' + esc(title) + (o.meta ? '<span class="chapter__meta">' + o.meta + '</span>' : '') + '</h2><span class="chapter__rule" aria-hidden="true"></span>' +
+        (o.link ? '<a class="section-link" href="' + o.href + '">' + esc(o.link) + I('chevron', 'icon-sm') + '</a>' : (o.right || '<span></span>')) + '</div>';
     },
 
     /* ---- Signature patterns ---- */
@@ -127,7 +134,7 @@
         return '<div class="' + cls + '" style="left:' + pct(it.start) + ';width:calc(' + w + ' - 4px);top:' + (28 + it.lane * 48) + 'px"' + a + ' title="' + esc(it.title + ', ' + it.start + '\u2013' + it.end) + '">' + inner + '</div>';
       }).join('');
       return '<section class="dayline' + (o.ground ? ' dayline--ground' : '') + '" aria-label="' + esc(o.label || 'Day line') + '">' +
-        '<div class="dayline__head">' + ui.sectionHead(o.label || 'The day', { meta: o.meta || '' }) + (o.legend ? '<div class="dayline__legend wide-inline"><span>' + ui.sev('Urgent') + 'Needs a decision</span><span><i class="legend-now"></i>Now</span></div>' : '') + '</div>' +
+        (o.plainHead ? '<div class="dayline__head">' + ui.sectionHead(o.label || 'The day', { meta: o.meta || '' }) + '</div>' : ui.chapter(o.label || 'The day', { meta: o.meta || '', right: o.legend ? '<div class="dayline__legend wide-inline"><span>' + ui.sev('Urgent') + 'Needs a decision</span><span><i class="legend-now"></i>Now</span></div>' : '' })) +
         '<div class="dayline__scroll"><div class="dayline__track" style="--lanes:' + Math.max(1, lanes.length) + ';--now:' + pct(o.now) + '">' +
         '<div class="dayline__elapsed"></div>' + hours + blocks + '<div class="dayline__now" style="left:' + pct(o.now) + '"><span>Now ' + o.now + '</span></div>' +
         '</div></div></section>';
