@@ -54,3 +54,12 @@ enterprise labelling, and still premium.
 - The obsidian shell and champagne active states belong to the Relvor
   platform, so they stay the same across organisations.
 - Status colours stay separate from both.
+
+## Follow-up: overview text and day line removed
+Removed at the reviewer's request, for now:
+- **Staff Home and Client Home:** the written overview under the greeting.
+  Both pages now open with the date and the greeting only.
+- **Staff Home:** the "Your day" timeline.
+
+The Client Home keeps its "Since your last visit" office update and the
+week strip. The canvas tint now fills the full height of short pages.

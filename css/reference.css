@@ -24,7 +24,8 @@
 }
 
 /* ---------- Canvas: porcelain everywhere, a faint ridge behind each page head ---------- */
-body { background-color: var(--porcelain); background-image: var(--porcelain-image); }
+body { background: var(--porcelain); }
+.app { min-height: 100dvh; background-image: var(--porcelain-image); background-repeat: no-repeat; }
 .frame { background: transparent; }
 .main { position: relative; isolation: isolate; }
 .main:not(:has(.hx))::before {
