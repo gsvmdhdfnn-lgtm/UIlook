@@ -108,51 +108,54 @@
       '<span class="hx-sched__count num">' + I('users', 'icon-sm') + o.players + '</span>' +
       '<span class="hx-pill hx-pill--' + (risk ? 'warn' : 'ok') + '">' + (risk ? 'At risk' : 'On track') + '</span>' + I('chevron', 'icon-sm hx-chev') + '</button>';
   }
-  function attentionHero(state) {
+  /* Needs Attention as a working panel: counts by severity, compact rows,
+     colour held back for urgent items only. */
+  function attentionPanel(state) {
     var A = D.attention, c = A.summary.counts, empty = state === 'empty';
-    var tone = empty ? 'clear' : c.Urgent ? 'urgent' : c.Warning ? 'warning' : c.Normal ? 'normal' : 'clear';
-    var title = empty ? 'All clear' : c.Urgent ? c.Urgent + ' urgent action' + (c.Urgent > 1 ? 's' : '') : A.summary.total + ' items to review';
-    var desc = empty ? 'Nothing currently needs management action.' : A.summary.total + ' open in total. Approvals, staffing issues and exceptions.';
-    var counts = empty ? '' : '<p class="lx-hero__counts num"><span>' + c.Urgent + ' Urgent</span><span>' + c.Warning + ' Warning</span><span>' + c.Normal + ' Normal</span></p>';
-    var list = empty ? '' : '<div class="lx-hero__list">' + A.cases.slice(0, 3).map(function (k) {
-      return '<button type="button" class="lx-hero__row" data-action="case" data-key="' + esc(k.caseKey) + '"><span class="lx-hero__sev">' + ui.sevWord(k.severity) + '</span>' +
-        '<span class="lx-hero__main"><b>' + esc(k.title) + '</b><small>' + esc(k.when) + ' · ' + esc(k.category) + '</small></span>' + I('chevron', 'icon-sm') + '</button>';
+    var head = '<div class="hx-card__head"><div><h2>Needs attention</h2><small class="hx-sub">' + (empty ? 'Nothing waiting' : A.summary.total + ' open · updated 14:05') + '</small></div><a class="hx-link" href="#mgmt-attention">View all' + I('arrowRight', 'icon-sm') + '</a></div>';
+    if (empty) return '<section class="hx-card hm-attn">' + head + ui.empty('checkCircle', 'All clear', 'Nothing currently needs management action.', 'ok') + '</section>';
+    var sev = '<div class="hm-sev num">' + [['Urgent', 'urgent'], ['Warning', 'warning'], ['Normal', 'normal']].map(function (x) {
+      return '<a class="hm-sev__i hm-sev--' + x[1] + '" href="#mgmt-attention"><i></i><b>' + c[x[0]] + '</b>' + ui.sevWord(x[0]) + '</a>';
     }).join('') + '</div>';
-    return '<section class="lx-hero lx-hero--' + tone + '" aria-label="Needs attention"><div class="lx-hero__top"><div class="lx-hero__text"><div class="lx-hero__k">Needs attention</div>' +
-      '<h2 class="lx-hero__title">' + title + '</h2>' + counts + '<p class="lx-hero__desc">' + desc + '</p></div>' +
-      '<a class="lx-hero__btn" href="#mgmt-attention">Review' + I('arrowRight', 'icon-sm') + '</a></div>' + list + '</section>';
+    var rows = '<div class="hx-list">' + A.cases.slice(0, 5).map(function (k) {
+      return '<button type="button" class="hx-attn' + (k.severity === 'Urgent' ? ' is-urgent' : '') + '" data-action="case" data-key="' + esc(k.caseKey) + '"><span class="hx-dot hx-tone--' + (k.severity === 'Urgent' ? 'danger' : k.severity === 'Warning' ? 'warn' : 'muted') + '"></span>' +
+        '<span class="hx-attn__main"><b>' + esc(k.title) + '</b><small>' + esc(k.when) + ' · ' + esc(k.category) + '</small></span>' + I('chevron', 'icon-sm hx-chev') + '</button>';
+    }).join('') + '</div>';
+    return '<section class="hx-card hm-attn">' + head + sev + rows + '</section>';
   }
 
   Hub.screens['mgmt-home'] = function (ctx) {
     var first = D.me.name.split(' ')[0], empty = ctx.state === 'empty';
-    var hello = '<header class="hx__hello"><div class="overline">Management · Thursday 1 October</div><h1 class="hx__title serif">Good afternoon, ' + esc(first) + '.</h1>' +
-      '<p class="hx__lede">Run the day, resolve issues and reach the core operating areas.</p></header>';
-    var wrap = function (inner) { return '<div class="hx">' + backdrop() + '<div class="hx__wrap">' + hello + inner + '</div></div>'; };
-    if (ctx.state === 'loading') return wrap('<span class="skeleton" style="height:220px;border-radius:24px"></span><div class="lx-areas">' + [1, 2, 3, 4].map(function () { return '<span class="skeleton" style="height:170px;border-radius:20px"></span>'; }).join('') + '</div>');
-    if (ctx.state === 'error') return wrap(errorBody('Couldn’t load today’s operation', 'Nothing is shown as clear until the checks complete. Try again in a moment.'));
+    var hello = '<header class="hm-hello"><div class="hm-hello__date">Thursday 1 October</div><h1 class="hm-hello__title">Good afternoon, ' + esc(first) + '.</h1>' +
+      '<p class="hm-hello__lede">Here’s what’s happening across ' + esc(Hub.brand.orgFull || Hub.brand.orgName) + ' today.</p></header>';
+    var shell = function (main, rail) { return '<div class="hx">' + backdrop() + '<div class="hm"><div class="hm__main">' + hello + main + '</div>' + (rail ? '<aside class="hm__rail">' + rail + '</aside>' : '') + '</div></div>'; };
+    if (ctx.state === 'loading') return shell('<div class="lx-areas">' + [1, 2, 3, 4].map(function () { return '<span class="skeleton" style="height:76px;border-radius:14px"></span>'; }).join('') + '</div><div class="hm__pair"><span class="skeleton" style="height:360px;border-radius:16px"></span><span class="skeleton" style="height:360px;border-radius:16px"></span></div>');
+    if (ctx.state === 'error') return shell(errorBody('Couldn’t load today’s operation', 'Nothing is shown as clear until the checks complete. Try again in a moment.'));
 
     var active = D.staff.filter(function (p) { return p.sessions > 0; }).length;
-    var areas = '<div class="lx-areas">' +
-      areaCard({ href: '#mgmt-schedule', icon: 'calendar', title: 'Schedule & Sessions', value: empty ? 0 : todayOcc().length, label: 'Sessions today', desc: 'Sessions, occurrences, staffing and delivery.' }) +
-      areaCard({ href: '#mgmt-coaches', icon: 'coaches', title: staffWord(), value: active, label: 'Active ' + staffWord().toLowerCase(), desc: 'People, roles, pay rates and cover.' }) +
-      areaCard({ href: '#mgmt-players', icon: 'players', title: 'Players & ' + Hub.brand.terms.client + 's', value: 214, label: 'Active players', desc: 'Profiles, access, memberships and requests.' }) +
-      areaCard({ action: 'scroll-today', icon: 'clock', title: 'Today', desc: 'A quick operational view of the day.', cta: 'Jump to today' }) + '</div>';
-    var waiting = D.approvals.reduce(function (n, a) { return n + a.count; }, 0);
-    var chips = '<div class="lx-chips"><span class="num">' + (empty ? 0 : todayOcc().length) + ' sessions today</span><span class="num">' + (empty ? 0 : 53) + ' players expected</span><a class="num" href="#mgmt-more">' + waiting + ' awaiting approval</a></div>';
+    var areas = '<div class="lx-areas lx-areas--stat">' +
+      areaCard({ href: '#mgmt-schedule', icon: 'calendar', title: 'Schedule & Sessions', value: empty ? 0 : todayOcc().length, label: 'sessions today', desc: '' }) +
+      areaCard({ href: '#mgmt-coaches', icon: 'coaches', title: staffWord(), value: active, label: 'active', desc: '' }) +
+      areaCard({ href: '#mgmt-players', icon: 'players', title: 'Players & ' + Hub.brand.terms.client + 's', value: 214, label: 'active players', desc: '' }) +
+      areaCard({ action: 'scroll-today', icon: 'clock', title: 'Today', value: empty ? 0 : 53, label: 'players expected', desc: '' }) + '</div>';
 
-    var sched = '<section class="hx-card"><div class="hx-card__head"><h2>Today’s schedule</h2><a class="hx-link" href="#mgmt-schedule">View full day' + I('arrowRight', 'icon-sm') + '</a></div>' +
+    var sched = '<section class="hx-card hm-sched" id="hx-today"><div class="hx-card__head"><div><h2>Today’s schedule</h2><small class="hx-sub">' + (empty ? 'No sessions' : todayOcc().length + ' sessions · 53 players expected') + '</small></div><a class="hx-link" href="#mgmt-schedule">View full day' + I('arrowRight', 'icon-sm') + '</a></div>' +
       (empty ? ui.empty('calendar', 'Nothing scheduled today', 'Tomorrow has 2 sessions.') : '<div class="hx-list">' + todayOcc().slice().sort(function (a, b) { return a.start < b.start ? -1 : 1; }).map(schedRow).join('') + '</div>') + '</section>';
+
     var week = [['Mon', 28], ['Tue', 29], ['Wed', 30], ['Thu', 1], ['Fri', 2], ['Sat', 3], ['Sun', 4]];
+    var timeline = empty ? '<p class="hx-sub">Nothing scheduled.</p>' : todayOcc().slice().sort(function (a, b) { return a.start < b.start ? -1 : 1; }).map(function (o) {
+      var risk = o.staff.some(function (x) { return x.unavailable; });
+      return '<div class="hx-tl"><span class="hx-tl__time num">' + o.start + '</span><span class="hx-dot hx-tone--' + (risk ? 'warn' : 'ok') + '"></span><span class="hx-tl__main"><b>' + esc(o.session) + '</b><small>' + esc(venue(o)) + '</small></span></div>';
+    }).join('');
     var todayCard = '<section class="hx-card hx-card--rail"><div class="hx-card__head"><div><h2>Today</h2><small class="hx-sub">Thu 1 Oct 2026</small></div></div>' +
-      '<div class="hx-week">' + week.map(function (d, i) { return '<span class="hx-week__day' + (i === 3 ? ' is-today' : '') + '"><small>' + d[0] + '</small><b>' + d[1] + '</b></span>'; }).join('') + '</div></section>';
+      '<div class="hx-week">' + week.map(function (d, i) { return '<span class="hx-week__day' + (i === 3 ? ' is-today' : '') + '"><small>' + d[0] + '</small><b>' + d[1] + '</b></span>'; }).join('') + '</div><div class="hx-timeline">' + timeline + '</div></section>';
     var activity = '<section class="hx-card hx-card--rail"><div class="hx-card__head"><h2>Recent activity</h2></div><div class="hx-activity">' +
       D.changes.map(function (ch, i) {
         var tone = ['warn', 'ok', 'blue'][i % 3], icon = ['calendar', 'shield', 'inbox'][i % 3];
         return '<div class="hx-act"><span class="hx-act__icon hx-tone--' + tone + '">' + I(icon, 'icon-sm') + '</span><span><b>' + esc(ch.text) + '</b><small>' + esc(ch.time) + '</small></span></div>';
       }).join('') + '</div></section>';
 
-    return wrap(attentionHero(ctx.state) + areas + chips +
-      '<div class="lx-today" id="hx-today"><div class="lx-today__main">' + sched + '</div><aside class="lx-today__rail">' + todayCard + activity + '</aside></div>');
+    return shell(areas + '<div class="hm__pair">' + sched + attentionPanel(ctx.state) + '</div>', todayCard + activity);
   };
   Hub.actions['scroll-today'] = function () { var t = document.getElementById('hx-today'); if (t) t.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' }); };
 

@@ -11,8 +11,9 @@
       orgName: 'Northfield Group',
       orgSub: 'Operations',
       mark: null,
-      identity: '#1d1b18',
-      accent: '#b7832f',
+      identity: '#0b0b0b',
+      accent: '#d9a441',          /* Relvor Amber */
+      fill: '#d9a441', onFill: '#0b0b0b',
       terms: { staff: 'Staff', client: 'Client' }
     },
     joshevans: {
@@ -45,6 +46,9 @@
     s.setProperty('--accent-l', clamp(b.accent, '#ffffff', '#101114', 4.6));
     s.setProperty('--accent-d', clamp(b.accent, '#15171c', '#ffffff', 5.2));
     s.setProperty('--identity', b.identity);
+    /* Primary actions: the brand fill with the ink that reads on it. */
+    s.setProperty('--accent-fill', b.fill || clamp(b.accent, '#ffffff', '#101114', 4.6));
+    s.setProperty('--on-accent-fill', b.onFill || '#ffffff');
     var meta = document.querySelector('meta[name="theme-color"]');
     if (meta) meta.setAttribute('content', '#ffffff');
   };
@@ -53,8 +57,15 @@
     if (b.mark) return '<img class="org-mark" src="' + b.mark + '" alt="">';
     return '<span class="org-mark org-mark--mono" aria-hidden="true">' + initials(b.orgName) + '</span>';
   };
-  /* The Relvor logo: a champagne 'r' built from a stem and a leaf. */
-  Hub.relvorLogo = '<svg class="rv-logo" viewBox="0 0 32 32" aria-hidden="true"><defs><linearGradient id="rvg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f6e7cf"/><stop offset="1" stop-color="#c9a574"/></linearGradient></defs><rect x="5" y="6" width="7.5" height="21" rx="3.75" fill="url(#rvg)"/><path d="M14.5 13.5C14.5 8.8 18.3 5 23 5h2.2c1 0 1.8.8 1.8 1.8v1.4c0 4.7-3.8 8.5-8.5 8.5h-4v-3.2Z" fill="url(#rvg)" opacity=".92"/></svg>';
+  /* The Relvor symbol (brand system v1.0): an obsidian block and an amber
+     block meeting on a two-step stair. fg is the obsidian part (porcelain
+     on dark), gap the hairline between them. */
+  function relvorSymbol(fg, gap, cls) {
+    return '<svg class="' + cls + '" viewBox="0 0 32 32" aria-hidden="true"><rect x="10" y="1" width="21" height="24" rx="5.5" fill="#d9a441"/>' +
+      '<path d="M6.5 5.5H13.5V12H19.5V18.5H25.5V25a6 6 0 0 1-6 6H6.5a6 6 0 0 1-6-6V11.5a6 6 0 0 1 6-6Z" fill="' + fg + '" stroke="' + gap + '" stroke-width="1.4" stroke-linejoin="round"/></svg>';
+  }
+  Hub.relvorSymbol = relvorSymbol;
+  Hub.relvorLogo = relvorSymbol('#f7f3ed', '#0b0b0b', 'rv-logo');
   /* Relvor's own mark: used quietly, never over the organisation. */
   Hub.relvorMark = '<svg viewBox="0 0 16 16" aria-hidden="true"><rect x="0.5" y="0.5" width="15" height="15" rx="3.5" fill="currentColor"/><path d="M5.5 11.5v-7h3.1a2.1 2.1 0 0 1 0 4.2H5.5M8.4 8.7l2.3 2.8" fill="none" stroke="var(--canvas)" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 })();

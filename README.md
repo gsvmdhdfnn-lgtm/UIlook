@@ -4,7 +4,8 @@ A visual-design prototype for Relvor, the operations platform (Josh Evans is
 one example organisation using it). It is a static, mock-data front end for
 trying out the look and feel. It is not a second Hub.
 
-- **Pass 9, design-pack layout (current):** `docs/VISUAL-PASS-9.md`, `docs/screenshots/pass-9/`. Home and More navigation, pack page structures, Relvor finish.
+- **Pass 10, Relvor brand system (current):** `docs/VISUAL-PASS-10.md`, `docs/screenshots/pass-10/`. Inter, obsidian/porcelain/amber, compact proportions, working-panel Home.
+- **Pass 9, design-pack layout:** `docs/VISUAL-PASS-9.md`, `docs/screenshots/pass-9/`. Home and More navigation, pack page structures, Relvor finish.
 - **Palette experiment:** `docs/PALETTE-EXPERIMENT.md`. Slate (Management), Forest (Coach), Plum (Parent); switch in the prototype bar.
 - **Pass 8, Home style everywhere:** `docs/VISUAL-PASS-8.md`, `docs/screenshots/pass-8/`. Bold sans headings and tabs; porcelain canvas, soft cards and obsidian shell across Management, Staff and Client.
 - **Pass 7, reference Management Home:** branch `claude/visual-pass-7`; `docs/VISUAL-PASS-7.md`, `docs/screenshots/pass-7/`. Floating obsidian sidebar on porcelain; greeting, soft summary cards, primary surfaces, quiet rail, feature panels.
