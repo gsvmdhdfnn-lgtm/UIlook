@@ -4,8 +4,9 @@ A visual-design prototype for Relvor, the operations platform (Josh Evans is
 one example organisation using it). It is a static, mock-data front end for
 trying out the look and feel. It is not a second Hub.
 
+- **Pass 9, design-pack layout (current):** `docs/VISUAL-PASS-9.md`, `docs/screenshots/pass-9/`. Home and More navigation, pack page structures, Relvor finish.
 - **Palette experiment:** `docs/PALETTE-EXPERIMENT.md`. Slate (Management), Forest (Coach), Plum (Parent); switch in the prototype bar.
-- **Pass 8, Home style everywhere (current):** `docs/VISUAL-PASS-8.md`, `docs/screenshots/pass-8/`. Bold sans headings and tabs; porcelain canvas, soft cards and obsidian shell across Management, Staff and Client.
+- **Pass 8, Home style everywhere:** `docs/VISUAL-PASS-8.md`, `docs/screenshots/pass-8/`. Bold sans headings and tabs; porcelain canvas, soft cards and obsidian shell across Management, Staff and Client.
 - **Pass 7, reference Management Home:** branch `claude/visual-pass-7`; `docs/VISUAL-PASS-7.md`, `docs/screenshots/pass-7/`. Floating obsidian sidebar on porcelain; greeting, soft summary cards, primary surfaces, quiet rail, feature panels.
 - **Pass 6, Atelier:** branch `claude/visual-pass-6`; `docs/VISUAL-PASS-6.md`, `docs/screenshots/pass-6/`. Obsidian spine, glide rail, editorial serif, glass and motion.
 - **Pass 5, product identity:** `docs/VISUAL-PASS-5.md`, `docs/screenshots/pass-5/`. The Brief, the Day Line, state marks and decisions, index tabs.
@@ -53,6 +54,7 @@ css/signature.css   Relvor's signature patterns (Brief, Day Line, marks, decisio
 css/atelier.css     pass 6: spine, inset panel, glide rail, serif chapters, glass, depth, motion
 css/home.css        pass 7: floating sidebar shell and the Management Home composition
 css/reference.css   pass 8: the Home style applied to every area (type, tabs, surfaces, shell)
+css/layout.css      pass 9: design-pack page structures (heroes, area cards, issue cards, directory, tiles)
 css/palettes.css    palette experiment: Slate, Forest and Plum schemes
 js/brand.js         branding boundary (name, mark, accent, terms; accent clamped for contrast)
 js/icons.js         stroke icon set

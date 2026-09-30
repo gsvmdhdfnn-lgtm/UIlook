@@ -10,10 +10,8 @@
     var t = terms();
     return {
       management: [
-        { id: 'mgmt-home', label: 'Home', icon: 'home' },
-        { id: 'mgmt-attention', label: 'Attention', long: 'Needs attention', icon: 'attention', bubble: attentionCount },
-        { id: 'mgmt-schedule', label: 'Schedule', icon: 'calendar' },
-        { id: 'mgmt-coaches', label: 'People', icon: 'users' },
+        /* Design pack: Management uses Home and More only at top level. */
+        { id: 'mgmt-home', label: 'Home', icon: 'home', bubble: attentionCount },
         { id: 'mgmt-more', label: 'More', icon: 'grid' }
       ],
       staff: [
@@ -30,9 +28,12 @@
       ]
     }[area];
   }
+  var CORE = ['mgmt-attention', 'mgmt-schedule', 'mgmt-coaches', 'mgmt-players'];
+  function staffPlural() { var t = terms().staff; return t === 'Coach' ? 'Coaches' : t; }
+  Hub.staffPlural = staffPlural;
   var HOME = { management: 'mgmt-home', staff: 'coach-home', client: 'parent-home' };
   function areaLabel(a) { var t = terms(); return { management: 'Management', staff: t.staff + ' hub', client: t.client + ' hub' }[a]; }
-  var BUILT = { 'mgmt-home': 1, 'mgmt-attention': 1, 'mgmt-more': 1, 'mgmt-coaches': 1, 'mgmt-schedule': 1, 'mgmt-finance': 1, 'coach-home': 1, 'parent-home': 1, system: 1 };
+  var BUILT = { 'mgmt-players': 1, 'mgmt-home': 1, 'mgmt-attention': 1, 'mgmt-more': 1, 'mgmt-coaches': 1, 'mgmt-schedule': 1, 'mgmt-finance': 1, 'coach-home': 1, 'parent-home': 1, system: 1 };
 
   var S = { role: 'management', area: 'management', route: 'mgmt-home', state: 'live', theme: 'auto', brand: 'relvor', palette: 'area' };
   /* Palette experiment: one scheme per area by default */
@@ -43,8 +44,9 @@
   function areaOf(route) { return route.indexOf('mgmt-') === 0 ? 'management' : route.indexOf('coach-') === 0 ? 'staff' : route.indexOf('parent-') === 0 ? 'client' : null; }
   function isCurrent(id) {
     if (id === S.route) return true;
-    /* Anything reached through More keeps More selected on mobile. */
-    return id === 'mgmt-more' && S.route.indexOf('mgmt-') === 0 && !NAV('management').some(function (m) { return m.id === S.route; });
+    /* Core areas sit under Home; everything else is reached through More. */
+    if (id === 'mgmt-home') return CORE.indexOf(S.route) >= 0;
+    return id === 'mgmt-more' && S.route.indexOf('mgmt-') === 0 && S.route !== 'mgmt-home' && CORE.indexOf(S.route) < 0;
   }
 
   function tabLinks(area, cls) {
@@ -62,29 +64,30 @@
      organisation switcher beneath it, one calm list of destinations, and
      settings, help and the person anchored at the bottom. */
   function sidebar() {
-    function link(id, label, icon, trail) {
-      return '<a class="nav-link" href="#' + id + '"' + (S.route === id ? ' aria-current="page"' : '') + '>' + I(icon) + '<span>' + esc(label) + '</span>' + (trail || '') + '</a>';
+    /* Home and More only, as the design pack sets out. The area you are in
+       appears nested under its parent, so the sidebar says where you are
+       without listing every destination. */
+    function link(id, label, icon, open, trail) {
+      return '<a class="nav-link' + (open ? ' is-open' : '') + '" href="#' + id + '"' + (S.route === id ? ' aria-current="page"' : '') + '>' + I(icon) + '<span>' + esc(label) + '</span>' + (trail || '') + '</a>';
     }
-    var mark = { schedule: 'Urgent', coaches: 'Warning' };
+    var inCore = CORE.indexOf(S.route) >= 0, inMore = !inCore && S.route !== 'mgmt-home' && S.route !== 'mgmt-more';
+    var child = '<a class="nav-child" href="#' + S.route + '" aria-current="page"><span>' + esc(pageTitle()) + '</span></a>';
+    var c = D.attention.summary.counts;
+    var status = '<a class="side-status" href="#mgmt-attention"><span class="side-status__k">' + ui.sev('Urgent') + 'Needs attention</span>' +
+      '<b class="num">' + c.Urgent + ' urgent</b><small class="num">' + c.Warning + ' warning \u00b7 ' + c.Normal + ' normal</small><span class="side-status__go">Review' + I('arrowRight', 'icon-sm') + '</span></a>';
     return '<aside class="sidebar" aria-label="Management navigation">' +
       '<a class="rv-brand" href="#mgmt-home" aria-label="Relvor home">' + Hub.relvorLogo + '<span>Relvor</span></a>' +
-      '<button type="button" class="org-card" data-action="soon" aria-label="Switch organisation"><span class="org-card__mark">' + esc(ui.initials(Hub.brand.orgName)) + '</span><span class="org-card__text"><b>' + esc(Hub.brand.orgFull || Hub.brand.orgName) + '</b><small>Switch organisation</small></span>' + I('chevron', 'icon-sm') + '</button>' +
-      '<nav class="nav nav--main">' + link('mgmt-home', 'Home', 'home') + link('mgmt-attention', 'Needs attention', 'attention', '<span class="count count--alert">' + attentionCount + '</span>') +
-        D.areas.map(function (a) {
-          var id = a.id === 'coaches' ? 'mgmt-coaches' : 'mgmt-' + a.id;
-          var label = a.id === 'coaches' ? 'People' : a.label;
-          return link(id, label, a.id === 'coaches' ? 'users' : a.id === 'players' ? 'family' : a.icon, a.on ? (mark[a.id] ? ui.sev(mark[a.id]) : '') : '<span class="off">Off</span>');
-        }).join('') + '</nav>' +
-      '<nav class="nav nav--sub"><div class="nav__label">Approvals</div>' + D.approvals.map(function (a) { return link('mgmt-' + a.id, a.label, a.icon, a.count ? '<span class="count">' + a.count + '</span>' : ''); }).join('') + '</nav>' +
-      '<div class="sidebar__foot"><nav class="nav nav--quiet">' + link('mgmt-settings', 'Settings', 'settings') + link('mgmt-more', 'Help & all tools', 'info') + '</nav>' +
-        areaSwitch() +
+      '<button type="button" class="org-card" data-action="soon" aria-label="Switch organisation"><span class="org-card__mark">' + esc(ui.initials(Hub.brand.orgName)) + '</span><span class="org-card__text"><b>' + esc(Hub.brand.orgFull || Hub.brand.orgName) + '</b><small>Management hub</small></span>' + I('chevron', 'icon-sm') + '</button>' +
+      '<nav class="nav nav--main">' + link('mgmt-home', 'Home', 'home', inCore) + (inCore ? child : '') + link('mgmt-more', 'More', 'grid', inMore) + (inMore ? child : '') + '</nav>' +
+      (S.state === 'live' ? status : '') +
+      '<div class="sidebar__foot">' + areaSwitch() +
         '<button type="button" class="user-card" data-action="profile">' + ui.avatar(D.me.name, 'md') + '<span class="truncate"><b>' + esc(D.me.name) + '</b><small>Management</small></span>' + I('chevron', 'icon-sm') + '</button>' +
       '</div></aside>';
   }
 
   function canvasBar() {
     var n = NAV('management').filter(function (x) { return x.id === S.route; })[0];
-    var extra = { 'mgmt-coaches': 'People', 'mgmt-schedule': 'Schedule & Sessions', 'mgmt-finance': 'Finance' };
+    var extra = { 'mgmt-schedule': 'Schedule & Sessions', 'mgmt-finance': 'Finance' };
     var title = extra[S.route] || (n && (n.long || n.label)) || pageTitle();
     var tail = Hub.crumbTail ? I('chevron') + '<b>' + esc(Hub.crumbTail) + '</b>' : '';
     if (S.route === 'mgmt-home') {
@@ -93,7 +96,8 @@
         '<button type="button" class="icon-btn" data-action="soon" aria-label="Notifications">' + I('bell') + '<span class="dot"></span></button>' +
         '<button type="button" class="me-btn" data-action="profile" aria-label="Account">' + ui.avatar(D.me.name, 'sm') + '</button></div>';
     }
-    return '<div class="canvas-bar"><div class="crumbs"><span>Management</span>' + I('chevron') + (tail ? '<span>' + esc(title) + '</span>' + tail : '<b>' + esc(title) + '</b>') + '</div><span class="canvas-bar__spacer"></span>' +
+    var parent = CORE.indexOf(S.route) >= 0 ? 'Home' : S.route === 'mgmt-more' ? 'Management' : 'More';
+    return '<div class="canvas-bar"><div class="crumbs"><a href="#' + (parent === 'More' ? 'mgmt-more' : 'mgmt-home') + '">' + parent + '</a>' + I('chevron') + (tail ? '<span>' + esc(title) + '</span>' + tail : '<b>' + esc(title) + '</b>') + '</div><span class="canvas-bar__spacer"></span>' +
       '<button type="button" class="search-trigger" data-action="soon">' + I('search') + '<span>Search people, sessions, items</span><span class="kbd">⌘K</span></button>' +
       '<button type="button" class="icon-btn" data-action="soon" aria-label="Notifications">' + I('bell') + '<span class="dot"></span></button></div>';
   }
@@ -120,6 +124,8 @@
   }
 
   function pageTitle() {
+    var fixed = { 'mgmt-attention': 'Needs attention', 'mgmt-coaches': staffPlural(), 'mgmt-players': 'Players & ' + terms().client + 's', 'mgmt-content': 'Content & Brand', 'mgmt-reports': 'Reports' };
+    if (fixed[S.route]) return fixed[S.route];
     var n = (NAV(S.area) || []).filter(function (x) { return x.id === S.route; })[0];
     var area = D.areas.filter(function (a) { return 'mgmt-' + a.id === S.route; })[0];
     var appr = D.approvals.filter(function (a) { return 'mgmt-' + a.id === S.route; })[0];
@@ -170,7 +176,7 @@
       '<div class="frame">' + (S.area === 'management' ? sidebar() : '') +
       '<div class="main">' + topbar() + (S.area === 'management' ? canvasBar() : '') + '<main id="main" tabindex="-1">' + content + '</main></div></div>' +
       '<nav class="tabbar" data-glide="bar-' + S.area + '" aria-label="Main">' + tabLinks(S.area, 'tab') + '</nav>';
-    if (animate) { var sec = app.querySelector('.ws + .page'); if (sec) sec.classList.add(Hub.sectionDir < 0 ? 'enter-left' : 'enter-right'); }
+    if (animate) { var sec = app.querySelector('.lx-body') || app.querySelector('.ws + .page'); if (sec) sec.classList.add(Hub.sectionDir < 0 ? 'enter-left' : 'enter-right'); }
     placePucks(app);
     /* Day lines that scroll (phones) open on the first thing still to come */
     app.querySelectorAll('.dayline__scroll').forEach(function (sc) {

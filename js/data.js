@@ -26,13 +26,13 @@
   /* Occurrences: dated instances of a Session. */
   function occ(o) { return o; }
   var occurrences = [
-    occ({ id: 'o1', session: 'Daneshill Years 5-6', programme: 'Day', ageGroup: 'Years 5-6', date: '2026-10-01', start: '15:30', end: '16:30', venue: 'daneshill', staff: [{ coach: 'tom', lead: true }], players: 16, status: 'ok' }),
-    occ({ id: 'o2', session: 'U8 Development', programme: 'Evening', ageGroup: 'U8', date: '2026-10-01', start: '16:30', end: '17:30', venue: 'freemens', staff: [{ coach: 'jack', lead: true }, { coach: 'ellie' }], players: 11, status: 'ok' }),
-    occ({ id: 'o3', session: 'U9/10 Development', programme: 'Evening', ageGroup: 'U9/10', date: '2026-10-01', start: '17:30', end: '18:30', venue: 'freemens', staff: [{ coach: 'david', lead: true }, { coach: 'charlie' }], players: 12, status: 'ok', theme: 'Receiving to play forward' }),
-    occ({ id: 'o4', session: 'U12 Academy', programme: 'Evening', ageGroup: 'U12', date: '2026-10-01', start: '19:00', end: '20:30', venue: 'freemens', staff: [{ coach: 'david', lead: true }, { coach: 'charlie', unavailable: true }], players: 14, status: 'attention', theme: 'Playing through pressure' }),
-    occ({ id: 'o5', session: 'U13/14 Development', programme: 'Evening', ageGroup: 'U13/14', date: '2026-10-02', start: '18:00', end: '19:00', venue: 'therfield', staff: [], players: 15, status: 'attention' }),
-    occ({ id: 'o6', session: "St Peter's After School", programme: 'Day', ageGroup: 'Years 3-4', date: '2026-10-02', start: '16:00', end: '17:00', venue: 'stpeters', staff: [{ coach: 'david', lead: true }], players: 18, status: 'ok' }),
-    occ({ id: 'o7', session: 'U12 Academy', programme: 'Evening', ageGroup: 'U12', date: '2026-10-08', start: '19:00', end: '20:30', venue: 'freemens', staff: [{ coach: 'david', lead: true }, { coach: 'charlie' }], players: 14, status: 'ok' })
+    occ({ id: 'o1', session: 'Daneshill Years 5-6', programme: 'Day', ageGroup: 'Years 5-6', date: '2026-10-01', start: '15:30', end: '16:30', venue: 'daneshill', staff: [{ coach: 'tom', lead: true }], capacity: 18, players: 16, status: 'ok' }),
+    occ({ id: 'o2', session: 'U8 Development', programme: 'Evening', ageGroup: 'U8', date: '2026-10-01', start: '16:30', end: '17:30', venue: 'freemens', staff: [{ coach: 'jack', lead: true }, { coach: 'ellie' }], capacity: 14, players: 11, status: 'ok' }),
+    occ({ id: 'o3', session: 'U9/10 Development', programme: 'Evening', ageGroup: 'U9/10', date: '2026-10-01', start: '17:30', end: '18:30', venue: 'freemens', staff: [{ coach: 'david', lead: true }, { coach: 'charlie' }], capacity: 16, players: 12, status: 'ok', theme: 'Receiving to play forward' }),
+    occ({ id: 'o4', session: 'U12 Academy', programme: 'Evening', ageGroup: 'U12', date: '2026-10-01', start: '19:00', end: '20:30', venue: 'freemens', staff: [{ coach: 'david', lead: true }, { coach: 'charlie', unavailable: true }], capacity: 16, players: 14, status: 'attention', theme: 'Playing through pressure' }),
+    occ({ id: 'o5', session: 'U13/14 Development', programme: 'Evening', ageGroup: 'U13/14', date: '2026-10-02', start: '18:00', end: '19:00', venue: 'therfield', staff: [], capacity: 16, players: 15, status: 'attention' }),
+    occ({ id: 'o6', session: "St Peter's After School", programme: 'Day', ageGroup: 'Years 3-4', date: '2026-10-02', start: '16:00', end: '17:00', venue: 'stpeters', staff: [{ coach: 'david', lead: true }], capacity: 20, players: 18, status: 'ok' }),
+    occ({ id: 'o7', session: 'U12 Academy', programme: 'Evening', ageGroup: 'U12', date: '2026-10-08', start: '19:00', end: '20:30', venue: 'freemens', staff: [{ coach: 'david', lead: true }, { coach: 'charlie' }], capacity: 16, players: 14, status: 'ok' })
   ];
 
   /* Needs Attention: mirrors the needs-attention function's case contract
@@ -86,11 +86,36 @@
         next: { session: 'U8 Development', dateLabel: 'Today', date: 'Thursday 1 October', time: '4:30pm – 5:30pm', venue: "City of London Freemen's", venueArea: 'Ashtead, KT21', coach: 'Jack Morgan', meetingPoint: 'Astro gate' },
         feedback: null }
     ],
+    /* Upcoming sessions across every linked child, soonest first. */
+    schedule: [
+      { child: 'isla', session: 'U8 Development', dow: 'Thu', day: 1, mon: 'Oct', time: '16:30', venue: "Freemen's" },
+      { child: 'alfie', session: 'U9/10 Development', dow: 'Thu', day: 1, mon: 'Oct', time: '17:30', venue: "Freemen's" },
+      { child: 'isla', session: 'U8 Development', dow: 'Thu', day: 8, mon: 'Oct', time: '16:30', venue: "Freemen's" },
+      { child: 'alfie', session: 'U9/10 Development', dow: 'Thu', day: 8, mon: 'Oct', time: '17:30', venue: "Freemen's" }
+    ],
     updates: [
       { title: 'Tonight’s sessions are on the back astro', body: 'The front pitch is being resurfaced. Please use the sports hall car park and meet at the astro gate.', meta: 'From the office · today, 11:20' }
     ]
   };
 
+
+  /* Finance overview: example figures from the Finance design pack,
+     shown as mock data only. */
+  var finance = {
+    period: 'September 2026', basis: 'Actual only · revenue shown net of VAT',
+    kpis: [['Revenue', '£41,860'], ['Direct costs', '£13,420'], ['Overheads', '£17,930'], ['Profit', '£10,510']],
+    attention: [
+      { tone: 'danger', tag: 'Overdue', title: 'Parkside invoice', meta: '£1,296 · 4 days overdue', action: 'Open' },
+      { tone: 'warn', tag: 'Due today', title: 'Coach payments', meta: 'September work · £6,840', action: 'Review' },
+      { tone: 'warn', tag: 'Review', title: 'VAT estimate', meta: '£8,000 · due in 3 days', action: 'Review' }
+    ],
+    upcoming: [
+      { when: '7 Oct', title: 'Coach payments', meta: 'September work', amount: '£6,840' },
+      { when: '10 Oct', title: 'VAT', meta: 'Estimated until reviewed', amount: '£8,000' },
+      { when: '15 Oct', title: "Freemen's", meta: 'Venue instalment', amount: '£2,000' }
+    ],
+    cash: [['Current cash', '£19,250', ''], ['Lowest next 30 days', '£6,920', ''], ['Safety threshold', '£5,000', 'Currently above threshold']]
+  };
 
   /* People: staff list canvas (visual language for staff/client rows). */
   var staff = [
@@ -115,7 +140,7 @@
 
   Hub.data = {
     now: NOW, coaches: coaches, venues: venues, occurrences: occurrences, attention: attention,
-    approvals: approvals, areas: areas, parent: parent, staff: staff, changes: changes, lastVisit: lastVisit,
+    approvals: approvals, areas: areas, parent: parent, finance: finance, staff: staff, changes: changes, lastVisit: lastVisit,
     me: { id: 'david', name: 'David Cole', email: 'david@example.com', roleLabel: 'Management' },
     term: 'Term 1 · Week 4'
   };
