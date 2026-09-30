@@ -87,3 +87,34 @@
   --ridge-1: rgba(206,182,176,.36); --ridge-2: rgba(190,164,160,.30); --ridge-3: rgba(172,146,144,.24);
   --ridge-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1200 420' preserveAspectRatio='xMidYMin slice'><path fill='rgba(206,182,176,.36)' d='M0 250 C140 205 250 190 360 212 C470 234 560 170 690 140 C800 115 880 150 960 128 C1050 104 1130 70 1200 86 L1200 420 L0 420Z'/><path fill='rgba(190,164,160,.30)' d='M0 300 C120 270 230 262 350 280 C480 300 590 236 720 214 C840 194 930 232 1030 206 C1110 186 1160 170 1200 176 L1200 420 L0 420Z'/><path fill='rgba(172,146,144,.24)' d='M0 350 C180 322 330 330 470 340 C620 350 760 300 900 292 C1030 285 1120 300 1200 290 L1200 420 L0 420Z'/></svg>");
 }
+
+/* Carbon & Cobalt: a harder scheme. Near-black shell, neutral grey canvas,
+   pure-white cards with firmer edges and shadows, darker text, one strong
+   cobalt accent (kept clear of the status greens, oranges and reds). */
+.app[data-palette="carbon"] {
+  --spine-image: linear-gradient(180deg, #0f1012 0%, #060708 100%);
+  --spine-text: #f4f5f7; --spine-text-2: #b1b5bc; --spine-text-3: #737882;
+  --shell-active: linear-gradient(100deg, rgba(255,255,255,.15), rgba(255,255,255,.07)); --shell-active-edge: rgba(255,255,255,.1); --shell-active-icon: #8fb0ff; --shell-active-text: #ffffff;
+  --shell-mark: linear-gradient(150deg, #ffffff, #b9bec7); --shell-mark-ink: #0d0e10; --shell-solid: #0d0e10; --tab-bar: linear-gradient(180deg, #4d7cff, #1f4fd1);
+}
+.app[data-brand="relvor"][data-palette="carbon"] { --accent: #1f4fd1; --accent-hover: color-mix(in oklab, #1f4fd1 86%, #000); --accent-soft: color-mix(in oklab, #1f4fd1 9%, #fff); --accent-line: color-mix(in oklab, #1f4fd1 26%, #fff); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .app[data-brand="relvor"][data-palette="carbon"] { --accent: #7aa2ff; --accent-hover: color-mix(in oklab, #7aa2ff 86%, #fff); --accent-soft: color-mix(in oklab, #7aa2ff 12%, #1a1a1a); --accent-line: color-mix(in oklab, #7aa2ff 30%, #1a1a1a); } }
+:root[data-theme="dark"] .app[data-brand="relvor"][data-palette="carbon"] { --accent: #7aa2ff; --accent-hover: color-mix(in oklab, #7aa2ff 86%, #fff); --accent-soft: color-mix(in oklab, #7aa2ff 12%, #1a1a1a); --accent-line: color-mix(in oklab, #7aa2ff 30%, #1a1a1a); }
+@media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) .app[data-palette="carbon"] {
+  --porcelain: #e9e9e7; --porcelain-image: radial-gradient(1200px 600px at 78% -10%, rgba(255,255,255,.7), transparent 60%), linear-gradient(180deg, #eeeeec 0%, #e3e3e0 100%);
+  --hx-surface: rgba(255,255,255,.9); --hx-surface-solid: #ffffff; --hx-rail: rgba(255,255,255,.72); --hx-edge: rgba(0,0,0,.09); --hx-row-hover: rgba(10,20,40,.05);
+  --hx-shadow: 0 0 0 1px rgba(0,0,0,.05), 0 1px 2px rgba(8,10,14,.06), 0 10px 24px -12px rgba(8,10,14,.2);
+  --hx-shadow-hover: 0 0 0 1px rgba(0,0,0,.06), 0 2px 4px rgba(8,10,14,.08), 0 16px 32px -14px rgba(8,10,14,.26);
+  --text: #0e0f11; --text-2: #3d4046; --text-3: #676b73;
+  --ridge-1: rgba(150,152,156,.38); --ridge-2: rgba(128,131,136,.32); --ridge-3: rgba(108,111,117,.26);
+  --ridge-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1200 420' preserveAspectRatio='xMidYMin slice'><path fill='rgba(150,152,156,.38)' d='M0 250 C140 205 250 190 360 212 C470 234 560 170 690 140 C800 115 880 150 960 128 C1050 104 1130 70 1200 86 L1200 420 L0 420Z'/><path fill='rgba(128,131,136,.32)' d='M0 300 C120 270 230 262 350 280 C480 300 590 236 720 214 C840 194 930 232 1030 206 C1110 186 1160 170 1200 176 L1200 420 L0 420Z'/><path fill='rgba(108,111,117,.26)' d='M0 350 C180 322 330 330 470 340 C620 350 760 300 900 292 C1030 285 1120 300 1200 290 L1200 420 L0 420Z'/></svg>");
+} }
+:root[data-theme="light"] .app[data-palette="carbon"] {
+  --porcelain: #e9e9e7; --porcelain-image: radial-gradient(1200px 600px at 78% -10%, rgba(255,255,255,.7), transparent 60%), linear-gradient(180deg, #eeeeec 0%, #e3e3e0 100%);
+  --hx-surface: rgba(255,255,255,.9); --hx-surface-solid: #ffffff; --hx-rail: rgba(255,255,255,.72); --hx-edge: rgba(0,0,0,.09); --hx-row-hover: rgba(10,20,40,.05);
+  --hx-shadow: 0 0 0 1px rgba(0,0,0,.05), 0 1px 2px rgba(8,10,14,.06), 0 10px 24px -12px rgba(8,10,14,.2);
+  --hx-shadow-hover: 0 0 0 1px rgba(0,0,0,.06), 0 2px 4px rgba(8,10,14,.08), 0 16px 32px -14px rgba(8,10,14,.26);
+  --text: #0e0f11; --text-2: #3d4046; --text-3: #676b73;
+  --ridge-1: rgba(150,152,156,.38); --ridge-2: rgba(128,131,136,.32); --ridge-3: rgba(108,111,117,.26);
+  --ridge-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1200 420' preserveAspectRatio='xMidYMin slice'><path fill='rgba(150,152,156,.38)' d='M0 250 C140 205 250 190 360 212 C470 234 560 170 690 140 C800 115 880 150 960 128 C1050 104 1130 70 1200 86 L1200 420 L0 420Z'/><path fill='rgba(128,131,136,.32)' d='M0 300 C120 270 230 262 350 280 C480 300 590 236 720 214 C840 194 930 232 1030 206 C1110 186 1160 170 1200 176 L1200 420 L0 420Z'/><path fill='rgba(108,111,117,.26)' d='M0 350 C180 322 330 330 470 340 C620 350 760 300 900 292 C1030 285 1120 300 1200 290 L1200 420 L0 420Z'/></svg>");
+}

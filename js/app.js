@@ -115,7 +115,7 @@
       group('state', [['live', 'Data'], ['empty', 'Empty'], ['loading', 'Loading'], ['error', 'Error']]) + '<span class="proto-bar__sep"></span>' +
       group('theme', [['auto', 'Auto'], ['light', 'Light'], ['dark', 'Dark']]) + '<span class="proto-bar__sep"></span>' +
       group('brand', [['relvor', 'Relvor'], ['joshevans', 'Josh Evans']]) + '<span class="proto-bar__sep"></span>' +
-      '<span class="proto-bar__label">Palette</span>' + group('palette', [['area', 'By area'], ['original', 'Original'], ['slate', 'Slate'], ['forest', 'Forest'], ['plum', 'Plum']]) + '<span class="proto-bar__sep"></span>' +
+      '<span class="proto-bar__label">Palette</span>' + group('palette', [['area', 'By area'], ['original', 'Original'], ['slate', 'Slate'], ['forest', 'Forest'], ['plum', 'Plum'], ['carbon', 'Carbon']]) + '<span class="proto-bar__sep"></span>' +
       '<div class="proto-bar__group"><button type="button" data-action="goto" data-route="system" aria-pressed="' + (S.route === 'system') + '">Visual system</button></div></div>';
   }
 

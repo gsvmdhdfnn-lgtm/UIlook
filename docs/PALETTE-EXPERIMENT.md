@@ -12,7 +12,18 @@ gets its own palette so they can be compared side by side:
 The **Palette** control in the prototype bar switches between:
 - **By area** (the default above);
 - **Original** (pass 8's porcelain, obsidian and bronze);
-- any one palette applied to every area.
+- any one palette (Slate, Forest, Plum or Carbon) applied to every area.
+
+**A harder option:** **Carbon & Cobalt** is a higher-contrast palette:
+- a near-black shell;
+- a neutral cool-grey canvas;
+- pure-white cards with a defined edge and firmer shadows;
+- darker body text;
+- a single strong cobalt accent, chosen because it can't be mistaken for a
+  status colour.
+
+It isn't assigned to an area; pick **Carbon** in the Palette control to see
+it everywhere.
 
 **What a palette changes:**
 - the sidebar and top bar colour;
