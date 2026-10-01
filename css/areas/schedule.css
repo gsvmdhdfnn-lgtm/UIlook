@@ -1,1 +1,132 @@
-/* schedule (pass 12): filled in by a later commit in this series. */
+/* schedule area styles (pass 12): build on kit.css tokens only. */
+
+.sch-warn { color: var(--warn); }
+.sch-gap { margin-top: 14px; }
+.sch-count { margin: -4px 0 0; }
+.sch-wrap { display: block; white-space: normal !important; margin-bottom: 4px; }
+.k-table .tbl__row .sch-above { position: relative; z-index: 1; }
+.sch-statusline { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; }
+.sch-notes { margin: 0 0 8px; font-size: 14px; color: var(--text); white-space: pre-wrap; }
+.sch-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+
+/* Confirmation block */
+.sch-confirm { display: flex; gap: 12px; align-items: flex-start; margin-bottom: 12px; }
+.sch-confirm > .icon { flex: none; margin-top: 2px; color: var(--text-3); }
+.sch-confirm.is-ok > .icon { color: var(--ok); }
+.sch-confirm b { display: block; font-size: 15px; font-weight: 600; margin-bottom: 4px; }
+
+/* Wizard */
+.sch-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.sch-chip { display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 12px; border-radius: 999px; font-size: 13px; font-weight: 600; color: var(--text-2); background: var(--hover); box-shadow: inset 0 0 0 1px var(--line); }
+.sch-chip.is-on { color: var(--text); background: color-mix(in oklab, var(--accent) 12%, var(--hx-surface-solid)); box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--accent) 45%, transparent); }
+.sch-chip .icon { color: var(--accent); }
+.sch-chip button { display: inline-grid; place-items: center; width: 22px; height: 22px; margin-right: -6px; border-radius: 50%; color: var(--text-3); }
+.sch-chip button:hover { background: var(--hover); color: var(--text); }
+.sch-adddate { display: flex; align-items: flex-end; gap: 10px; flex-wrap: wrap; }
+.sch-adddate .k-field { flex: 1 1 200px; }
+.sch-wiznav { margin-top: 18px; }
+.sch-wiz { margin-top: 18px; }
+.sch-preview { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 6px 14px; max-height: 420px; overflow-y: auto; }
+.sch-preview li { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 8px 10px; border-radius: 10px; background: var(--hover); font-size: 13px; }
+.sch-preview li b { font-weight: 600; min-width: 92px; }
+.sch-preview li span { color: var(--text-3); }
+.sch-preview li.is-skipped { opacity: .75; }
+.sch-preview li.is-skipped b { text-decoration: line-through; }
+
+/* Calendar */
+.sch-calbar { margin-bottom: 4px; }
+.sch-calbar__nav { display: inline-flex; gap: 4px; }
+.sch-calbar__label { font-size: 16px; font-weight: 650; letter-spacing: -.01em; }
+.sch-legend { display: inline-flex; gap: 14px; font-size: 12.5px; color: var(--text-3); flex-wrap: wrap; }
+.sch-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.sch-legend i { width: 10px; height: 10px; border-radius: 3px; background: var(--hover); }
+.sch-legend i.is-warn { background: var(--warn-soft); box-shadow: inset 0 0 0 1px var(--warn); }
+.sch-legend i.is-cancelled { background: var(--danger-soft); box-shadow: inset 0 0 0 1px var(--danger); }
+.sch-week { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 8px; }
+.sch-week__day { min-width: 0; display: grid; align-content: start; gap: 6px; padding: 8px; border-radius: 14px; background: var(--hx-surface-solid); box-shadow: var(--hx-shadow); min-height: 180px; }
+.sch-week__day.is-today { box-shadow: var(--hx-shadow), inset 0 0 0 2px var(--accent); }
+.sch-week__head { display: flex; align-items: baseline; gap: 6px; padding: 2px 4px 6px; color: var(--text-3); text-decoration: none; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; }
+.sch-week__head b { font-size: 18px; color: var(--text); letter-spacing: -.01em; }
+.sch-week__none { margin: 0; padding: 4px; font-size: 12px; color: var(--text-4); }
+.sch-ev { display: grid; gap: 1px; padding: 6px 8px; border-radius: 9px; background: var(--hover); color: var(--text); text-decoration: none; font-size: 12.5px; line-height: 1.3; min-width: 0; }
+.sch-ev:hover { background: color-mix(in oklab, var(--accent) 10%, var(--hover)); }
+.sch-ev b { font-size: 11.5px; font-weight: 650; color: var(--text-2); }
+.sch-ev span { font-weight: 600; overflow-wrap: anywhere; }
+.sch-ev small { color: var(--text-3); font-size: 11.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sch-ev.is-warn { background: var(--warn-soft); box-shadow: inset 3px 0 0 var(--warn); }
+.sch-ev.is-cancelled { background: var(--danger-soft); box-shadow: inset 3px 0 0 var(--danger); }
+.sch-ev.is-cancelled span { text-decoration: line-through; }
+.k-month__n { text-decoration: none; }
+.k-month__n:hover { color: var(--accent); }
+@media (max-width: 899px) {
+  .sch-week { grid-template-columns: minmax(0, 1fr); }
+  .sch-week__day { min-height: 0; grid-template-columns: 64px minmax(0, 1fr); align-items: start; }
+  .sch-week__day > :not(.sch-week__head) { grid-column: 2; }
+  .sch-week__head { grid-row: 1 / span 6; flex-direction: column; gap: 0; }
+  .k-month__ev { white-space: nowrap; }
+  .sch-legend { display: none; }
+}
+
+/* Register */
+.sch-regstate { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.sch-reg { display: grid; }
+.sch-reg__row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 12px 0; }
+.sch-reg__row + .sch-reg__row { box-shadow: inset 0 1px 0 var(--line-soft); }
+.sch-reg__who { min-width: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
+.sch-reg__who b { font-size: 15px; font-weight: 600; }
+.sch-reg__who b a { color: inherit; text-decoration: none; }
+.sch-reg__who b a:hover { color: var(--accent); }
+.sch-reg__who small { font-size: 12.5px; color: var(--text-3); }
+.sch-reg__note, .sch-reg__by { flex-basis: 100%; display: inline-flex; align-items: center; gap: 6px; }
+.sch-reg__note { color: var(--text-2) !important; }
+.sch-reg__act { display: flex; align-items: center; gap: 6px; }
+.sch-marks { flex-wrap: nowrap; }
+.sch-marks button { padding: 0 10px; font-size: 13px; }
+.sch-marks button:disabled { cursor: default; }
+.sch-marks .sch-mark--present[aria-pressed="true"] { background: var(--ok-soft); color: var(--ok); }
+.sch-marks .sch-mark--late[aria-pressed="true"] { background: var(--warn-soft); color: var(--warn); }
+.sch-marks .sch-mark--absent[aria-pressed="true"] { background: var(--danger-soft); color: var(--danger); }
+.sch-marks .sch-mark--excused[aria-pressed="true"] { background: var(--info-soft, var(--hover)); color: var(--info); }
+.sch-flags { display: inline-flex; gap: 4px; }
+.sch-flag { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 6px; }
+.sch-flag--med { color: var(--danger); background: var(--danger-soft); }
+.sch-flag--warn { color: var(--warn); background: var(--warn-soft); }
+.sch-flag--sup { color: var(--info); background: var(--info-soft, var(--hover)); }
+.sch-headcount { display: flex; align-items: flex-end; gap: 10px; flex-wrap: wrap; }
+.sch-headcount .k-field { width: 160px; }
+.sch-pct { font-weight: 650; color: var(--ok); }
+.sch-pct.is-low { color: var(--warn); }
+@media (max-width: 759px) {
+  .sch-reg__row { grid-template-columns: auto minmax(0, 1fr); }
+  .sch-reg__act { grid-column: 1 / -1; justify-content: space-between; }
+  .sch-marks { flex: 1; }
+  .sch-marks button { flex: 1; justify-content: center; padding: 0 4px; font-size: 12.5px; }
+}
+
+/* Staff editor in a sheet */
+.sch-staffedit { display: grid; gap: 10px; padding: 12px; border-radius: 12px; background: var(--hover); }
+.sch-staffedit__who { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+/* Outcome: affected families */
+.sch-fams { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 14px; }
+.sch-fam { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px 0 4px; border-radius: 999px; font-size: 12.5px; font-weight: 600; color: var(--text-2); background: var(--hover); text-decoration: none; }
+.sch-fam:hover { color: var(--text); }
+
+/* Venues */
+.sch-map { width: 100%; max-width: 480px; height: auto; display: block; margin: 0 auto; }
+.sch-map text { font-size: 11px; font-weight: 600; fill: var(--text-3); font-family: inherit; }
+.sch-map__ground { fill: color-mix(in oklab, var(--ok) 8%, var(--hx-surface-solid)); stroke: var(--line); }
+.sch-map__bld { fill: var(--hover); stroke: var(--line-strong); }
+.sch-map__pitch { fill: color-mix(in oklab, var(--ok) 22%, var(--hx-surface-solid)); stroke: color-mix(in oklab, var(--ok) 50%, transparent); }
+.sch-map__line { fill: none; stroke: color-mix(in oklab, var(--ok) 55%, transparent); stroke-width: 1.5; }
+.sch-map__park { fill: var(--hover); stroke: var(--line); stroke-dasharray: 4 3; }
+.sch-map__pin { fill: var(--accent); stroke: var(--hx-surface-solid); stroke-width: 2; }
+.sch-map .sch-map__pinlabel { fill: var(--accent); }
+.sch-photos { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.sch-photo { aspect-ratio: 4 / 3; display: grid; place-items: center; align-content: center; gap: 4px; border-radius: 10px; color: var(--text-3);
+  background: linear-gradient(135deg, color-mix(in oklab, var(--accent) 10%, var(--hover)), var(--hover)); }
+.sch-photo small { font-size: 11.5px; font-weight: 600; }
+.sch-unav { display: grid; gap: 6px; padding: 12px 14px; border-radius: 12px; background: var(--hover); }
+.sch-unav__head { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
+.sch-unav__head b { font-size: 14px; font-weight: 600; }
+.sch-aff { margin: 4px 0 0; padding: 0 0 0 16px; display: grid; gap: 6px; font-size: 13px; }
