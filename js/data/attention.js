@@ -1,0 +1,143 @@
+/* Needs Attention: rules and an engine that computes cases from every
+   area's data on each read, so fixing the underlying issue clears the case.
+   Rules carry base severity, warning and urgent thresholds and a locked
+   minimum. Management can accept or override a case with a reason and an
+   approver; that exception is kept with who and when. */
+(function () {
+  var D = Hub.data, K = Hub.kit, db = Hub.db;
+  var NOW = '2026-10-01T14:10';
+  var RANK = { Normal: 1, Warning: 2, Urgent: 3 };
+  function maxSev(a, b) { return RANK[a] >= RANK[b] ? a : b; }
+  function hoursUntil(date, time) { return (K.parse(date + 'T' + (time || '00:00')) - K.parse(NOW)) / 36e5; }
+  function inText(h) { if (h < 0) { var d = Math.round(-h / 24); return d >= 1 ? d + ' day' + (d > 1 ? 's' : '') + ' ago' : Math.round(-h) + ' h ago'; } if (h < 24) { var hh = Math.floor(h), m = Math.round((h - hh) * 60); return 'Starts in ' + hh + ' h' + (m ? ' ' + m + ' m' : ''); } var dd = Math.round(h / 24); return 'In ' + dd + ' day' + (dd > 1 ? 's' : ''); }
+
+  D.attentionRules = [
+    { id: 'ATT-013', name: 'Session has no coach', category: 'Staffing & Cover', enabled: true, base: 'Warning', warnHours: null, urgentHours: 48, locked: 'Warning' },
+    { id: 'ATT-014', name: 'Assigned coach unavailable', category: 'Staffing & Cover', enabled: true, base: 'Warning', warnHours: null, urgentHours: 48, locked: 'Warning' },
+    { id: 'ATT-002', name: 'Learning coach only', category: 'Staffing & Cover', enabled: true, base: 'Warning', warnHours: null, urgentHours: 24, locked: null },
+    { id: 'ATT-041', name: 'Cover open', category: 'Staffing & Cover', enabled: true, base: 'Normal', warnHours: 168, urgentHours: 48, locked: null },
+    { id: 'ATT-011', name: 'Compliance document expiring or missing', category: 'Coaches & Compliance', enabled: true, base: 'Normal', warnHours: 720, urgentHours: 168, locked: null },
+    { id: 'ATT-031', name: 'Non-compliant coach assigned', category: 'Coaches & Compliance', enabled: true, base: 'Warning', warnHours: null, urgentHours: 48, locked: 'Warning' },
+    { id: 'ATT-042', name: 'Document awaiting verification', category: 'Coaches & Compliance', enabled: true, base: 'Normal', warnHours: null, urgentHours: null, locked: null },
+    { id: 'ATT-045', name: 'Work summary ready to finalise', category: 'Coaches & Compliance', enabled: true, base: 'Normal', warnHours: null, urgentHours: null, locked: null },
+    { id: 'ATT-018', name: 'Occurrence has no venue', category: 'Sessions & Venues', enabled: true, base: 'Normal', warnHours: 336, urgentHours: 48, locked: null },
+    { id: 'ATT-020', name: 'Register incomplete', category: 'Sessions & Venues', enabled: true, base: 'Warning', warnHours: null, urgentHours: null, locked: null },
+    { id: 'ATT-022', name: 'Occurrence not confirmed', category: 'Sessions & Venues', enabled: true, base: 'Normal', warnHours: 48, urgentHours: 6, locked: null },
+    { id: 'ATT-024', name: 'Cancellation outcome not recorded', category: 'Sessions & Venues', enabled: true, base: 'Warning', warnHours: null, urgentHours: null, locked: null },
+    { id: 'ATT-050', name: 'Medical details not confirmed', category: 'Players & Families', enabled: true, base: 'Normal', warnHours: 72, urgentHours: null, locked: null },
+    { id: 'ATT-052', name: 'Parent claim needs review', category: 'Players & Families', enabled: true, base: 'Normal', warnHours: null, urgentHours: null, locked: null },
+    { id: 'ATT-054', name: 'Membership cancellation awaiting decision', category: 'Players & Families', enabled: true, base: 'Normal', warnHours: null, urgentHours: null, locked: null },
+    { id: 'ATT-056', name: 'Family review due', category: 'Players & Families', enabled: true, base: 'Normal', warnHours: null, urgentHours: null, locked: null },
+    { id: 'ATT-070', name: 'Feedback awaiting review', category: 'Development', enabled: true, base: 'Normal', warnHours: null, urgentHours: null, locked: null },
+    { id: 'ATT-071', name: 'Development plans not started', category: 'Development', enabled: true, base: 'Normal', warnHours: null, urgentHours: null, locked: null },
+    { id: 'ATT-060', name: 'Invoice overdue', category: 'Finance', enabled: true, base: 'Warning', warnHours: null, urgentHours: null, locked: null, urgentDaysOverdue: 30 },
+    { id: 'ATT-061', name: 'Invoice not sent to Xero', category: 'Finance', enabled: true, base: 'Normal', warnHours: null, urgentHours: null, locked: null },
+    { id: 'ATT-062', name: 'Month not invoiced', category: 'Finance', enabled: true, base: 'Normal', warnHours: null, urgentHours: null, locked: null }
+  ];
+  D.attentionExceptions = [];
+  function rule(id) { return D.attentionRules.filter(function (r) { return r.id === id; })[0]; }
+  function sev(r, h) {
+    var s = r.base, why = 'Base severity';
+    if (h != null && r.warnHours != null && h <= r.warnHours && RANK.Warning > RANK[s]) { s = 'Warning'; why = 'Within ' + Math.round(r.warnHours / 24) + ' days'; }
+    if (h != null && r.urgentHours != null && h <= r.urgentHours) { s = 'Urgent'; why = 'Starts within ' + r.urgentHours + ' hours'; }
+    if (r.locked && RANK[r.locked] > RANK[s]) { s = r.locked; why = 'Locked minimum: ' + r.locked; }
+    return [s, why];
+  }
+  function occLabel(o) { return K.dd(o.date) + ', ' + o.start + ' · ' + db.venueName(o.venue); }
+
+  function compute() {
+    var cases = [];
+    function add(rid, key, o) {
+      var r = rule(rid); if (!r || !r.enabled) return;
+      var sv = sev(r, o.hours);
+      if (o.forceSev) sv = [maxSev(o.forceSev, sv[0]), o.forceWhy || sv[1]];
+      cases.push(Object.assign({ caseKey: key, ruleId: r.id, ruleName: r.name, category: r.category, severity: sv[0], severityReason: sv[1], when: o.hours != null ? inText(o.hours) : (o.whenText || '') }, o));
+    }
+    var coverOcc = {}; (typeof db.getOpenCover === 'function' ? db.getOpenCover() : []).forEach(function (c) { coverOcc[c.occurrence] = 1; });
+    var upcoming = db.getOccurrences(function (o) { return o.date >= '2026-10-01' && o.date <= '2026-10-23' && o.status === 'Scheduled'; });
+    upcoming.forEach(function (o) {
+      var h = hoursUntil(o.date, o.start); if (h < 0 && o.date === '2026-10-01') return;
+      var staffed = o.staff.filter(function (s) { return !s.unavailable || s.covering; });
+      var ses = db.getSession(o.sessionId);
+      if (!o.draft && !o.staff.length && h <= 336) add('ATT-013', 'session_no_coach|occurrence:' + o.id, { hours: h, title: o.session + ' has no coach', detail: occLabel(o) + ' · ' + o.players + ' players', actionLabel: 'Assign Staff', route: 'mgmt-occurrence/' + o.id, related: { occurrence: o.id } });
+      o.staff.forEach(function (s) { if (s.unavailable && !s.covering && !coverOcc[o.id]) add('ATT-014', 'assigned_coach_unavailable|occurrence:' + o.id + '|coach:' + s.coach, { hours: h, title: db.coachName(s.coach) + ' is unavailable for ' + o.session, detail: occLabel(o) + ' · marked unavailable', actionLabel: 'Find cover', route: 'mgmt-cover', related: { occurrence: o.id, coach: s.coach } }); });
+      if (o.staff.length && staffed.length && staffed.every(function (s) { var c = db.getCoach(s.covering || s.coach); return c && c.type === 'learning'; })) add('ATT-002', 'learning_coach_only|occurrence:' + o.id, { hours: h, title: o.session + ' has only a learning coach', detail: occLabel(o), actionLabel: 'Review Staffing', route: 'mgmt-occurrence/' + o.id, related: { occurrence: o.id } });
+      if (!o.venue && h <= 336) add('ATT-018', 'venue_missing|occurrence:' + o.id, { hours: h, title: o.session + ' has no venue', detail: K.dd(o.date) + ', ' + o.start + (ses.lifecycle === 'Draft' ? ' · session is a draft' : ''), actionLabel: 'Assign Venue', route: 'mgmt-session/' + o.sessionId, related: { occurrence: o.id } });
+      if (!o.draft && !o.confirmed && h <= 48 && o.staff.length) add('ATT-022', 'not_confirmed|occurrence:' + o.id, { hours: h, title: o.session + ' is not confirmed', detail: occLabel(o), actionLabel: 'Confirm Occurrence', route: 'mgmt-occurrence/' + o.id, related: { occurrence: o.id } });
+      if (h <= 72 && !ses.client && !o.draft) db.getExpectedPlayers(o).forEach(function (pid) { var p = db.getPlayer(pid); if (p && p.medical === 'not_confirmed') add('ATT-050', 'medical_unconfirmed|player:' + pid + '|occurrence:' + o.id, { hours: h, title: p.name + '’s medical details are not confirmed', detail: 'Attending ' + o.session + ' · ' + K.dd(o.date), actionLabel: 'Ask the family', route: 'mgmt-player/' + pid, related: { player: pid } }); });
+    });
+    /* Coach compliance (from the Coaches area) */
+    var docs = typeof db.getComplianceIssues === 'function' ? db.getComplianceIssues() : [];
+    var bad = {}; docs.forEach(function (d) { if (d.kind === 'expired' || d.kind === 'missing') (bad[d.coach] = bad[d.coach] || []).push(d); });
+    upcoming.forEach(function (o) {
+      o.staff.forEach(function (s) {
+        var c = s.covering || s.coach, list = bad[c]; if (!list || s.unavailable) return;
+        var h = hoursUntil(o.date, o.start); if (h > 168) return;
+        var what = list.map(function (d) { var n = /^[A-Z][a-z]/.test(d.typeName) ? d.typeName.toLowerCase() : d.typeName; return d.kind === 'expired' ? n + ' has expired' : n + ' is missing'; }).join(' and ');
+        add('ATT-031', 'non_compliant_coach_assigned|occurrence:' + o.id + '|coach:' + c, { hours: h, title: db.coachName(c) + ' is assigned but their ' + what, detail: o.session + ' · ' + occLabel(o), actionLabel: 'Review Compliance', route: 'mgmt-coach/' + c, related: { coach: c, occurrence: o.id } });
+      });
+    });
+    docs.forEach(function (d) {
+      var route = d.doc ? 'mgmt-document/' + d.doc : 'mgmt-coach/' + d.coach;
+      if (d.kind === 'expiring') add('ATT-011', 'coach_compliance_expiry|doc:' + d.doc, { hours: hoursUntil(d.date, '09:00'), title: d.title, detail: d.typeName + ' · expires ' + K.d(d.date), actionLabel: 'Review Document', route: route, related: { coach: d.coach } });
+      if (d.kind === 'expired' || d.kind === 'missing') add('ATT-011', 'coach_compliance_' + d.kind + '|coach:' + d.coach + '|type:' + d.type, { forceSev: 'Warning', whenText: d.date ? 'Expired ' + K.dm(d.date) : 'Not on file', title: d.title, detail: d.typeName + ' · needed before they coach', actionLabel: 'Review Compliance', route: route, related: { coach: d.coach } });
+      if (d.kind === 'pending') add('ATT-042', 'verification_pending|doc:' + d.doc, { whenText: 'Uploaded ' + K.dm(d.date), title: d.title, detail: 'Check the document and verify or reject it', actionLabel: 'Verify Document', route: route, related: { coach: d.coach } });
+    });
+    var cover = typeof db.getOpenCover === 'function' ? db.getOpenCover() : [];
+    cover.forEach(function (c) { var o = db.getOccurrence(c.occurrence) || {}; if (!c.absent && o.staff && !o.staff.length) return; var who = c.absent ? db.coachName(c.absent) : 'a coach'; add('ATT-041', 'cover_open|' + c.request + '|' + c.need, { hours: o.date ? hoursUntil(o.date, o.start) : null, title: 'Cover needed: ' + (o.session || 'session') + ' (' + who + ' away)', detail: (o.date ? occLabel(o) : '') + (c.state ? ' · ' + c.state : ''), actionLabel: 'Resolve Cover', route: 'mgmt-cover-request/' + c.request, related: c.absent ? { coach: c.absent } : null }); });
+    var sums = typeof db.getSummariesReady === 'function' ? db.getSummariesReady() : [];
+    sums.forEach(function (w) { add('ATT-045', 'work_summary_ready|' + w.id, { whenText: 'Period ended 30 Sep', title: db.coachName(w.coach) + '’s ' + (w.monthLabel || 'September') + ' summary is ready to finalise', detail: (w.lines ? w.lines.length + ' occurrences · ' : '') + (w.total != null ? K.money(w.total) : ''), actionLabel: 'Finalise Summary', route: 'mgmt-work-summary/' + w.id, related: { coach: w.coach } }); });
+    /* Registers */
+    db.getOccurrences(function (o) { return o.status === 'Completed' && o.date < '2026-10-01'; }).forEach(function (o) {
+      var r = db.getRegister(o.id);
+      if (r.state !== 'Completed') add('ATT-020', 'register_incomplete|occurrence:' + o.id, { hours: hoursUntil(o.date, o.end), title: 'Register incomplete: ' + o.session, detail: occLabel(o) + ' · ' + r.state.toLowerCase(), actionLabel: 'Complete Register', route: 'mgmt-register/' + o.id, related: { occurrence: o.id } });
+    });
+    /* Players and families */
+    var claims = typeof db.getPendingClaims === 'function' ? db.getPendingClaims() : [];
+    claims.forEach(function (c) { add('ATT-052', 'parent_claim|' + c.id, { whenText: c.at ? 'Submitted ' + K.dm(c.at) : '', title: (c.parentName || c.parent || 'A parent') + ' claims ' + (c.childName || c.child || 'a child') + ': needs review', detail: c.reason || 'Partial match', actionLabel: 'Review Claim', route: 'mgmt-parent-claims' }); });
+    db.getMemberships(function (m) { return m.state === 'Cancellation Pending'; }).forEach(function (m) { var p = db.getPlayer(m.player); add('ATT-054', 'cancel_request|' + m.id, { whenText: m.cancel ? 'Requested ' + K.dm(m.cancel.requested) : '', title: p.name + ': cancellation awaiting decision', detail: db.getSession(m.session).name + (m.cancel ? ' · ' + m.cancel.reason : ''), actionLabel: 'Review Membership', route: 'mgmt-membership/' + m.id, related: { player: m.player } }); });
+    if (typeof db.getFamiliesReviewDue === 'function') db.getFamiliesReviewDue(30).forEach(function (f) { add('ATT-056', 'family_review_due|' + f.id, { whenText: 'Due ' + K.dm(f.reviewDue), title: String(f.name).replace(/ family$/i, '') + ' family is due a review', detail: 'Check contacts, permissions and who can collect', actionLabel: 'Review Family', route: 'mgmt-family/' + f.id }); });
+    if (typeof db.getOutcomesMissing === 'function') db.getOutcomesMissing().forEach(function (o) { add('ATT-024', 'outcome_missing|occurrence:' + o.id, { whenText: o.status + ' ' + K.dm(o.date), title: o.session + ': ' + o.status.toLowerCase() + ' without an outcome', detail: 'Decide what families, the venue and coaches get', actionLabel: 'Record Outcome', route: 'mgmt-occurrence-outcome/' + o.id, related: { occurrence: o.id } }); });
+    /* Development */
+    if (typeof db.getFeedbackAwaitingReview === 'function') db.getFeedbackAwaitingReview().forEach(function (f) { var p = db.getPlayer(f.player); add('ATT-070', 'feedback_review|' + f.id, { whenText: f.submittedAt ? 'Submitted ' + K.dm(f.submittedAt) : '', title: (p ? p.name : 'A player') + '’s feedback is waiting for review', detail: 'From ' + db.coachName(f.coach) + ' · not visible to the family yet', actionLabel: 'Review Feedback', route: 'mgmt-feedback-review/' + f.id, related: { player: f.player } }); });
+    if (typeof db.getIdpsNotStarted === 'function') { var ns = db.getIdpsNotStarted(); if (ns.length) add('ATT-071', 'idps_not_started|period', { whenText: 'Review period open', title: ns.length + ' ' + K.label(ns.length === 1 ? 'IDP' : 'IDPs') + ' not started', detail: ns.slice(0, 3).map(function (i) { var p = db.getPlayer(i.player); return p ? p.name : i.player; }).join(', ') + (ns.length > 3 ? ' and ' + (ns.length - 3) + ' more' : ''), actionLabel: 'Open ' + K.label('IDPs'), route: 'mgmt-idps' }); }
+    /* Finance */
+    if (db.fin) {
+      db.getInvoices().forEach(function (i) {
+        var st = db.fin.paymentState(i), c = db.getClient(i.client);
+        if (st === 'Overdue') { var late = K.daysBetween(i.due, '2026-10-01'); add('ATT-060', 'invoice_overdue|' + i.id, { whenText: late + ' days overdue', forceSev: late >= rule('ATT-060').urgentDaysOverdue ? 'Urgent' : null, forceWhy: 'Over ' + rule('ATT-060').urgentDaysOverdue + ' days overdue', title: i.number + ' to ' + c.name + ' is overdue', detail: K.money(db.fin.balance(i)) + ' · due ' + K.d(i.due) + (i.originalDue && i.originalDue !== i.due ? ' (moved from ' + K.dm(i.originalDue) + ')' : ''), actionLabel: 'Chase Invoice', route: 'mgmt-fin-invoice/' + i.id, finance: true }); }
+        if (i.xero && i.xero.status === 'Failed') add('ATT-061', 'xero_failed|' + i.id, { whenText: K.dm(i.xero.at), title: i.number + ' was not sent to Xero', detail: i.xero.error || '', actionLabel: 'Retry Xero', route: 'mgmt-fin-invoice/' + i.id, finance: true });
+      });
+      db.getDrafts().filter(function (d) { return d.state !== 'Issued' && !d.replaces; }).forEach(function (d) { add('ATT-062', 'not_invoiced|' + d.id, { whenText: 'Month ended 30 Sep', title: db.getClient(d.client).name + ': September not invoiced', detail: 'Draft ' + d.id + ' · ' + d.state, actionLabel: 'Open Draft', route: 'mgmt-fin-draft/' + d.id, finance: true }); });
+    }
+    /* Exceptions: accepted cases leave the queue; overrides change severity */
+    var open = [], accepted = [];
+    cases.forEach(function (c) {
+      var ex = D.attentionExceptions.filter(function (e) { return e.caseKey === c.caseKey && !e.revoked; })[0];
+      if (ex && ex.type === 'Accepted') { c.exception = ex; accepted.push(c); return; }
+      if (ex && ex.type === 'Severity override') { c.originalSeverity = c.severity; c.severity = ex.severity; c.severityReason = 'Overridden: ' + ex.reason; c.exception = ex; }
+      open.push(c);
+    });
+    var order = D.attentionRules.map(function (r) { return r.id; });
+    open.sort(function (a, b) { return RANK[b.severity] - RANK[a.severity] || order.indexOf(a.ruleId) - order.indexOf(b.ruleId); });
+    var counts = { Urgent: 0, Warning: 0, Normal: 0 }; open.forEach(function (c) { counts[c.severity]++; });
+    return { generatedAt: '2026-10-01T14:05:00', summary: { state: counts.Urgent ? 'Urgent' : counts.Warning ? 'Warning' : counts.Normal ? 'Normal' : 'Clear', total: open.length, counts: counts }, cases: open, accepted: accepted };
+  }
+
+  /* Read helpers replace the static list in core.js */
+  db.getAttention = function () { var a = compute(); D.attention = a; return a; };
+  db.getAttentionCases = function () { return db.getAttention().cases; };
+  db.getAttentionCase = function (key) { var a = compute(); return a.cases.concat(a.accepted).filter(function (c) { return c.caseKey === key; })[0]; };
+  db.getAttentionRules = function () { return D.attentionRules; };
+  db.getAttentionRule = function (id) { return rule(id); };
+  db.updateAttentionRule = function (id, patch) { var r = rule(id), b = JSON.stringify({ enabled: r.enabled, base: r.base, warnHours: r.warnHours, urgentHours: r.urgentHours, locked: r.locked }); Object.assign(r, patch); K.log({ area: 'Needs attention', summary: 'Changed rule ' + r.id + ' (' + r.name + ')', entity: r.id, before: b, after: JSON.stringify(patch) }); return r; };
+  db.getAttentionExceptions = function () { return D.attentionExceptions; };
+  db.addAttentionException = function (e) { e.id = 'EXC-' + String(D.attentionExceptions.length + 1).padStart(2, '0'); e.by = K.me(); e.at = K.now(); D.attentionExceptions.push(e); K.log({ area: 'Needs attention', summary: e.type + ': ' + e.title, entity: e.caseKey, before: e.from || 'Open', after: (e.severity || 'Accepted') + ' · approved by ' + e.approver + ' (' + e.reason + ')' }); return e; };
+  db.revokeAttentionException = function (id) { var e = D.attentionExceptions.filter(function (x) { return x.id === id; })[0]; e.revoked = { by: K.me(), at: K.now() }; K.log({ area: 'Needs attention', summary: 'Reopened: ' + e.title, entity: e.caseKey, before: e.type, after: 'Open' }); return e; };
+  db.getApprovalsWaiting = function () {
+    var list = db.getApprovals().map(function (a) { return Object.assign({}, a); });
+    if (typeof db.getPendingCoachSignups === 'function') list.forEach(function (a) { if (a.id === 'coach-signups') a.count = db.getPendingCoachSignups().length; });
+    if (typeof db.getPendingClaims === 'function') list.forEach(function (a) { if (a.id === 'parent-claims') a.count = db.getPendingClaims().length; });
+    return list;
+  };
+})();

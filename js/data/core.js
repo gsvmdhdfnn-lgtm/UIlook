@@ -1,9 +1,9 @@
 /* Mock domain data. Shaped around product concepts (Coach, Session,
-   Occurrence, Player, Parent, Attention Case), not storage. Values echo
-   the real Hub's demo and TEST data so screens read believably.
+   Occurrence, Player, Parent, Attention Case), not storage. All values are invented for UI testing.
 
    The prototype's clock is fixed at Thursday 1 October 2026, 14:10, so
    "today" always has sessions to show. */
+window.Hub.db = window.Hub.db || {};
 (function () {
   var NOW = new Date(2026, 9, 1, 14, 10);
 
@@ -143,4 +143,19 @@
     me: { id: 'david', name: 'David Cole', email: 'david@example.com', roleLabel: 'Management' },
     term: 'Term 1 · Week 4'
   };
+
+  /* Read helpers: screens read data only through Hub.db. */
+  var D = Hub.data, db = Hub.db;
+  db.getNow = function () { return D.now; };
+  db.getTerm = function () { return D.term; };
+  db.getMe = function () { return D.me; };
+  db.getAttention = function () { return D.attention; };
+  db.getAttentionCases = function () { return D.attention.cases; };
+  db.getApprovals = function () { return D.approvals; };
+  db.getAreas = function () { return D.areas; };
+  db.getChanges = function () { return D.changes; };
+  db.getLastVisit = function () { return D.lastVisit; };
+  db.getStaffSummary = function () { return D.staff; };
+  db.getFinanceOverview = function () { return D.finance; };
+  db.getSignedInParent = function () { return D.parent; };
 })();

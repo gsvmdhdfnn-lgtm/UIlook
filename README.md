@@ -22,7 +22,7 @@ trying out the look and feel. It is not a second Hub.
   never changes it.
 - All data is invented for UI/UX testing: people, venues, sessions, figures and
   organisations are fictional and do not describe any real records.
-- There is no backend, auth, Supabase, Airtable or business logic here. Data is
+- There is no backend, sign-in service or business logic here. Data is
   mocked in `js/data.js` using product concepts (Coach, Session, Occurrence,
   Player, Parent, Attention Case), not storage field names.
 
