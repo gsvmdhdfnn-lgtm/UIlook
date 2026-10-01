@@ -15,7 +15,7 @@
   /* ---------- Routes ---------- */
   [['mgmt-players', 'Players & Parents'], ['mgmt-players-list', 'Players'], ['mgmt-player', 'Player'], ['mgmt-parents', 'Parents'], ['mgmt-parent', 'Parent'],
     ['mgmt-families', 'Families'], ['mgmt-family', 'Family'], ['mgmt-memberships', 'Memberships'], ['mgmt-membership', 'Membership'], ['mgmt-requests', 'Requests'],
-    ['mgmt-session-requests', 'Session requests'], ['mgmt-player-migration', 'Player migration']].forEach(function (r) { K.route(r[0], { title: r[1], parent: 'home' }); });
+    ['mgmt-session-requests', 'Session requests'], ['mgmt-player-migration', 'Move players onto sessions']].forEach(function (r) { K.route(r[0], { title: r[1], parent: 'home' }); });
   [['mgmt-bookings', 'Bookings'], ['mgmt-booking', 'Booking'], ['mgmt-commercial', 'Commercial setup'], ['mgmt-adjustments', 'Commercial adjustments'], ['mgmt-audit', 'History']].forEach(function (r) { K.route(r[0], { title: r[1], parent: 'more' }); });
   K.route('mgmt-players', { title: function () { return 'Players & ' + client() + 's'; }, parent: 'home' });
   K.route('mgmt-parents', { title: function () { return client() + 's'; }, parent: 'home' });
@@ -108,7 +108,7 @@
       { route: 'mgmt-bookings', icon: 'card', title: 'Bookings', value: bookings.length, label: 'checkouts', desc: 'Camps, trials and single sessions' },
       { route: 'mgmt-commercial', icon: 'settings', title: 'Commercial setup', desc: 'Discounts, refund policies, packages, billing rules, terms' },
       { route: 'mgmt-adjustments', icon: 'finance', title: 'Adjustments', value: db.getAdjustments().length, label: 'this term', desc: 'One-off charges and credits' },
-      { route: 'mgmt-player-migration', icon: 'move', title: 'Player migration', value: db.getMigrationCandidates().length, label: 'not on a session', desc: 'Move existing players onto sessions' },
+      { route: 'mgmt-player-migration', icon: 'move', title: 'Move players onto sessions', value: db.getMigrationCandidates().length, label: 'not on a session', desc: 'Move existing players onto sessions' },
       { route: 'mgmt-audit', icon: 'clock', title: 'History', desc: 'Who changed what, and when' }], 4);
     var checks = [];
     db.getPlayersMissingMedical().forEach(function (p) { checks.push(ui.row({ lead: I('alertCircle', 'row-glyph'), title: esc(p.name) + ': medical details not confirmed', sub: [esc(p.ageGroup), esc(db.getFamily(p.family).name)], href: '#mgmt-player/' + p.id, trail: K.status('Not confirmed') })); });
@@ -372,7 +372,7 @@
       }), empty: 'No memberships.' });
   }
   Hub.screens['mgmt-memberships'] = function (ctx) {
-    var h = K.head({ back: ['mgmt-players', 'Players & ' + client() + 's'], eyebrow: 'Players & ' + client() + 's', title: 'Memberships', sub: 'One player on one session. Lifecycle: Active, Paused, Cancellation Pending, Ending Scheduled, Ended.' });
+    var h = K.head({ back: ['mgmt-players', 'Players & ' + client() + 's'], eyebrow: 'Players & ' + client() + 's', title: 'Memberships', sub: 'One player on one session. Statuses: Active, Paused, Cancellation Pending, Ending Scheduled, Ended.' });
     var g = K.guard(ctx, h, { empty: ['calendar', 'No memberships yet', 'Memberships appear when players join a session.'] }); if (g) return g;
     var all = db.getMemberships();
     var list0 = [{ id: 'Open' }].concat(STATES.map(function (s) { return { id: s }; })).concat([{ id: 'All' }]);
@@ -399,9 +399,9 @@
     if (m.state === 'Ended') acts = [K.frozen('Ended · kept as history')];
     var h = K.head({ back: ['mgmt-memberships', 'Memberships'], eyebrow: 'Membership · ' + m.id, title: p.name + ' · ' + (s ? s.name : ''), sub: K.status(m.state) + ' · ' + keyDate(m), actions: acts.join('') });
     var cur = STATES.indexOf(m.state);
-    var life = '<ol class="pp-life" aria-label="Lifecycle">' + STATES.map(function (x, i) { return '<li class="' + (x === m.state ? 'is-current' : (x !== 'Paused' && i < cur && m.state !== 'Paused' && !(x === 'Cancellation Pending' && !m.cancel)) ? 'is-done' : '') + '"><span>' + esc(x) + '</span></li>'; }).join('') + '</ol>';
+    var life = '<ol class="pp-life" aria-label="Status">' + STATES.map(function (x, i) { return '<li class="' + (x === m.state ? 'is-current' : (x !== 'Paused' && i < cur && m.state !== 'Paused' && !(x === 'Cancellation Pending' && !m.cancel)) ? 'is-done' : '') + '"><span>' + esc(x) + '</span></li>'; }).join('') + '</ol>';
     var main = K.card({ title: 'Membership', body: K.kv([['Player', pLink(m.player)], ['Session', sesLink(m.session)], ['Family', famLink(p.family)], ['Started', K.d(m.start)], ['State', K.status(m.state)]], true) });
-    var price = K.card({ title: 'Price and billing snapshot', sub: 'Copied when the membership started; later rule changes do not alter it.', body: K.kv([['Price snapshot', K.money(m.price) + ' a month'], ['Billing rule', rule ? K.id(rule.id) + ' ' + esc(rule.name) : esc(m.billingRule)],
+    var price = K.card({ title: 'Price and billing terms at the start', sub: 'Copied when the membership started; later rule changes do not alter it.', body: K.kv([['Price agreed', K.money(m.price) + ' a month'], ['Billing rule', rule ? K.id(rule.id) + ' ' + esc(rule.name) : esc(m.billingRule)],
       rule ? ['Payer', esc(rule.payer)] : null, rule ? ['Billing model', esc(rule.model) + ' · ' + esc(rule.basis)] : null, rule ? ['Anchor day', 'Day ' + rule.anchorDay + ' of each month'] : null, rule ? ['Notice', rule.noticeDays + ' days'] : null], true) });
     var cards = [main, price];
     if (m.pause) cards.push(K.card({ title: 'Pause', body: K.kv([['From', K.d(m.pause.from)], ['To', K.d(m.pause.to)], ['Reason', esc(m.pause.reason)], ['Recorded', K.stamp('Paused', m.pause.by, m.pause.at)], m.pause.resumedAt ? ['Resumed', K.dt(m.pause.resumedAt)] : null]) }));
@@ -525,7 +525,7 @@
   /* ================================================================ PLAYER MIGRATION */
   var MIG = { step: 0, player: '', session: '', start: K.addDays(K.today, 7) };
   Hub.screens['mgmt-player-migration'] = function (ctx) {
-    var h = K.head({ back: ['mgmt-players', 'Players & ' + client() + 's'], eyebrow: 'Players & ' + client() + 's', title: 'Player migration', sub: 'Move existing players who are not on a session onto one. Each move creates an Active membership.' });
+    var h = K.head({ back: ['mgmt-players', 'Players & ' + client() + 's'], eyebrow: 'Players & ' + client() + 's', title: 'Move players onto sessions', sub: 'Move existing players who are not on a session onto one. Each move creates an Active membership.' });
     var g = K.guard(ctx, h, { empty: ['move', 'Nobody to move', 'Every active player is already on a session.'] }); if (g) return g;
     var cands = db.getMigrationCandidates(), body;
     var steps = K.steps(['Choose player', 'Choose session', 'Confirm'], MIG.step);
@@ -540,7 +540,7 @@
         '<div class="pp-actions">' + K.actBtn('Back', 'pp-mig-step', { step: 0 }, { variant: 'tertiary' }) + K.actBtn('Next', 'pp-mig-next', {}, { variant: 'primary' }) + '</div>' });
     } else {
       var pp = player(MIG.player), s = db.getSession(MIG.session);
-      body = K.card({ title: 'Confirm the move', body: K.kv([['Player', pLink(pp.id)], ['Session', esc(s.name)], ['Start date', K.d(MIG.start)], ['Price snapshot', K.money(s.price) + ' a month'], ['Billing rule', 'BR-0' + (['SES-01', 'SES-02', 'SES-03', 'SES-04'].indexOf(s.id) + 1)]], true) +
+      body = K.card({ title: 'Confirm the move', body: K.kv([['Player', pLink(pp.id)], ['Session', esc(s.name)], ['Start date', K.d(MIG.start)], ['Price agreed', K.money(s.price) + ' a month'], ['Billing rule', 'BR-0' + (['SES-01', 'SES-02', 'SES-03', 'SES-04'].indexOf(s.id) + 1)]], true) +
         '<div class="pp-actions">' + K.actBtn('Back', 'pp-mig-step', { step: 1 }, { variant: 'tertiary' }) + K.actBtn('Move onto session', 'pp-mig-go', {}, { variant: 'primary' }) + '</div>' });
     }
     var moved = db.getMemberships(function (m) { return m.migrated; });
@@ -553,7 +553,7 @@
     var p = player(MIG.player), s = db.getSession(MIG.session), at = K.now(), who = K.me(), id = 'MEM-' + String(101 + db.getMemberships().length);
     Hub.mutate(function () {
       db.addMembership({ id: id, player: p.id, session: s.id, state: 'Active', start: MIG.start, price: s.price, billingRule: 'BR-0' + (['SES-01', 'SES-02', 'SES-03', 'SES-04'].indexOf(s.id) + 1), priceLabel: K.money(s.price) + ' a month', migrated: true,
-        history: [{ text: 'Moved onto ' + s.name + ' by player migration', who: who, at: at, tone: 'ok' }] });
+        history: [{ text: 'Moved onto ' + s.name + ' by moving players onto sessions', who: who, at: at, tone: 'ok' }] });
       if (p.status === 'Trial') p.status = 'Active';
       MIG.step = 0; MIG.player = ''; MIG.session = '';
     }, p.name + ' moved onto ' + s.name, { area: AREA, summary: p.name + ' moved onto ' + s.name + ' from ' + K.dm(MIG.start), entity: p.id, after: { membership: id, session: s.name }, at: at, who: who });
@@ -588,13 +588,13 @@
     var lines = b.lines.map(function (l) {
       var canCancel = l.status !== 'Cancelled' && l.dates[0] > K.today;
       return K.card({ title: player(l.player).name, sub: K.id(l.id) + ' · ' + esc(l.type), right: K.status(l.status), body: K.kv([['Dates', l.dates.map(K.dd).join(', ')], ['Package tier', esc(l.tier)], ['Base price', K.money(l.base)], ['Applied discount', l.discount ? K.money(l.discount) + ' · ' + esc(l.discountRule) : '<span class="text-3">None</span>'],
-        ['Family credit applied', K.money(l.creditApplied)], ['Final price', '<b>' + K.money(l.final) + '</b>'], ['Amount due', K.money(l.due)], ['Refund policy snapshot', esc(l.refundPolicy)],
+        ['Family credit applied', K.money(l.creditApplied)], ['Final price', '<b>' + K.money(l.final) + '</b>'], ['Amount due', K.money(l.due)], ['Refund policy when booked', esc(l.refundPolicy)],
         l.cancellation ? ['Cancellation', esc(l.cancellation) + (l.cancelReason ? '<br>Reason: ' + esc(l.cancelReason) : '') + (l.cancelledBy ? '<br>' + K.stamp('Cancelled', l.cancelledBy, l.cancelledAt) : '')] : null]) +
         (canCancel ? '<div class="pp-actions">' + K.actBtn('Cancel this line', 'pp-bk-cancel', { id: b.id, line: l.id }, { size: 'sm', variant: 'secondary' }) + '</div>' : '') });
     });
     var history = [{ text: 'Checkout completed: ' + b.lines.length + ' line' + (b.lines.length > 1 ? 's' : ''), who: by ? by.name : '', at: b.at, tone: 'ok' }].concat(b.history || []);
     db.getRefunds(b.family).filter(function (r) { return r.booking === b.id; }).forEach(function (r) { history.push({ text: 'Refund ' + K.money(r.amount) + ' (' + r.method + ')', detail: esc(r.reason), who: r.decidedBy, at: r.at, tone: 'info' }); });
-    return K.page(h, K.grid([info, tot], '21') + K.section('Lines', 'Each player and date is its own line with its own price and policy snapshot.', K.grid(lines, 2)) +
+    return K.page(h, K.grid([info, tot], '21') + K.section('Lines', 'Each player and date is its own line with its own price and refund policy as booked.', K.grid(lines, 2)) +
       K.section('History', null, '<div class="lx-card">' + K.timeline(history.sort(function (a, c) { return a.at < c.at ? 1 : -1; })) + '</div>'));
   };
   Hub.actions['pp-bk-cancel'] = function (el) {
@@ -613,7 +613,7 @@
   Hub.screens['mgmt-commercial'] = function (ctx) {
     var tl = [{ id: 'discounts', label: 'Discounts' }, { id: 'refunds', label: 'Refund policies' }, { id: 'packages', label: 'Package pricing' }, { id: 'billing', label: 'Billing rules' }, { id: 'terms', label: 'Terms and policies' }];
     var t = K.tab('pp-comm', tl);
-    var h = K.head({ back: ['mgmt-more', 'More'], eyebrow: 'Bookings', title: 'Commercial setup', sub: 'Rules that set prices for memberships and bookings. Each booking and membership keeps a snapshot of the rule it used.', tabs: K.tabs('pp-comm', tl) });
+    var h = K.head({ back: ['mgmt-more', 'More'], eyebrow: 'Bookings', title: 'Commercial setup', sub: 'Rules that set prices for memberships and bookings. Each booking and membership keeps a copy of the rule it was set up under.', tabs: K.tabs('pp-comm', tl) });
     var g = K.guard(ctx, h, { empty: ['settings', 'Nothing set up yet', 'Discounts, refund policies and billing rules appear here.'] }); if (g) return g;
     var lines = [].concat.apply([], db.getBookings().map(function (b) { return b.lines; })), body;
     if (t === 'discounts') {

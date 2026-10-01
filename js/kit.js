@@ -85,7 +85,10 @@
     draft: '', scheduled: '', 'not started': '', new: 'info', pending: 'warn', 'in progress': 'warn', 'ready for issue': 'info', paused: 'warn', late: 'warn', excused: 'info', contacted: 'info', queried: 'warn', 'needs review': 'warn', 'partially credited': 'warn', 'part paid': 'warn', 'cancellation pending': 'warn', 'ending scheduled': 'warn', expiring: 'warn', 'pending verification': 'warn', postponed: 'warn', rescheduled: 'info', inactive: '', ended: '', unknown: 'warn', 'not confirmed': 'warn', open: 'warn', offered: 'info', reopened: 'warn',
     overdue: 'danger', cancelled: 'danger', absent: 'danger', declined: 'danger', expired: 'danger', missing: 'danger', failed: 'danger', void: '', credited: '', reversed: 'danger', denied: 'danger', no: 'danger', disconnected: 'danger', 'at risk': 'warn'
   };
-  K.status = function (text) { return K.pill(text, TONES[String(text).toLowerCase()] || ''); };
+  /* Display wording for stored states whose name is a system term; the stored value is unchanged */
+  var STATE_LABEL = { Exported: 'Sent for payment' };
+  K.stateLabel = function (text) { return STATE_LABEL[text] || text; };
+  K.status = function (text) { return K.pill(K.stateLabel(text), TONES[String(text).toLowerCase()] || ''); };
   K.link = function (route, text) { return '<a class="k-link" href="#' + route + '">' + esc(text) + '</a>'; };
   K.goBtn = function (label, route, o) { o = o || {}; o.attrs = Object.assign({ 'data-action': 'go', 'data-route': route }, o.attrs || {}); return ui.btn(label, o); };
   K.actBtn = function (label, action, data, o) { o = o || {}; var a = { 'data-action': action }; Object.keys(data || {}).forEach(function (k) { a['data-' + k] = data[k]; }); o.attrs = Object.assign(a, o.attrs || {}); return ui.btn(label, o); };

@@ -309,7 +309,7 @@
   };
   Hub.actions['org-pick'] = function (el) { S.brand = el.dataset.brand; persist(); Hub.closeSheet(true); Hub.render(); Hub.toast('Switched to ' + Hub.brand.orgName); };
   Hub.actions['add-new'] = function () {
-    var items = [['calendar', 'Session', 'Create a session and its occurrences', 'mgmt-session-new'], ['users', 'Player', 'Add a player to a family', 'mgmt-players-list'], ['coaches', terms().staff, 'Invite a ' + terms().staff.toLowerCase(), 'mgmt-coach-signups'], ['finance', 'Invoice draft', 'Build an invoice from delivered occurrences', 'mgmt-fin-drafts'], ['plus', 'Adjustment', 'A one-off charge or credit for a family', 'mgmt-adjustments'], ['pin', 'Venue unavailability', 'Close a venue for some dates', 'mgmt-venues']];
+    var items = [['calendar', 'Session', 'Create a session and its dates', 'mgmt-session-new'], ['users', 'Player', 'Add a player to a family', 'mgmt-players-list'], ['coaches', terms().staff, 'Invite a ' + terms().staff.toLowerCase(), 'mgmt-coach-signups'], ['finance', 'Invoice draft', 'Build an invoice from delivered sessions', 'mgmt-fin-drafts'], ['plus', 'Adjustment', 'A one-off charge or credit for a family', 'mgmt-adjustments'], ['pin', 'Venue unavailability', 'Close a venue for some dates', 'mgmt-venues']];
     Hub.openSheet({ overline: '<span class="overline">Create</span>', title: 'Add new', body: ui.rows(items.map(function (i) { return ui.row({ lead: '<span class="row__icon">' + I(i[0], 'icon-sm') + '</span>', title: esc(i[1]), sub: [esc(i[2])], href: '#' + i[3] }); }), 'rows--lead') });
   };
   function searchResults(q) {

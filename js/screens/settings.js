@@ -551,14 +551,14 @@
   }
   function pct(a, b) { return b ? Math.round(a / b * 100) + '%' : '—'; }
   Hub.screens['mgmt-reports'] = function (ctx) {
-    var h = K.head({ back: ['mgmt-more', 'More'], eyebrow: 'Reports', title: 'Reports', sub: 'Operational reporting for September 2026, worked out from occurrences and registers.',
+    var h = K.head({ back: ['mgmt-more', 'More'], eyebrow: 'Reports', title: 'Reports', sub: 'Operational reporting for September 2026, worked out from sessions and registers.',
       actions: K.goBtn('Finance reports', 'mgmt-fin-reports', { variant: 'secondary', icon: 'finance' }) });
-    var g = K.guard(ctx, h, { empty: ['grid', 'No reporting data yet', 'Reports fill in once occurrences have been delivered.'] }); if (g) return g;
+    var g = K.guard(ctx, h, { empty: ['grid', 'No reporting data yet', 'Reports fill in once sessions have been delivered.'] }); if (g) return g;
     var r = septReport();
     var stats = K.stats([
       { label: 'Attendance', value: pct(r.present, r.marks), sub: r.present + ' of ' + r.marks + ' marks present or late', route: 'mgmt-attendance' },
-      { label: 'Registers completed', value: pct(r.regDone, r.regDue), sub: r.regDone + ' of ' + r.regDue + ' delivered occurrences', route: 'mgmt-registers', tone: r.regDone < r.regDue ? 'warn' : '' },
-      { label: 'Occurrences delivered', value: r.delivered, sub: 'of ' + r.total + ' scheduled in September', route: 'mgmt-occurrences' },
+      { label: 'Registers completed', value: pct(r.regDone, r.regDue), sub: r.regDone + ' of ' + r.regDue + ' delivered sessions', route: 'mgmt-registers', tone: r.regDone < r.regDue ? 'warn' : '' },
+      { label: 'Sessions delivered', value: r.delivered, sub: 'of ' + r.total + ' scheduled in September', route: 'mgmt-occurrences' },
       { label: 'Cancelled or moved', value: r.cancelled + r.rescheduled, sub: r.cancelled + ' cancelled · ' + r.rescheduled + ' rescheduled', route: 'mgmt-occurrences', tone: r.cancelled ? 'warn' : '' }
     ]);
     var sessions = Object.keys(r.bySession).sort().map(function (k) { return r.bySession[k]; });
@@ -577,7 +577,7 @@
       { route: 'mgmt-registers', icon: 'check', title: 'Registers', desc: 'Completion and missing registers.' },
       { route: 'mgmt-fin-reports', icon: 'finance', title: 'Finance reports', desc: 'Revenue, costs and profit by session.' }
     ], 3);
-    return K.page(h, stats + K.section('By session', 'September 2026', body) + K.grid([dev, K.card({ title: 'How these are worked out', body: '<p class="st-p">Delivered counts completed occurrences. Registers count as complete once a coach finishes them. Attendance counts Present and Late marks against all marks in completed registers; schools sessions use headcounts instead.</p>' })], 2) + K.section('More reports', '', links));
+    return K.page(h, stats + K.section('By session', 'September 2026', body) + K.grid([dev, K.card({ title: 'How these are worked out', body: '<p class="st-p">Delivered counts completed sessions. Registers count as complete once a coach finishes them. Attendance counts Present and Late marks against all marks in completed registers; schools sessions use headcounts instead.</p>' })], 2) + K.section('More reports', '', links));
   };
 
   /* ========================================================= PROFILE */

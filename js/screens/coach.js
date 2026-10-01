@@ -128,7 +128,7 @@
       out.push(ui.row({ lead: icoLead('shield'), title: esc(x.type.name), sub: [esc(sub)], trail: K.pill(x.state, tone), href: '#coach-documents' }));
     });
     var ws = db.getMyWorkSummary(k, '2026-09');
-    if (ws && ws.state === 'Awaiting coach') out.push(ui.row({ lead: icoLead('finance'), title: 'Check your ' + esc(ws.label) + ' summary', sub: [ws.lines.length + ' occurrences', K.money(ws.total)], trail: K.pill('Confirm', 'info'), href: '#coach-work-summary' }));
+    if (ws && ws.state === 'Awaiting coach') out.push(ui.row({ lead: icoLead('finance'), title: 'Check your ' + esc(ws.label) + ' summary', sub: [ws.lines.length + ' sessions', K.money(ws.total)], trail: K.pill('Confirm', 'info'), href: '#coach-work-summary' }));
     return out;
   }
   Hub.screens['coach-home'] = function (ctx) {
@@ -150,7 +150,7 @@
     var officeCard = K.card({ title: 'From the office', sub: 'Notices for ' + esc(Hub.staffPlural ? Hub.staffPlural().toLowerCase() : 'coaches'), body: notices.length ? ui.rows(notices.map(function (n) { return ui.row({ lead: icoLead('megaphone'), title: esc(n.title), sub: [esc(n.body)], after: stamp('Sent', n.by, n.at) }); }), 'rows--lead') : ui.empty('megaphone', 'No notices', 'Notices from the office appear here.') });
     var weekN = db.getCoachWeekCount(k), players = db.getMyPlayers(k).length, offers = db.getPendingCoverOffers(k).length, comp = db.getCoachComplianceSummary(k), ws = db.getMyWorkSummary(k, '2026-09');
     var tiles = K.tiles([
-      { route: 'coach-schedule', icon: 'calendar', title: 'Schedule', value: weekN, label: 'this week', desc: 'Your occurrences, past and upcoming.' },
+      { route: 'coach-schedule', icon: 'calendar', title: 'Schedule', value: weekN, label: 'this week', desc: 'Your sessions, past and upcoming.' },
       { route: 'coach-players', icon: 'users', title: 'My players', value: players, label: isLearning() ? 'names only' : 'in your sessions', desc: 'Profiles, attendance, feedback and ' + K.label('IDPs') + '.' },
       { route: 'coach-availability', icon: 'clock', title: 'Availability', desc: 'Your week, holidays and dates you can’t make.' },
       { route: 'coach-cover', icon: 'coaches', title: 'Cover', value: offers, label: offers === 1 ? 'offer to answer' : 'offers to answer', desc: 'Cover offered to you and your own requests.' },
@@ -175,9 +175,9 @@
     var k = meKey(), all = db.getMyOccurrences(k);
     var up = all.filter(function (o) { return o.date >= K.today; }), past = all.filter(function (o) { return o.date < K.today; }).reverse();
     var tabs = [{ id: 'upcoming', label: 'Upcoming', meta: up.length }, { id: 'past', label: 'Past', meta: past.length }];
-    var h = K.head({ eyebrow: hub(), title: 'My schedule', sub: 'Every occurrence you’re on. Open one for the venue, staff, expected players and the register.',
+    var h = K.head({ eyebrow: hub(), title: 'My schedule', sub: 'Every session you’re on. Open one for the venue, staff, expected players and the register.',
       actions: K.goBtn('Availability', 'coach-availability', { variant: 'secondary', icon: 'clock' }) + K.goBtn('Cover', 'coach-cover', { variant: 'secondary', icon: 'coaches' }), tabs: K.tabs('ch-sched', tabs) });
-    var g = K.guard(ctx, h, { empty: ['calendar', 'No sessions yet', 'When the office adds you to a session, its occurrences appear here week by week.'] }); if (g) return g;
+    var g = K.guard(ctx, h, { empty: ['calendar', 'No sessions yet', 'When the office adds you to a session, its dates appear here week by week.'] }); if (g) return g;
     var tab = K.tab('ch-sched', tabs), list = tab === 'upcoming' ? up : past;
     var wk = weekStart(K.today), days = [];
     for (var i = 0; i < 7; i++) { var d = K.addDays(wk, i); days.push({ dow: K.dd(d).split(' ')[0], date: K.parse(d).getDate(), today: d === K.today, past: d < K.today, session: all.some(function (o) { return o.date === d; }) }); }
@@ -234,13 +234,13 @@
   function teamCard(o) {
     var list = o.staff.filter(function (s) { return s.coach !== meKey(); });
     if (isLead()) {
-      return K.card({ title: 'Team', sub: 'Lead coach view: the other coaches on this occurrence', right: rolePill('lead'), body: list.length ? ui.rows(list.map(function (s) {
+      return K.card({ title: 'Team', sub: 'Lead coach view: the other coaches on this session', right: rolePill('lead'), body: list.length ? ui.rows(list.map(function (s) {
         var c = db.getCoach(s.coach), comp = db.getCoachComplianceSummary(s.coach);
         var st = s.unavailable && !s.cover ? K.pill('Unavailable', 'danger') + (s.covering ? K.pill('Covered by ' + first(db.coachName(s.covering)), 'ok') : '') : K.pill(s.cover ? 'Cover · ' + s.role : s.role, s.role === 'Learning' ? 'warn' : '');
         return ui.row({ lead: ui.avatar(c.name, 'sm'), title: esc(c.name), sub: [esc(c.phone || ''), esc(comp.text)], trail: st });
-      }), 'rows--lead') : '<p class="k-note">You’re the only coach on this occurrence.</p>' });
+      }), 'rows--lead') : '<p class="k-note">You’re the only coach on this session.</p>' });
     }
-    return K.card({ title: 'Staff', sub: 'Who is on this occurrence', body: ui.rows(o.staff.map(function (s) {
+    return K.card({ title: 'Staff', sub: 'Who is on this session', body: ui.rows(o.staff.map(function (s) {
       var n = db.coachName(s.coach), mine = s.coach === meKey();
       return ui.row({ lead: ui.avatar(n, 'sm'), title: esc(n) + (mine ? ' <small class="ch-you">(you)</small>' : ''), sub: [esc(s.cover ? 'Cover' : s.role)], trail: s.unavailable && !s.cover ? K.pill('Unavailable', 'danger') : '' });
     }), 'rows--lead') });
@@ -255,7 +255,7 @@
   function notesCard(o) {
     var list = db.getSessionNotes(o.id);
     var office = o.notes ? ui.notice('info', 'From the office', esc(o.notes) + (o.notesBy ? ' ' + stamp('Updated', o.notesBy, o.notesAt) : '')) : '';
-    return K.card({ title: 'Notes', sub: 'Shared with the coaches on this occurrence', body: office +
+    return K.card({ title: 'Notes', sub: 'Shared with the coaches on this session', body: office +
       (list.length ? ui.rows(list.map(function (n) { return ui.row({ title: esc(n.text), after: stamp('Added', n.by, n.at) }); })) : '<p class="k-note">No notes yet.</p>') +
       '<div class="ch-addnote">' + K.field('Add a note', K.textarea('ch-session-note', '', 'Equipment, a change of plan, anything the team should know')) + K.actBtn('Add note', 'ch-note-add', { occ: o.id }, { variant: 'secondary', size: 'sm', icon: 'plus' }) + '</div>' });
   }
@@ -275,16 +275,16 @@
     var h = K.head({ back: ['coach-schedule', 'Schedule'], eyebrow: o ? K.d(o.date) + ' · ' + o.programme : 'Session', title: o ? o.session : 'Session',
       sub: o ? esc(o.start + '–' + o.end) + ' · ' + esc(venueName(o)) + ' · ' + esc(o.ageGroup) + ' ' + sessionRolePill(o) : '',
       actions: o ? K.goBtn('Take register', 'coach-register/' + o.id, { variant: 'primary', icon: 'check' }) + K.goBtn('Players', 'coach-players', { variant: 'secondary', icon: 'users' }) : '' });
-    var g = K.guard(ctx, h, { empty: ['calendar', 'Nothing to show for this session', 'Details appear once the office confirms the occurrence.'] }); if (g) return g;
+    var g = K.guard(ctx, h, { empty: ['calendar', 'Nothing to show for this session', 'Details appear once the office confirms the session.'] }); if (g) return g;
     if (!o) return notFound(h, 'Session', ['coach-schedule', 'Back to schedule']);
-    if (!myEntry(o)) return notMine(h, 'You’re not on the staff for this occurrence, so its players and register are hidden.', ['coach-schedule', 'Back to schedule']);
+    if (!myEntry(o)) return notMine(h, 'You’re not on the staff for this session, so its players and register are hidden.', ['coach-schedule', 'Back to schedule']);
     var s = myEntry(o), top = '';
     if (o.status === 'Cancelled') top += ui.notice('danger', 'Cancelled', esc(o.cancelReason) + ' ' + stamp('Cancelled', o.cancelledBy, o.cancelledAt));
     if (o.status === 'Rescheduled') top += ui.notice('warn', 'Rescheduled', esc(o.cancelReason) + (o.replacement ? ' · ' + K.link('coach-session/' + o.replacement, 'Open the new date') : ''));
     if (s.unavailable && !s.cover) top += ui.notice('warn', 'You’re marked unavailable', s.covering ? esc(db.coachName(s.covering)) + ' is covering for you.' : 'The office is arranging cover.', { action: K.goBtn('Cover', 'coach-cover', { size: 'sm', variant: 'secondary' }) });
     if (s.cover) top += ui.notice('info', 'You’re covering', s.covers ? 'Covering for ' + esc(db.coachName(s.covers)) + '.' : 'You were added as cover.');
     if (isLearning()) top += ui.notice('info', 'Learning coach view', 'You see player names and age groups. Medical and support details are kept with the lead coach.');
-    var hist = K.card({ title: 'History', sub: 'Changes to this occurrence', body: K.timeline((o.history || []).slice().reverse().slice(0, 6)) });
+    var hist = K.card({ title: 'History', sub: 'Changes to this session', body: K.timeline((o.history || []).slice().reverse().slice(0, 6)) });
     var left = expectedCard(o) + medicalCard(o) + messageCard(o);
     var right = venueCard(o) + teamCard(o) + notesCard(o) + hist;
     return page(h, top + cols(left, right));
@@ -303,13 +303,13 @@
     var o = db.getOccurrence(ctx.param), reg = o ? db.getRegister(o.id) : null;
     var h = K.head({ back: o ? ['coach-session/' + o.id, o.session] : ['coach-schedule', 'Schedule'], eyebrow: o ? 'Register · ' + K.d(o.date) + ', ' + o.start : 'Register', title: o ? o.session : 'Register',
       sub: o ? K.status(reg.state) + ' ' + (reg.state === 'Completed' ? stamp('Completed', reg.by, reg.at) : reg.startedBy ? stamp('Started', reg.startedBy, reg.startedAt) : '') : '' });
-    var g = K.guard(ctx, h, { empty: ['check', 'No register yet', 'The register appears when the occurrence has players.'] }); if (g) return g;
+    var g = K.guard(ctx, h, { empty: ['check', 'No register yet', 'The register appears when the session has players.'] }); if (g) return g;
     if (!o) return notFound(h, 'Register', ['coach-schedule', 'Back to schedule']);
     if (!K.feature('registers')) return page(h, K.featureOff('registers', 'Registers'));
     var s = myEntry(o);
-    if (!s) return notMine(h, 'Only the coaches on this occurrence take its register.', ['coach-schedule', 'Back to schedule']);
+    if (!s) return notMine(h, 'Only the coaches on this session take its register.', ['coach-schedule', 'Back to schedule']);
     if (!db.canTakeRegister(o)) {
-      var why = o.date > K.today ? 'You can take this register from ' + K.d(o.date) + '.' : 'This occurrence did not run, so there is no register.';
+      var why = o.date > K.today ? 'You can take this register from ' + K.d(o.date) + '.' : 'This session did not run, so there is no register.';
       return page(h, ui.notice('info', o.date > K.today ? 'Opens on the day' : 'No register', why, { action: K.goBtn('Open session', 'coach-session/' + o.id, { size: 'sm', variant: 'secondary' }) }) + (o.date > K.today ? expectedCard(o) : ''));
     }
     var done = reg.state === 'Completed', top = '';
@@ -559,7 +559,7 @@
       var acts = '';
       if (!past && !linked && e.type !== 'Different hours' && K.feature('cover')) acts += K.actBtn('Request cover', 'ch-av-cover', { id: e.id }, { size: 'sm', variant: 'secondary' });
       if (!past && !linked) acts += K.actBtn('Remove', 'ch-av-remove', { id: e.id }, { size: 'sm', variant: 'tertiary' });
-      return ui.row({ title: esc((e.from === e.to ? K.dd(e.from) : K.dm(e.from) + '–' + K.dm(e.to)) + (e.start ? ', ' + e.start + '–' + e.end : '')), sub: [esc(e.reason), linked ? 'Cover ' + esc(linked.id) + ': ' + esc(db.coverStatus(linked)) : impact.length ? impact.length + ' session' + (impact.length === 1 ? '' : 's') + ' affected' : ''],
+      return ui.row({ title: esc((e.from === e.to ? K.dd(e.from) : K.dm(e.from) + '–' + K.dm(e.to)) + (e.start ? ', ' + e.start + '–' + e.end : '')), sub: [esc(e.reason), linked ? 'Cover request: ' + esc(db.coverStatus(linked).toLowerCase()) : impact.length ? impact.length + ' session' + (impact.length === 1 ? '' : 's') + ' affected' : ''],
         after: stamp('Recorded', e.by, e.at) + (acts ? '<div class="k-row-actions ch-rowacts">' + acts + '</div>' : ''), trail: K.pill(e.type, e.type === 'Holiday' ? 'info' : e.type === 'Unavailable' ? 'danger' : 'warn') });
     })) : '<p class="k-note">Nothing marked.</p>' });
     var form = K.card({ title: 'Mark dates you can’t make', sub: 'Holiday, illness or a one-off. The office sees it straight away.', body: K.form([
@@ -638,7 +638,7 @@
     var rateTxt = rate ? K.money(rate.evening) + ' evening · ' + K.money(rate.day) + ' day' : '—';
     var noteBox = payNote ? ui.notice('info', K.money(0) + ': ' + payNote, 'No per-session pay is due. ' + (/Learning/.test(payNote) ? 'Travel expenses are claimed separately through the office.' : 'Your salary is paid through payroll.')) : '';
     function lineTable(lines, live, foot) {
-      return K.table({ cols: 'minmax(0,1.6fr) minmax(0,.8fr) minmax(0,.6fr) minmax(0,.8fr) minmax(0,.8fr)', head: ['Occurrence', 'Role', { label: 'Hours', cls: 'c-num' }, { label: 'Rate', cls: 'c-num' }, { label: 'Pay', cls: 'c-num' }], rows: lines.map(function (l) {
+      return K.table({ cols: 'minmax(0,1.6fr) minmax(0,.8fr) minmax(0,.6fr) minmax(0,.8fr) minmax(0,.8fr)', head: ['Session', 'Role', { label: 'Hours', cls: 'c-num' }, { label: 'Rate', cls: 'c-num' }, { label: 'Pay', cls: 'c-num' }], rows: lines.map(function (l) {
         var o = db.getOccurrence(l.occurrence);
         return { cells: [K.cell(esc(o ? o.session : l.session), esc(K.dd(l.date)) + (live && l.date >= K.today ? ' · to come' : '')), esc(l.role || ''), { cls: 'c-num', html: String(l.units) }, { cls: 'c-num', html: K.money(l.rate) }, { cls: 'c-num', html: K.money(l.cost) + (l.override ? '<small class="ch-ovr">' + esc(typeof l.override === 'string' ? l.override : l.override.reason) + '</small>' : '') }], route: o ? 'coach-session/' + o.id : null };
       }), empty: 'No sessions this month.', foot: foot || '' });
@@ -652,7 +652,7 @@
     var ws = db.getMyWorkSummary(k, m);
     if (!ws) return page(h, '<div class="zone-inset">' + ui.empty('finance', 'No summary for this month', '') + '</div>');
     var hrs = K.sum(ws.lines, 'units');
-    var stats = K.stats([{ label: 'Occurrences', value: ws.lines.length, sub: ws.label }, { label: 'Hours', value: hrs, sub: 'Delivered' }, { label: 'Rate', value: esc(rate ? K.money(rate.evening) : '—'), sub: esc(rateTxt) }, { label: 'Total', value: K.money(ws.total), sub: ws.state, tone: ws.state === 'Queried' ? 'warn' : '' }]);
+    var stats = K.stats([{ label: 'Sessions', value: ws.lines.length, sub: ws.label }, { label: 'Hours', value: hrs, sub: 'Delivered' }, { label: 'Rate', value: esc(rate ? K.money(rate.evening) : '—'), sub: esc(rateTxt) }, { label: 'Total', value: K.money(ws.total), sub: ws.state, tone: ws.state === 'Queried' ? 'warn' : '' }]);
     var acts = '';
     if (ws.state === 'Awaiting coach') acts = K.actBtn('Confirm', 'ch-ws-confirm', { id: ws.id }, { variant: 'primary', icon: 'check' }) + K.actBtn('Query', 'ch-ws-query', { id: ws.id }, { variant: 'secondary' });
     else if (ws.state === 'Ready to finalise') acts = '<span class="k-note">You confirmed this. The office finalises it for payment.</span>' + K.actBtn('Query', 'ch-ws-query', { id: ws.id }, { variant: 'secondary' });

@@ -30,7 +30,7 @@
     { id: 'SES-03', name: 'U12 Academy', programme: 'Academy', area: 'Evening', ageGroup: 'U12', venue: 'northgate', client: null, commercial: 'Parent subscription', booking: 'Members only', billing: 'Monthly subscription', days: [4], start: '19:00', end: '20:30', capacity: 16, pattern: 'Weekly', startDate: '2026-09-03', endDate: '2026-12-10', lifecycle: 'Active', price: 9500, staff: [{ coach: 'david', role: 'Lead' }, { coach: 'charlie', role: 'Coach' }] },
     { id: 'SES-04', name: 'U13/14 Development', programme: 'TDC', area: 'Evening', ageGroup: 'U13/14', venue: 'hollins', client: null, commercial: 'Parent subscription', booking: 'Members only', billing: 'Monthly subscription', days: [5], start: '18:00', end: '19:00', capacity: 16, pattern: 'Weekly', startDate: '2026-09-04', endDate: '2026-12-11', lifecycle: 'Active', price: 8700, staff: [{ coach: 'marcus', role: 'Lead' }] },
     { id: 'SES-05', name: 'Riverside PPA (Years 5-6)', programme: 'Schools', area: 'Schools', ageGroup: 'Years 5-6', venue: 'riverside', client: 'CLI-02', commercial: 'Client contract', booking: 'Client managed', billing: 'Per class, invoiced monthly', days: [1, 4], start: '13:15', end: '15:15', capacity: 60, pattern: 'Weekly', startDate: '2026-09-03', endDate: '2026-12-10', lifecycle: 'Active', price: 4500, headcount: 56, staff: [{ coach: 'tom', role: 'Lead' }] },
-    { id: 'SES-06', name: 'Northgate After-School', programme: 'Schools', area: 'Schools', ageGroup: 'Years 3-6', venue: 'northgate', client: 'CLI-01', commercial: 'Client contract', booking: 'Client managed', billing: 'Per occurrence, invoiced monthly', days: [2, 5], start: '15:45', end: '16:45', capacity: 24, pattern: 'Weekly', startDate: '2026-09-04', endDate: '2026-12-11', lifecycle: 'Active', price: 5000, headcount: 18, staff: [{ coach: 'priya', role: 'Lead' }] },
+    { id: 'SES-06', name: 'Northgate After-School', programme: 'Schools', area: 'Schools', ageGroup: 'Years 3-6', venue: 'northgate', client: 'CLI-01', commercial: 'Client contract', booking: 'Client managed', billing: 'Per session, invoiced monthly', days: [2, 5], start: '15:45', end: '16:45', capacity: 24, pattern: 'Weekly', startDate: '2026-09-04', endDate: '2026-12-11', lifecycle: 'Active', price: 5000, headcount: 18, staff: [{ coach: 'priya', role: 'Lead' }] },
     { id: 'SES-07', name: 'U11 Saturday Development', programme: 'Development Centre', area: 'Weekend', ageGroup: 'U11', venue: null, client: null, commercial: 'Parent subscription', booking: 'Open booking', billing: 'Per session booking', days: [6], start: '09:30', end: '10:30', capacity: 12, pattern: 'Selected dates', dates: ['2026-10-10', '2026-10-17'], startDate: '2026-10-10', endDate: '2026-10-17', lifecycle: 'Draft', price: 1200, staff: [] }
   ];
   D.session = function (id) { return D.sessions.filter(function (s) { return s.id === id; })[0]; };
@@ -113,8 +113,8 @@
   occ.sort(function (a, b) { return (a.date + a.start) < (b.date + b.start) ? -1 : 1; });
   occ.forEach(function (o) {
     o.players = o.sessionId === 'SES-05' || o.sessionId === 'SES-06' ? D.session(o.sessionId).headcount : D.expectedPlayers(o).length;
-    o.history = [{ text: 'Generated from the weekly pattern', who: 'System', at: '2026-08-20T09:00' }];
-    if (o.confirmed) o.history.push({ text: 'Occurrence confirmed', who: o.confirmed.by, at: o.confirmed.at, tone: 'ok' });
+    o.history = [{ text: 'Added from the weekly timetable', who: 'System', at: '2026-08-20T09:00' }];
+    if (o.confirmed) o.history.push({ text: 'Session confirmed', who: o.confirmed.by, at: o.confirmed.at, tone: 'ok' });
     if (o.status === 'Cancelled') o.history.push({ text: 'Cancelled: ' + o.cancelReason, who: o.cancelledBy, at: o.cancelledAt, tone: 'danger' }, { text: 'Financial outcome recorded', who: o.outcome.by, at: o.outcome.at, tone: 'info' });
     if (o.status === 'Rescheduled') o.history.push({ text: 'Rescheduled to Sat 19 Sep, 10:00', who: o.cancelledBy, at: o.cancelledAt, tone: 'warn' });
     if (o.venueOverride) o.history.push({ text: 'Venue changed to Northgate Sports Centre', who: o.venueOverride.by, at: o.venueOverride.at, tone: 'warn' });
@@ -180,7 +180,7 @@
     schoolYears: ['Reception', 'Year 1', 'Year 2', 'Year 3', 'Year 4', 'Year 5', 'Year 6', 'Year 7', 'Year 8', 'Year 9'],
     commercial: ['Parent subscription', 'Client contract', 'Pay as you go', 'Package'],
     booking: ['Members only', 'Open booking', 'Invite only', 'Client managed'],
-    billing: ['Monthly subscription', 'Per session booking', 'Per class, invoiced monthly', 'Per occurrence, invoiced monthly', 'Package price'],
+    billing: ['Monthly subscription', 'Per session booking', 'Per class, invoiced monthly', 'Per session, invoiced monthly', 'Package price'],
     breakTypes: ['Half term', 'INSET day', 'Venue closure', 'Bank holiday'],
     lifecycle: ['Draft', 'Active', 'Inactive'],
     staffRoles: ['Lead', 'Coach', 'Learning'],
@@ -196,11 +196,11 @@
   D.sessions.forEach(function (s) {
     s.history = s.lifecycle === 'Draft'
       ? [{ text: 'Session created as Draft', who: 'Sam Okafor', at: '2026-09-28T11:20' }]
-      : [{ text: 'Session created as Draft', who: 'Josh Evans', at: '2026-07-14T10:00' }, { text: 'Lifecycle changed to Active', who: 'Josh Evans', at: '2026-08-20T09:00', tone: 'ok', detail: 'Autumn term published' }];
+      : [{ text: 'Session created as Draft', who: 'Josh Evans', at: '2026-07-14T10:00' }, { text: 'Status changed to Active', who: 'Josh Evans', at: '2026-08-20T09:00', tone: 'ok', detail: 'Autumn term published' }];
     s.meetingPoint = s.meetingPoint || (s.venue ? D.venues[s.venue].meetingPoint || '' : '');
   });
-  D.sessions.push({ id: 'SES-08', name: 'Kingsmead After-School', programme: 'Schools', area: 'Schools', ageGroup: 'Years 3-4', venue: 'kingsmead', client: 'CLI-03', commercial: 'Client contract', booking: 'Client managed', billing: 'Per occurrence, invoiced monthly', days: [1], start: '16:00', end: '17:00', capacity: 20, pattern: 'Weekly', startDate: '2026-01-12', endDate: '2026-07-13', lifecycle: 'Inactive', price: 5000, headcount: 18, staff: [{ coach: 'david', role: 'Lead' }], meetingPoint: 'Hall doors',
-    history: [{ text: 'Session created as Draft', who: 'Josh Evans', at: '2025-12-02T09:15' }, { text: 'Lifecycle changed to Active', who: 'Josh Evans', at: '2026-01-05T08:30', tone: 'ok' }, { text: 'Lifecycle changed to Inactive', who: 'Josh Evans', at: '2026-07-20T16:05', detail: 'Kingsmead Primary paused the service for the autumn term' }] });
+  D.sessions.push({ id: 'SES-08', name: 'Kingsmead After-School', programme: 'Schools', area: 'Schools', ageGroup: 'Years 3-4', venue: 'kingsmead', client: 'CLI-03', commercial: 'Client contract', booking: 'Client managed', billing: 'Per session, invoiced monthly', days: [1], start: '16:00', end: '17:00', capacity: 20, pattern: 'Weekly', startDate: '2026-01-12', endDate: '2026-07-13', lifecycle: 'Inactive', price: 5000, headcount: 18, staff: [{ coach: 'david', role: 'Lead' }], meetingPoint: 'Hall doors',
+    history: [{ text: 'Session created as Draft', who: 'Josh Evans', at: '2025-12-02T09:15' }, { text: 'Status changed to Active', who: 'Josh Evans', at: '2026-01-05T08:30', tone: 'ok' }, { text: 'Status changed to Inactive', who: 'Josh Evans', at: '2026-07-20T16:05', detail: 'Kingsmead Primary paused the service for the autumn term' }] });
 
   /* Eligibility rules per session, and per-player overrides */
   D.eligibility = {
@@ -274,7 +274,7 @@
     var made = db.previewOccurrences(spec).filter(function (p) { return !p.skipped; }).map(function (p) {
       var o = makeOcc(s, p.date); hist(o, 'Generated when the session was created', who, at); return o;
     });
-    s.history.push({ text: made.length + ' occurrences generated', who: who, at: at, tone: 'info' });
+    s.history.push({ text: made.length + ' dates created', who: who, at: at, tone: 'info' });
     return { session: s, occurrences: made };
   };
   /* Update a session; time, venue and capacity carry to future scheduled occurrences. */
@@ -290,20 +290,20 @@
       if (patch.staff) o.staff = s.staff.map(function (x) { return { coach: x.coach, lead: x.role === 'Lead', role: x.role, actualRole: x.role, attended: null }; });
       hist(o, 'Session details updated', who, at, 'info');
     });
-    s.history.push({ text: 'Session details updated', who: who, at: at, tone: 'info', detail: future.length + ' future occurrences updated' + (before.start !== s.start ? '; time ' + before.start + ' → ' + s.start : '') });
+    s.history.push({ text: 'Session details updated', who: who, at: at, tone: 'info', detail: future.length + ' future sessions updated' + (before.start !== s.start ? '; time ' + before.start + ' → ' + s.start : '') });
     return future.length;
   };
   db.setSessionLifecycle = function (id, state, reason, who, at) {
     var s = D.session(id); if (!s) return null; var was = s.lifecycle; s.lifecycle = state;
     if (state === 'Active') D.occurrences.forEach(function (o) { if (o.sessionId === id) delete o.draft; });
-    s.history.push({ text: 'Lifecycle changed from ' + was + ' to ' + state, who: who, at: at, tone: state === 'Active' ? 'ok' : state === 'Inactive' ? 'warn' : '', detail: reason || '' });
+    s.history.push({ text: 'Status changed from ' + was + ' to ' + state, who: who, at: at, tone: state === 'Active' ? 'ok' : state === 'Inactive' ? 'warn' : '', detail: reason || '' });
     return s;
   };
   db.getScheduleBreaksFor = function (sid) { return D.scheduleBreaks.filter(function (b) { return b.sessions.indexOf(sid) >= 0; }); };
   db.addScheduleBreak = function (b) { b.id = 'BRK-' + pad(D.scheduleBreaks.length + 1, 2); D.scheduleBreaks.push(b); return b; };
 
   /* Occurrence changes; every change writes to the occurrence history. */
-  db.confirmOccurrence = function (id, who, at) { var o = D.occ(id); o.confirmed = { by: who, at: at }; hist(o, 'Occurrence confirmed', who, at, 'ok'); return o; };
+  db.confirmOccurrence = function (id, who, at) { var o = D.occ(id); o.confirmed = { by: who, at: at }; hist(o, 'Session confirmed', who, at, 'ok'); return o; };
   db.cancelOccurrence = function (id, reason, who, at) {
     var o = D.occ(id); Object.assign(o, { status: 'Cancelled', change: 'Cancelled', cancelReason: reason, cancelledBy: who, cancelledAt: at });
     o.staff.forEach(function (s) { s.attended = 'Not required'; });

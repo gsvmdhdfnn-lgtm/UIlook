@@ -71,7 +71,7 @@
     { id: 'BR-01', name: 'U8 Development monthly', session: 'SES-01' }, { id: 'BR-02', name: 'U9/10 Development monthly', session: 'SES-02' },
     { id: 'BR-03', name: 'U12 Academy monthly', session: 'SES-03' }, { id: 'BR-04', name: 'U13/14 Development monthly', session: 'SES-04' }
   ].map(function (r) {
-    return Object.assign(r, { payer: 'Parent (family account)', model: 'Monthly subscription', basis: 'Per calendar month, not per occurrence', amount: D.session(r.session).price, from: '2026-09-01', to: null, anchorDay: 1, noticeDays: 30, by: 'Josh Evans', at: '2026-08-14T10:20' });
+    return Object.assign(r, { payer: 'Parent (family account)', model: 'Monthly subscription', basis: 'Per calendar month, not per session', amount: D.session(r.session).price, from: '2026-09-01', to: null, anchorDay: 1, noticeDays: 30, by: 'Josh Evans', at: '2026-08-14T10:20' });
   });
   C.discountGroups = [
     { id: 'DSG-01', name: 'Sibling', stacking: false, rules: [{ id: 'DSC-01', name: 'Sibling discount 10%', type: 'Sibling', amount: '10% off', appliesTo: 'Camps and single-session bookings', condition: 'Second and later child in the same checkout', active: true, from: '2025-09-01', by: 'Josh Evans', at: '2025-08-20T12:00' }] },

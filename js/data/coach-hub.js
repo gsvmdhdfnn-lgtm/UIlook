@@ -67,7 +67,7 @@
     { id: 'CHN-11', coach: 'jack', title: 'Your Enhanced DBS expires on 13 Oct', body: 'Upload the new certificate so the office can verify it before then.', route: 'coach-documents', at: '2026-09-13T08:00', read: false },
     { id: 'CHN-12', coach: 'jack', title: 'Cover offered to you', body: 'U13/14 Development, Fri 2 Oct, 18:00 at Hollins Park School. First to accept.', route: 'coach-cover', at: '2026-10-01T12:30', read: false },
     { id: 'CHN-13', coach: 'jack', title: 'Cover confirmed', body: 'You are on Northgate After-School, Fri 2 Oct, 15:45, covering Priya Nair.', route: ngFri ? 'coach-session/' + ngFri.id : 'coach-schedule', at: '2026-09-29T18:45', read: true, readAt: '2026-09-29T19:02' },
-    { id: 'CHN-14', coach: 'jack', title: 'September work summary finalised', body: 'Exported for the 7 Oct coach payment.', route: 'coach-work-summary', at: '2026-10-01T09:40', read: true, readAt: '2026-10-01T10:05' },
+    { id: 'CHN-14', coach: 'jack', title: 'September work summary finalised', body: 'Sent for the 7 Oct coach payment.', route: 'coach-work-summary', at: '2026-10-01T09:40', read: true, readAt: '2026-10-01T10:05' },
     { id: 'CHN-21', coach: 'ellie', title: 'Feedback sent for sign-off', body: 'Ava Price: your lead coach signs it off before the office reviews it.', route: 'coach-feedback/PLY-0003', at: '2026-09-30T17:55', read: true, readAt: '2026-09-30T17:56' },
     { id: 'CHN-22', coach: 'ellie', title: 'Temporary role from 5 Oct', body: 'You act as a Coach on U8 Development from 5 to 30 Oct for your placement assessment.', route: 'coach-profile', at: '2026-09-29T09:20', read: false },
     { id: 'CHN-23', coach: 'ellie', title: 'September summary ready to check', body: 'Learning placement: expenses only, so the total is £0.00.', route: 'coach-work-summary', at: '2026-10-01T06:00', read: false }
@@ -197,7 +197,7 @@
   function composeSummary(coach, month, label) {
     var lines = (D.coaching && D.coaching.freeze ? D.coaching.freeze(coach, month) : []);
     var ws = { id: 'WS-' + (951 + H.summaries.length), coach: coach, month: month, label: label, state: 'Awaiting coach', cycle: 1, lines: lines, total: K.sum(lines, 'cost'), frozenAt: '2026-10-01T06:00', frozenBy: 'System', composed: true,
-      cycles: [{ n: 1, frozenAt: '2026-10-01T06:00', total: K.sum(lines, 'cost'), events: [{ text: 'Prepared from ' + lines.length + ' allocations and sent to ' + db.coachName(coach), who: 'System', at: '2026-10-01T06:00' }] }] };
+      cycles: [{ n: 1, frozenAt: '2026-10-01T06:00', total: K.sum(lines, 'cost'), events: [{ text: 'Prepared from ' + lines.length + ' pay items and sent to ' + db.coachName(coach), who: 'System', at: '2026-10-01T06:00' }] }] };
     H.summaries.push(ws); return ws;
   }
   db.getMyWorkSummary = function (coach, month) {

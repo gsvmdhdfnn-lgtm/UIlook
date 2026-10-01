@@ -58,19 +58,19 @@
     var active = db.getCoaches().filter(function (c) { return c.active !== false; }).length;
     var players = db.getPlayers(function (p) { return p.status === 'Active'; }).length;
     var areas = '<div class="lx-areas lx-areas--stat">' +
-      areaCard({ route: 'mgmt-schedule', icon: 'calendar', title: 'Schedule & Sessions', value: empty ? 0 : T.length, label: 'occurrences today' }) +
+      areaCard({ route: 'mgmt-schedule', icon: 'calendar', title: 'Schedule & Sessions', value: empty ? 0 : T.length, label: 'sessions today' }) +
       areaCard({ route: 'mgmt-coaches', icon: 'coaches', title: Hub.staffPlural(), value: active, label: 'active' }) +
       areaCard({ route: 'mgmt-players', icon: 'players', title: 'Players & ' + Hub.brand.terms.client + 's', value: players, label: 'active players' }) +
       areaCard({ route: 'mgmt-registers', icon: 'clock', title: 'Today', value: empty ? 0 : expected, label: 'players expected' }) + '</div>';
     var urgent = db.getAttention().cases.filter(function (k) { return k.severity === 'Urgent'; }), c = db.getAttention().summary.counts;
     var urgentSum = empty || !urgent.length ? '' : '<section class="hm-urgent" aria-label="Urgent actions"><a class="hm-urgent__head" href="#hm-attn"><span class="hm-urgent__k">' + ui.sev('Urgent') + '<b class="num">' + urgent.length + ' urgent</b><span class="num">· ' + c.Warning + ' warning · ' + c.Normal + ' to do</span></span><span class="hm-urgent__go">Review' + I('arrowRight', 'icon-sm') + '</span></a>' +
       urgent.map(function (k) { return '<button type="button" class="hm-urgent__row" data-action="case" data-key="' + esc(k.caseKey) + '"><b>' + esc(k.title) + '</b><small>' + esc(k.when) + '</small></button>'; }).join('') + '</section>';
-    var sched = '<section class="hx-card hm-sched" id="hx-today"><div class="hx-card__head"><div><h2>Today’s schedule</h2><small class="hx-sub">' + (empty ? 'No occurrences' : T.length + ' occurrences · ' + expected + ' players expected') + '</small></div><a class="hx-link" href="#mgmt-calendar">View full day' + I('arrowRight', 'icon-sm') + '</a></div>' +
-      (empty ? ui.empty('calendar', 'Nothing scheduled today', 'Tomorrow has ' + tomorrow().length + ' occurrences.') : '<div class="hx-list">' + T.map(schedRow).join('') + '</div>') + '</section>';
+    var sched = '<section class="hx-card hm-sched" id="hx-today"><div class="hx-card__head"><div><h2>Today’s schedule</h2><small class="hx-sub">' + (empty ? 'No sessions' : T.length + ' sessions · ' + expected + ' players expected') + '</small></div><a class="hx-link" href="#mgmt-calendar">View full day' + I('arrowRight', 'icon-sm') + '</a></div>' +
+      (empty ? ui.empty('calendar', 'Nothing scheduled today', 'Tomorrow has ' + tomorrow().length + ' sessions.') : '<div class="hx-list">' + T.map(schedRow).join('') + '</div>') + '</section>';
     var week = [['Mon', 28, '2026-09-28'], ['Tue', 29, '2026-09-29'], ['Wed', 30, '2026-09-30'], ['Thu', 1, '2026-10-01'], ['Fri', 2, '2026-10-02'], ['Sat', 3, '2026-10-03'], ['Sun', 4, '2026-10-04']];
     var cal = '<section class="hx-card hx-card--rail"><div class="hx-card__head"><div><h2>Calendar</h2><small class="hx-sub">Thursday 1 October 2026</small></div><a class="hx-link" href="#mgmt-calendar">Open' + I('arrowRight', 'icon-sm') + '</a></div>' +
       '<div class="hx-week" role="group" aria-label="Choose a day">' + week.map(function (d, i) { return '<a class="hx-week__day' + (i === 3 ? ' is-today' : '') + '" href="#mgmt-occurrences/' + d[2] + '"' + (i === 3 ? ' aria-current="date"' : '') + '><small>' + d[0] + '</small><b>' + d[1] + '</b></a>'; }).join('') + '</div>' +
-      '<p class="hm-cal__sum num">' + (empty ? 'No occurrences today' : T.length + ' occurrences · first ' + (T[0] || {}).start + ' · last ends ' + (T[T.length - 1] || {}).end) + '</p></section>';
+      '<p class="hm-cal__sum num">' + (empty ? 'No sessions today' : T.length + ' sessions · first ' + (T[0] || {}).start + ' · last ends ' + (T[T.length - 1] || {}).end) + '</p></section>';
     var tm = tomorrow();
     var tom = '<section class="hx-card hx-card--rail"><div class="hx-card__head"><div><h2>Tomorrow</h2><small class="hx-sub">Friday 2 October</small></div></div><div class="hx-list">' + (tm.length ? tm.map(function (o) { var ss = staffState(o); return '<a class="hm-mini" href="#mgmt-occurrence/' + o.id + '"><span class="num">' + o.start + '</span><span><b>' + esc(o.session) + '</b><small>' + esc(db.venueName(o.venue)) + '</small></span>' + K.pill(ss[0], ss[1]) + '</a>'; }).join('') : '<p class="hx-sub">Nothing scheduled.</p>') + '</div></section>';
     var appr = db.getApprovalsWaiting().filter(function (a) { return a.count; });
@@ -93,7 +93,7 @@
       actions: K.goBtn('Rules', 'mgmt-attention-rules', { variant: 'tertiary', icon: 'settings' }) + K.actBtn('Refresh', 'attn-refresh', {}, { variant: 'secondary', icon: 'refresh' }), tabs: '<div class="lx-filterbar">' + K.tabs('attention', tabs) + select + '</div>' });
     var g = K.guard(ctx, h, { empty: ['checkCircle', 'All clear', 'No staffing gaps, compliance issues, registers, claims or finance items are waiting.'] }); if (g) return g;
     var list = (sev === 'Accepted' ? A.accepted : A.cases).filter(function (k) { return (sev === 'All' || sev === 'Accepted' || k.severity === sev) && (attnCategory === 'All' || k.category === attnCategory); });
-    if (!list.length) return K.page(h, '<div class="zone-inset">' + ui.empty('checkCircle', 'Nothing in this filter', 'Try another severity or category.', 'ok') + '</div>');
+    if (!list.length) return K.page(h, '<div class="zone-inset">' + ui.empty('checkCircle', 'Nothing in this filter', 'Try another priority or category.', 'ok') + '</div>');
     var body = cats.filter(function (cat) { return list.some(function (k) { return k.category === cat; }); }).map(function (cat) {
       var items = list.filter(function (k) { return k.category === cat; });
       return K.section(cat, items.length + ' item' + (items.length > 1 ? 's' : ''), '<div class="lx-stack">' + items.map(function (k) {
@@ -118,22 +118,22 @@
     Hub.openSheet({
       overline: '<div class="sheet-kicker">' + ui.sev(c.severity) + '<span class="' + (c.severity === 'Urgent' ? 'text-danger' : '') + '">' + SEVWORD[c.severity] + '</span><span class="text-4">/</span><span>' + esc(c.category) + '</span></div>',
       title: esc(c.title),
-      body: K.kv([['When', '<span class="num when when--' + c.severity.toLowerCase() + '">' + esc(c.when) + '</span>'], ['Details', esc(c.detail)], ['Why this severity', esc(c.severityReason)], ['Rule', esc(c.ruleName) + ' <span class="text-3 mono">' + esc(c.ruleId) + '</span>'], c.exception ? ['Exception', esc(c.exception.type) + ': ' + esc(c.exception.reason) + '<br>' + K.stamp('Approved by ' + c.exception.approver + ', recorded', c.exception.by, c.exception.at)] : null]) + occHtml +
+      body: K.kv([['When', '<span class="num when when--' + c.severity.toLowerCase() + '">' + esc(c.when) + '</span>'], ['Details', esc(c.detail)], ['Why this priority', esc(c.severityReason)], ['Rule', esc(c.ruleName) + ' <span class="text-3 mono">' + esc(c.ruleId) + '</span>'], c.exception ? ['Exception', esc(c.exception.type) + ': ' + esc(c.exception.reason) + '<br>' + K.stamp('Approved by ' + c.exception.approver + ', recorded', c.exception.by, c.exception.at)] : null]) + occHtml +
         '<p class="text-3 fs-14">This item clears on its own once the underlying issue is fixed.</p>',
-      foot: K.actBtn('Accept or override', 'case-except', { key: c.caseKey }, { variant: 'tertiary' }) + K.goBtn(c.actionLabel, c.route, { variant: 'primary', trail: 'arrowRight' })
+      foot: K.actBtn('Accept or change priority', 'case-except', { key: c.caseKey }, { variant: 'tertiary' }) + K.goBtn(c.actionLabel, c.route, { variant: 'primary', trail: 'arrowRight' })
     });
   };
   Hub.actions['case-except'] = function (el) {
     var c = db.getAttentionCase(el.dataset.key);
-    Hub.openSheet({ overline: '<span class="overline">Exception</span>', title: 'Accept or override: ' + esc(c.title), meta: '<p class="k-note">Accepting removes the case from the queue until it changes. Overriding changes its severity. Both need a reason and an approver, and are kept in history.</p>',
-      body: K.form([K.field('Decision', K.select('ex_type', [['Accepted', 'Accept this case (known and handled)'], ['Severity override', 'Override severity']], 'Accepted')), K.field('Override severity to', K.select('ex_sev', [['Normal', 'To do'], ['Warning', 'Warning'], ['Urgent', 'Urgent']], 'Normal')), K.field('Approver', K.select('ex_approver', ['Josh Evans', 'David Cole'], 'Josh Evans')), K.field('Reason', K.input('ex_reason', '', { placeholder: 'Required' }), '', true)], 2),
+    Hub.openSheet({ overline: '<span class="overline">Exception</span>', title: 'Accept or change priority: ' + esc(c.title), meta: '<p class="k-note">Accepting removes the case from the queue until it changes. Changing priority moves it up or down. Both need a reason and an approver, and are kept in history.</p>',
+      body: K.form([K.field('Decision', K.select('ex_type', [['Accepted', 'Accept this case (known and handled)'], ['Severity override', 'Change priority']], 'Accepted')), K.field('Change priority to', K.select('ex_sev', [['Normal', 'To do'], ['Warning', 'Warning'], ['Urgent', 'Urgent']], 'Normal')), K.field('Approver', K.select('ex_approver', ['Josh Evans', 'David Cole'], 'Josh Evans')), K.field('Reason', K.input('ex_reason', '', { placeholder: 'Required' }), '', true)], 2),
       foot: ui.btn('Cancel', { variant: 'tertiary', attrs: { 'data-action': 'close-sheet' } }) + K.actBtn('Save exception', 'case-except-save', { key: c.caseKey }, { variant: 'primary' }) });
   };
   Hub.actions['case-except-save'] = function (el) {
     var c = db.getAttentionCase(el.dataset.key), r = K.val('ex_reason'); if (!r) { Hub.toast('A reason is required'); return; }
     var t = K.val('ex_type'), e = { caseKey: c.caseKey, title: c.title, type: t, severity: t === 'Severity override' ? K.val('ex_sev') : null, from: c.severity, approver: K.val('ex_approver'), reason: r };
     if (t === 'Severity override') { var rl = db.getAttentionRule(c.ruleId); if (rl.locked && ({ Normal: 1, Warning: 2, Urgent: 3 })[e.severity] < ({ Normal: 1, Warning: 2, Urgent: 3 })[rl.locked]) { Hub.toast('This rule has a locked minimum of ' + rl.locked); return; } }
-    Hub.closeSheet(true); Hub.mutate(function () { db.addAttentionException(e); }, t === 'Accepted' ? 'Case accepted' : 'Severity overridden');
+    Hub.closeSheet(true); Hub.mutate(function () { db.addAttentionException(e); }, t === 'Accepted' ? 'Case accepted' : 'Priority changed');
   };
 
   /* Rule settings */
@@ -142,7 +142,7 @@
     var r = db.getAttentionRule(el.dataset.id);
     function hrs(v) { return v == null ? '' : String(v); }
     Hub.openSheet({ overline: '<span class="overline">' + esc(r.id) + ' · ' + esc(r.category) + '</span>', title: esc(r.name),
-      body: K.form([K.field('Base severity', K.select('r_base', [['Normal', 'To do'], ['Warning', 'Warning'], ['Urgent', 'Urgent']], r.base)), K.field('Locked minimum', K.select('r_locked', [['', 'None'], ['Normal', 'To do'], ['Warning', 'Warning'], ['Urgent', 'Urgent']], r.locked || ''), 'Overrides can never go below this.'),
+      body: K.form([K.field('Standard priority', K.select('r_base', [['Normal', 'To do'], ['Warning', 'Warning'], ['Urgent', 'Urgent']], r.base)), K.field('Locked minimum', K.select('r_locked', [['', 'None'], ['Normal', 'To do'], ['Warning', 'Warning'], ['Urgent', 'Urgent']], r.locked || ''), 'Priority can never be set below this.'),
         K.field('Warning threshold (hours before)', K.input('r_warn', hrs(r.warnHours), { type: 'number', placeholder: 'Not used' })), K.field('Urgent threshold (hours before)', K.input('r_urgent', hrs(r.urgentHours), { type: 'number', placeholder: 'Not used' }))], 2),
       foot: ui.btn('Cancel', { variant: 'tertiary', attrs: { 'data-action': 'close-sheet' } }) + K.actBtn('Save rule', 'rule-save', { id: r.id }, { variant: 'primary' }) });
   };
@@ -152,13 +152,13 @@
     Hub.closeSheet(true); Hub.mutate(function () { db.updateAttentionRule(el.dataset.id, patch); }, 'Rule saved');
   };
   Hub.screens['mgmt-attention-rules'] = function (ctx) {
-    var h = K.head({ back: ['mgmt-attention', 'Needs attention'], eyebrow: 'Needs attention', title: 'Rules', sub: 'Each rule can be switched on or off and has a base severity, warning and urgent thresholds, and an optional locked minimum severity.' });
+    var h = K.head({ back: ['mgmt-attention', 'Needs attention'], eyebrow: 'Needs attention', title: 'Rules', sub: 'Each rule can be switched on or off and has a standard priority, the points at which it becomes Warning and Urgent, and an optional lowest allowed priority.' });
     var g = K.guard(ctx, h, { empty: false }); if (g) return g;
     var cats = ['Staffing & Cover', 'Coaches & Compliance', 'Sessions & Venues', 'Players & Families', 'Development', 'Finance'];
     var A = db.getAttention();
     return K.page(h, cats.map(function (cat) {
       var rules = db.getAttentionRules().filter(function (r) { return r.category === cat; });
-      return K.section(cat, '', K.table({ cols: '70px minmax(0,1.8fr) 110px 150px 150px 120px 70px 70px', head: ['On', 'Rule', 'Base', 'Warning', 'Urgent', 'Locked min.', 'Open', ''], rows: rules.map(function (r) {
+      return K.section(cat, '', K.table({ cols: '70px minmax(0,1.8fr) 110px 150px 150px 120px 70px 70px', head: ['On', 'Rule', 'Standard', 'Warning', 'Urgent', 'Lowest allowed', 'Open', ''], rows: rules.map(function (r) {
         var open = A.cases.filter(function (c) { return c.ruleId === r.id; }).length;
         return { cells: [{ html: K.toggle(r.enabled, 'rule-toggle', { id: r.id }) }, K.cell(esc(r.name), esc(r.id)), { html: K.pill(SEVWORD[r.base], sevTone(r.base)) }, { cls: 'c-cell', html: r.warnHours != null ? 'Within ' + (r.warnHours >= 48 ? Math.round(r.warnHours / 24) + ' days' : r.warnHours + ' h') : '—' }, { cls: 'c-cell', html: r.urgentHours != null ? 'Within ' + (r.urgentHours >= 72 ? Math.round(r.urgentHours / 24) + ' days' : r.urgentHours + ' h') : r.urgentDaysOverdue ? r.urgentDaysOverdue + ' days overdue' : '—' }, { cls: 'c-cell', html: r.locked ? K.pill(SEVWORD[r.locked], sevTone(r.locked)) : '—' }, { cls: 'c-cell num', html: String(open) }, { cls: 'c-end', html: K.actBtn('Edit', 'rule-edit', { id: r.id }, { variant: 'tertiary', size: 'sm' }) }] };
       }) }));

@@ -37,10 +37,10 @@
     { id: 'SVC-04', client: 'CLI-04', name: 'Summer holiday camp', session: null, periods: [{ state: 'Active', from: '2026-07-20', to: '2026-08-14' }, { state: 'Ended', from: '2026-08-15', to: null, reason: 'Camp delivered' }] }
   ];
   F.terms = [
-    { id: 'TRM-01', service: 'SVC-01', from: '2024-09-01', to: '2025-08-31', payer: 'Client', charge: 'Per occurrence', amount: 4600, vat: 'Standard', rate: 20, qty: 1, frequency: null, by: 'Josh Evans', at: '2024-08-20T10:00' },
-    { id: 'TRM-02', service: 'SVC-01', from: '2025-09-01', to: null, payer: 'Client', charge: 'Per occurrence', amount: 5000, vat: 'Standard', rate: 20, qty: 1, frequency: null, by: 'Josh Evans', at: '2025-08-18T15:12' },
+    { id: 'TRM-01', service: 'SVC-01', from: '2024-09-01', to: '2025-08-31', payer: 'Client', charge: 'Per session', amount: 4600, vat: 'Standard', rate: 20, qty: 1, frequency: null, by: 'Josh Evans', at: '2024-08-20T10:00' },
+    { id: 'TRM-02', service: 'SVC-01', from: '2025-09-01', to: null, payer: 'Client', charge: 'Per session', amount: 5000, vat: 'Standard', rate: 20, qty: 1, frequency: null, by: 'Josh Evans', at: '2025-08-18T15:12' },
     { id: 'TRM-03', service: 'SVC-02', from: '2026-09-07', to: null, payer: 'Client', charge: 'Per class', amount: 4500, vat: 'Standard', rate: 20, qty: 2, frequency: null, by: 'David Cole', at: '2026-09-08T09:40' },
-    { id: 'TRM-04', service: 'SVC-03', from: '2025-01-06', to: null, payer: 'Client', charge: 'Per occurrence', amount: 5000, vat: 'Standard', rate: 20, qty: 1, frequency: null, by: 'Josh Evans', at: '2025-01-02T11:30' },
+    { id: 'TRM-04', service: 'SVC-03', from: '2025-01-06', to: null, payer: 'Client', charge: 'Per session', amount: 5000, vat: 'Standard', rate: 20, qty: 1, frequency: null, by: 'Josh Evans', at: '2025-01-02T11:30' },
     { id: 'TRM-05', service: 'SVC-04', from: '2026-07-20', to: '2026-08-14', payer: 'Client', charge: 'Per place per day', amount: 2000, vat: 'Standard', rate: 20, qty: 18, frequency: null, by: 'Josh Evans', at: '2026-06-02T10:05' }
   ];
   F.overrides = [
@@ -87,7 +87,7 @@
     inv({ id: 'INV-0002', number: 'NC-1002', client: 'CLI-03', period: '2026-04', issued: '2026-05-01', due: '2026-05-31', issuedBy: 'Josh Evans', po: '', terms: 30, termsSource: 'Organisation default', lines: [simple('After-school club · April (4 sessions)', 4, 5000)] }),
     inv({ id: 'INV-0003', number: 'NC-1003', client: 'CLI-01', period: '2026-05', issued: '2026-06-01', due: '2026-07-01', issuedBy: 'Josh Evans', po: 'PO-NG-2231', terms: 30, termsSource: 'Organisation default', lines: [simple('After-school club · May (8 sessions)', 8, 5000)] }),
     inv({ id: 'INV-0004', number: 'NC-1004', client: 'CLI-03', period: '2026-05', issued: '2026-06-01', due: '2026-07-01', issuedBy: 'Josh Evans', po: '', terms: 30, termsSource: 'Organisation default', lines: [simple('After-school club · May (8 sessions)', 8, 5000)] }),
-    inv({ id: 'INV-0005', number: 'NC-1005', client: 'CLI-02', period: '2026-05', issued: '2026-06-01', due: '2026-06-15', issuedBy: 'David Cole', po: '', terms: 14, termsSource: 'Client override', lines: [simple('PPA cover · May (4 sessions)', 4, 4200)] }),
+    inv({ id: 'INV-0005', number: 'NC-1005', client: 'CLI-02', period: '2026-05', issued: '2026-06-01', due: '2026-06-15', issuedBy: 'David Cole', po: '', terms: 14, termsSource: 'Client-specific', lines: [simple('PPA cover · May (4 sessions)', 4, 4200)] }),
     inv({ id: 'INV-0006', number: 'NC-1006', client: 'CLI-01', period: '2026-06', issued: '2026-07-01', due: '2026-07-31', issuedBy: 'Josh Evans', po: 'PO-NG-2260', terms: 30, termsSource: 'Organisation default', lines: [simple('After-school club · June (8 sessions)', 8, 5000)] }),
     inv({ id: 'INV-0007', number: 'NC-1007', client: 'CLI-03', period: '2026-06', issued: '2026-07-01', due: '2026-07-31', issuedBy: 'Josh Evans', po: '', terms: 30, termsSource: 'Organisation default', lines: [simple('After-school club · Mon 1 Jun', 1, 5000), simple('After-school club · Wed 3 Jun', 1, 5000), simple('After-school club · June (6 further sessions)', 6, 5000)] }),
     inv({ id: 'INV-0008', number: 'NC-1008', client: 'CLI-04', period: '2026-07', issued: '2026-07-06', due: '2026-08-05', issuedBy: 'Josh Evans', po: 'HL-7781', terms: 30, termsSource: 'Organisation default', lines: [simple('Summer camp deposit · 18 places', 18, 2000)] }),
@@ -95,7 +95,7 @@
     inv({ id: 'INV-0010', number: 'NC-1010', client: 'CLI-03', period: '2026-07', issued: '2026-08-01', due: '2026-08-31', issuedBy: 'Josh Evans', po: '', terms: 30, termsSource: 'Organisation default', lines: [simple('After-school club · July (5 sessions)', 5, 5000)] }),
     inv({ id: 'INV-0011', number: 'NC-1011', client: 'CLI-04', period: '2026-08', issued: '2026-08-17', due: '2026-09-16', issuedBy: 'Josh Evans', po: 'HL-7781', terms: 30, termsSource: 'Organisation default', lines: [simple('Summer camp balance · 3 days × 18 places', 54, 2000)],
       dueChanges: [{ from: '2026-09-16', to: '2026-09-26', reason: 'Client asked for 10 more days while their finance lead was away', by: 'Josh Evans', at: '2026-09-15T10:12' }] }),
-    inv({ id: 'INV-0012', number: 'NC-1012', client: 'CLI-02', period: '2026-09', issued: '2026-09-30', due: '2026-10-14', issuedBy: 'David Cole', po: '', poOverride: 'Riverside does not use purchase orders', terms: 14, termsSource: 'Client override', lines: F.eligibleLines('CLI-02', '2026-09').filter(function (l) { return l.include; }).map(function (l) { return price(Object.assign({}, l)); }),
+    inv({ id: 'INV-0012', number: 'NC-1012', client: 'CLI-02', period: '2026-09', issued: '2026-09-30', due: '2026-10-14', issuedBy: 'David Cole', po: '', poOverride: 'Riverside does not use purchase orders', terms: 14, termsSource: 'Client-specific', lines: F.eligibleLines('CLI-02', '2026-09').filter(function (l) { return l.include; }).map(function (l) { return price(Object.assign({}, l)); }),
       omissions: F.eligibleLines('CLI-02', '2026-09').filter(function (l) { return !l.include; }).map(function (l) { return { description: l.description, reason: l.reason, approvedBy: 'David Cole' }; }), xero: { status: 'Failed', ref: null, at: '2026-09-30T16:05', error: 'Xero rate limit reached; retry queued' } })
   ];
   /* The overdue invoice keeps its original due date; the current one moved. */
@@ -366,7 +366,7 @@
   [
     { at: '2026-09-30T16:02', who: 'David Cole', summary: 'Issued invoice NC-1012 to Riverside Academy (£702.00)', entity: 'INV-0012', before: 'Draft DRF-00 (Ready for issue)', after: 'Issued NC-1012' },
     { at: '2026-09-15T10:12', who: 'Josh Evans', summary: 'Moved due date of NC-1011 from 16 Sep to 26 Sep', entity: 'INV-0011', before: 'Due 16 Sep 2026', after: 'Due 26 Sep 2026 (reason: client asked for 10 more days)' },
-    { at: '2026-09-11T09:30', who: 'Josh Evans', summary: 'Overrode allocation cost for Tom Reid, Thu 10 Sep', entity: 'ALC', before: '£50.00', after: '£60.00 (reason recorded)' },
+    { at: '2026-09-11T09:30', who: 'Josh Evans', summary: 'Adjusted pay for Tom Reid, Thu 10 Sep', entity: 'ALC', before: '£50.00', after: '£60.00 (reason recorded)' },
     { at: '2026-08-28T16:20', who: 'Josh Evans', summary: 'Updated finance settings', entity: 'Settings', before: 'Next number 1012', after: 'Next number 1013' },
     { at: '2026-08-27T09:05', who: 'Josh Evans', summary: 'Reversed payment PAY-112 (entered twice in error)', entity: 'INV-0010', before: 'Paid £600.00', after: 'Paid £300.00 + reversal −£300.00' },
     { at: '2026-07-09T11:20', who: 'Josh Evans', summary: 'Raised credit note NC-CN-001 against NC-1007', entity: 'INV-0007', before: 'Balance £0.00', after: 'Client credit £60.00 created' }
@@ -395,11 +395,11 @@
     return t;
   };
   db.addOverride = function (o) { o.id = 'OVR-' + String(F.overrides.length + 1).padStart(2, '0'); o.by = K.me(); o.at = K.now(); o.removed = null; F.overrides.push(o); flog('Billing override on ' + o.occurrence + ': ' + o.type, o.occurrence, 'Billable at terms', o.type + (o.value != null ? ' ' + o.value : '') + ' (' + o.reason + ')'); return o; };
-  db.removeOverride = function (id, reason) { var o = pick(F.overrides, id); o.removed = { by: K.me(), at: K.now(), reason: reason }; flog('Removed billing override ' + id, o.occurrence, o.type, 'Billable at terms (' + reason + ')'); return o; };
+  db.removeOverride = function (id, reason) { var o = pick(F.overrides, id); o.removed = { by: K.me(), at: K.now(), reason: reason }; flog('Removed billing exception ' + id, o.occurrence, o.type, 'Billable at terms (' + reason + ')'); return o; };
 
   db.createDraft = function (clientId, month) {
     var c = pick(F.clients, clientId);
-    var d = { id: 'DRF-' + String(F.drafts.length + 1).padStart(2, '0'), client: clientId, period: month, state: 'Draft', revision: 1, po: '', poOverride: '', terms: c.terms, termsSource: c.termsOverride ? 'Client override' : 'Organisation default', lines: F.eligibleLines(clientId, month), createdBy: K.me(), at: K.now(), history: [] };
+    var d = { id: 'DRF-' + String(F.drafts.length + 1).padStart(2, '0'), client: clientId, period: month, state: 'Draft', revision: 1, po: '', poOverride: '', terms: c.terms, termsSource: c.termsOverride ? 'Client-specific' : 'Organisation default', lines: F.eligibleLines(clientId, month), createdBy: K.me(), at: K.now(), history: [] };
     hist(d, 'Draft created for ' + month); F.drafts.push(d); flog('Created invoice draft for ' + c.name + ' (' + month + ')', d.id, '—', 'Draft');
     return d;
   };
@@ -410,10 +410,10 @@
     hist(d, (include ? 'Included ' : 'Excluded ') + l.description, include ? '' : reason, include ? 'info' : 'warn');
     flog((include ? 'Included' : 'Excluded') + ' a line on ' + d.id, d.id, b ? 'Included' : 'Excluded', include ? 'Included' : 'Excluded: ' + reason);
   };
-  db.setDraftPO = function (draftId, po, override) { var d = pick(F.drafts, draftId); touch(d); d.po = po; d.poOverride = override; hist(d, po ? 'PO number set to ' + po : 'PO override: ' + override); flog('Set PO on ' + d.id, d.id, '—', po || ('Override: ' + override)); };
+  db.setDraftPO = function (draftId, po, override) { var d = pick(F.drafts, draftId); touch(d); d.po = po; d.poOverride = override; hist(d, po ? 'PO number set to ' + po : 'No PO: ' + override); flog('Set PO on ' + d.id, d.id, '—', po || ('Override: ' + override)); };
   db.draftProblems = function (d) {
     var c = pick(F.clients, d.client), p = [];
-    if (c.poRequired && !d.po && !d.poOverride) p.push('A PO number or a PO override reason is needed for ' + c.name + '.');
+    if (c.poRequired && !d.po && !d.poOverride) p.push('A PO number, or a reason for not having one, is needed for ' + c.name + '.');
     d.lines.forEach(function (l) { if (l.exception === 'Missing terms' && l.include) p.push('A line has no commercial terms: ' + l.description); if (!l.include && !l.reason) p.push('Excluded line needs a reason: ' + l.description); });
     if (!d.lines.some(function (l) { return l.include; })) p.push('No lines are included.');
     return p;
@@ -488,6 +488,6 @@
     var list = F.allocations.filter(function (a) { return a.date.slice(0, 7) === month && (a.state === 'Confirmed' || a.state === 'Exported') && !a.run; });
     list.forEach(function (a) { a.state = 'Exported'; a.run = 'PR-' + month.slice(5); });
     var run = { id: 'PR-' + month.slice(5), month: month, paidOn: month === '2026-09' ? '2026-10-07' : K.today, amount: K.sum(list, 'cost'), by: K.me(), at: K.now(), state: 'Scheduled', count: list.length };
-    F.paymentRuns.push(run); flog('Prepared coach payment run for ' + month + ' (' + K.money(run.amount) + ')', run.id, list.length + ' confirmed allocations', 'Exported, paying ' + K.d(run.paidOn)); return run;
+    F.paymentRuns.push(run); flog('Prepared coach payment run for ' + month + ' (' + K.money(run.amount) + ')', run.id, list.length + ' confirmed pay items', 'Sent for payment, paid ' + K.d(run.paidOn)); return run;
   };
 })();
