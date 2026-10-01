@@ -67,7 +67,7 @@ window.Hub.db = window.Hub.db || {};
   /* Management areas, matching the backend's Destination Areas and the
      Feature Controls module each depends on. */
   var areas = [
-    { id: 'schedule', label: 'Schedule & Sessions', sub: 'Sessions, dates, venues and staffing', icon: 'calendar', module: 'module_schedule', on: true },
+    { id: 'schedule', label: 'Sessions', sub: 'Sessions, dates, venues and staffing', icon: 'calendar', module: 'module_schedule', on: true },
     { id: 'coaches', label: 'Coaches', sub: 'Compliance, cover, availability and work summaries', icon: 'coaches', module: 'module_coaches', on: true },
     { id: 'players', label: 'Players & Parents', sub: 'Players, memberships, families and access', icon: 'players', module: 'module_players_parents', on: true },
     { id: 'finance', label: 'Finance', sub: 'Billing, invoicing and session finances', icon: 'finance', module: 'module_finance', on: true, restricted: 'Finance access only' },

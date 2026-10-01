@@ -10,6 +10,9 @@ Every screen follows these rules:
 
 All data is invented and lives in `js/data/*.js`. Screens read it only through `Hub.db` helpers.
 
+## Management structure
+Management Home is built around four areas: **Sessions** (`mgmt-schedule`), **Coaches** (`mgmt-coaches`), **Players & Parents** (`mgmt-players`) and **Financials** (`mgmt-finance`). Every detailed screen sits inside one of them. Breadcrumbs read Home › area › page. See `docs/MANAGEMENT-IA.md`.
+
 ## Prototype bar
 | Feature | Where |
 |---|---|
@@ -46,7 +49,7 @@ All data is invented and lives in `js/data/*.js`. Screens read it only through `
 | Case drawer: why this priority, related items, action | `mgmt-attention` → any case |
 | Accept a case or change its priority (reason, approver, lowest allowed priority respected) | case drawer → Accept / Change priority |
 | Rule settings: on/off, standard priority, warning and urgent points, lowest allowed priority, exceptions list | `mgmt-attention-rules` |
-| More: every area, respecting Finance access and feature switches | `mgmt-more` |
+| More: development, communication, reports, history, settings and account only (the four areas live on Home) | `mgmt-more` |
 | Search across players, parents, coaches, sessions, venues and invoices | header search |
 | Add new; switch organisation (switches brand) | header buttons, sidebar organisation card |
 
@@ -82,7 +85,7 @@ Rules and where their cases come from:
 ## 3. Schedule, sessions, venues and registers
 | Feature | Route |
 |---|---|
-| Area hub with today, staffing notice, registers outstanding | `mgmt-schedule` |
+| Sessions landing: Needs you, Today, Later this week, All sessions, Calendar, Venues, then "More in Sessions" | `mgmt-schedule` |
 | Sessions list (All / Active / Draft / Inactive) | `mgmt-sessions` |
 | Session detail: fields, breaks, upcoming dates, coaches, players, eligibility, status with history | `mgmt-session/SES-02` |
 | Create / edit wizard: weekly or selected dates, breaks, venue and capacity, coaches, review of the dates it creates | `mgmt-session-new`, `mgmt-session-edit/SES-02` |
@@ -100,7 +103,7 @@ Rules and where their cases come from:
 | Feature | Route |
 |---|---|
 | Directory with compliance, availability and cover pills, search and filters | `mgmt-coaches` |
-| Coach profile: overview, sessions and roles, rates, pay, availability, documents, cover, work summaries | `mgmt-coach/tom` |
+| Coach profile in five tabs: Overview, Sessions & roles, Time off & cover, Documents, Pay & work (pay items, work summaries, rates) | `mgmt-coach/tom` |
 | Roles and permissions matrix, temporary role changes, former access | `mgmt-coach-roles` |
 | Effective-dated rates (never edited, new rate ends the old one) | `mgmt-coach/<key>` → Rates |
 | Coach pay: one pay item per coach per session, matching Finance; adjust with a reason; confirm; items sent for payment are frozen | `mgmt-allocations` |
@@ -146,7 +149,7 @@ Rules and where their cases come from:
 ## 7. Finance
 | Feature | Route |
 |---|---|
-| Overview: month summary (actual or including expected), cash, receivables, VAT estimate | `mgmt-finance` |
+| Financials overview: month summary (actual or including expected), Needs you, upcoming payments, cash, then "More in Financials". Six sections in the bar: Overview, Invoices, Parent payments, Money out, Cash, Month report | `mgmt-finance` |
 | Finance access per person (None / View / Manage) | `mgmt-fin-access` |
 | Finance settings: legal name, VAT, numbering, authority, coach payment day | `mgmt-fin-settings` |
 | Clients: terms, PO rules, payment days, services with active periods, billing exceptions | `mgmt-fin-clients`, `mgmt-fin-client/CLI-01` |

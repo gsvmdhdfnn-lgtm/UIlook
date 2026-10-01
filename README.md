@@ -5,6 +5,7 @@ one example organisation using it). It is a static, mock-data front end for
 trying out the look and feel. It is not a second Hub.
 
 - **Josh Evans brand = live Hub design:** `docs/JOSH-EVANS-THEME.md`, `docs/screenshots/joshevans/`. Switch Brand to Josh Evans in the prototype bar.
+- **Management simplification (four areas on Home):** `docs/MANAGEMENT-IA.md`, `docs/screenshots/pass-12/management-ia/`.
 - **Pass 12 follow-up, plain language and browse-first public site:** `docs/LANGUAGE-AUDIT.md`, `docs/screenshots/pass-12/journey/`.
 - **Pass 12, the whole Hub, clickable (current):** `docs/VISUAL-PASS-12.md`, `docs/FEATURE-COVERAGE.md`, `docs/screenshots/pass-12/`. Every Management, Coach, Parent and Public screen, five guided walkthroughs, finance access and feature switches.
 - **Pass 11, hierarchy and focus:** `docs/VISUAL-PASS-11.md`, `docs/screenshots/pass-11/`.

@@ -28,7 +28,7 @@
   function stamp(verb, who, at) { return who && at ? K.stamp(verb, who, at) : ''; }
 
   /* Routes */
-  K.route('mgmt-coaches', { title: word, parent: 'home' });
+  K.route('mgmt-coaches', { title: 'Coaches', parent: 'home' });
   K.route('mgmt-coach', { title: function () { var c = db.getCoach(K.param()); return c ? c.name : one(); }, parent: 'home' });
   K.route('mgmt-coach-roles', { title: 'Session roles', parent: 'home' });
   K.route('mgmt-allocations', { title: 'Coach pay', parent: 'home' });
@@ -68,26 +68,28 @@
   }
   function needsLook(c) { return db.getCoachComplianceSummary(c.id).state !== 'Current' || today(c.id) || holidaySoon(c.id) || !c.active; }
   Hub.screens['mgmt-coaches'] = function (ctx) {
-    var h = K.head({ back: ['mgmt-home', 'Home'], eyebrow: 'Management', title: word(),
-      sub: 'Manage the person once, then let their profile feed staffing, cover, compliance and month-end work summaries.',
-      actions: K.goBtn('Open cover workspace', 'mgmt-cover', { variant: 'secondary' }) + K.goBtn('Add ' + one().toLowerCase(), 'mgmt-coach-signups', { variant: 'primary', icon: 'plus' }) });
+    var h = K.head({ back: ['mgmt-home', 'Home'], eyebrow: 'Home', title: 'Coaches',
+      sub: 'Who is working, whether they are available and up to date, cover, and the work they have done.',
+      actions: K.actBtn('Record time off', 'co-absence', {}, { variant: 'secondary', icon: 'calendar' }) + K.goBtn('Add or invite a coach', 'mgmt-coach-signups', { variant: 'primary', icon: 'plus' }) });
     var g = K.guard(ctx, h, { empty: ['coaches', 'No ' + word().toLowerCase() + ' yet', 'Approved coach sign-ups appear here with their documents, availability and rates.'] }); if (g) return g;
     var all = db.getCoaches(), cover = db.getOpenCover(), ready = db.getSummariesReady(), issues = db.getComplianceIssues();
     var reqs = cover.map(function (x) { return x.request; }).filter(function (v, i, a) { return a.indexOf(v) === i; });
-    var glance = K.section('At a glance', 'Operational items that may need action.', K.stats([
+    var glance = K.section('At a glance', '', K.stats([
       { label: 'Active ' + word().toLowerCase(), value: all.filter(function (c) { return c.active; }).length, sub: all.length + ' on file · ' + all.filter(function (c) { return c.type === 'learning'; }).length + ' learning' },
       { label: 'Open cover', value: cover.length, sub: cover.length ? cover.length + ' date' + (cover.length === 1 ? '' : 's') + ' across ' + reqs.length + ' request' + (reqs.length === 1 ? '' : 's') : 'Nothing open', route: 'mgmt-cover', tone: cover.length ? 'warn' : '' },
       { label: 'Work summaries', value: ready.length, sub: ready.length ? ready.map(function (w) { return first(db.coachName(w.coach)); }).join(', ') + ' ready to finalise' : 'None ready', route: 'mgmt-work-summaries' },
       { label: 'Documents', value: issues.length, sub: 'Expiring, missing or awaiting check', route: 'mgmt-documents', tone: issues.length ? 'warn' : '' }
     ]));
-    var tools = K.tiles([
-      { route: 'mgmt-coach-roles', icon: 'shield', title: 'Session roles', desc: 'What Lead, Coach, Learning Coach and Office can do.', value: db.getRoles().length, label: 'roles' },
-      { route: 'mgmt-allocations', icon: 'finance', title: 'Coach pay', desc: 'One coach on one session, with the rate at the time.', value: db.getAllocations(function (a) { return a.state === 'Draft'; }).length, label: 'draft' },
-      { route: 'mgmt-availability', icon: 'calendar', title: 'Availability', desc: 'Usual weeks, holidays and one-off changes.', value: db.getAvailabilityExceptions().filter(function (e) { return e.to >= K.today; }).length, label: 'upcoming exceptions' },
-      { route: 'mgmt-documents', icon: 'book', title: 'Documents', desc: 'DBS, first aid, safeguarding and qualifications.', value: issues.length, label: 'need a look' },
-      { route: 'mgmt-cover', icon: 'swap', title: 'Cover', desc: 'Absences, offers, responses and confirmation.', value: cover.length, label: 'open dates' },
-      { route: 'mgmt-work-summaries', icon: 'inbox', title: 'Work summaries', desc: 'Monthly check of work done. Not an invoice.', value: ready.length, label: 'ready to finalise' }
-    ], 3);
+    var more = K.moreIn('More in Coaches', [
+      ['Cover and time off', [{ route: 'mgmt-cover', icon: 'swap', title: 'Cover', desc: 'Who is away and who is covering', count: cover.length },
+        { route: 'mgmt-availability', icon: 'calendar', title: 'Availability and time off', desc: 'Usual weeks, holidays and one-off changes', count: db.getAvailabilityExceptions().filter(function (e) { return e.to >= K.today; }).length }]],
+      ['Pay and work', [{ route: 'mgmt-allocations', icon: 'finance', title: 'Coach pay', desc: 'Work done and pay, session by session' },
+        { route: 'mgmt-work-summaries', icon: 'inbox', title: 'Work summaries', desc: 'Each coach’s month, checked before payment', count: ready.length }]],
+      ['Team and checks', [{ route: 'mgmt-documents', icon: 'book', title: 'Documents', desc: 'DBS, first aid, safeguarding', count: issues.length },
+        { route: 'mgmt-coach-roles', icon: 'shield', title: 'Session roles', desc: 'What Lead, Coach and Learning Coach can do' },
+        { route: 'mgmt-coach-signups', icon: 'userCheck', title: 'New coach sign-ups', desc: 'Approve new coaches' },
+        { route: 'mgmt-trial-coaches', icon: 'whistle', title: 'Coaches on trial', desc: 'Approve, extend or end a trial' }]]
+    ]);
     var f = K.tab('co-dir', [{ id: 'all' }, { id: 'look' }, { id: 'lead' }, { id: 'learning' }, { id: 'inactive' }]);
     var list = all.filter(function (c) { return f === 'all' || (f === 'look' && needsLook(c)) || (f === 'lead' && c.type === 'lead') || (f === 'learning' && c.type === 'learning') || (f === 'inactive' && !c.active); });
     var bar = '<div class="lx-tools"><label class="search"><span class="visually-hidden">Search ' + esc(word().toLowerCase()) + '</span>' + I('search') + '<input class="input" data-co-search placeholder="Search by name, role or code" value="' + esc(dirQuery) + '"></label>' +
@@ -99,14 +101,15 @@
         '<span class="lx-person__pills">' + dirPills(c).join('') + '<span class="lx-person__n num">' + db.getCoachWeekCount(c.id) + ' this week</span></span></a>';
     }).join('');
     var anyShown = list.some(function (c) { return !dirQuery || (c.name + ' ' + c.role + ' ' + c.code).toLowerCase().indexOf(dirQuery) >= 0; });
-    return page(h, glance + K.section('Workspaces', 'Everything that hangs off a ' + one().toLowerCase() + '’s profile, across the whole team.', tools) +
-      K.section(one() + ' directory', 'Open a ' + one().toLowerCase() + ' to see their management profile.', bar + '<div class="lx-people co-dir">' + cards + '</div>' +
-        '<p class="k-note co-dir__none"' + (anyShown ? ' hidden' : '') + '>No ' + esc(word().toLowerCase()) + ' match this search and filter.</p>'));
+    return page(h, K.areaNeeds(['Coaches & Compliance', 'Staffing & Cover'], { clear: 'Every coach is up to date and every session is covered.' }) + glance +
+      K.section('Find a coach', 'Open a coach for their sessions, time off and cover, documents, and pay and work.', bar + '<div class="lx-people co-dir">' + cards + '</div>' +
+        '<p class="k-note co-dir__none"' + (anyShown ? ' hidden' : '') + '>No ' + esc(word().toLowerCase()) + ' match this search and filter.</p>') + more);
   };
 
   /* ============================================================ PROFILE */
-  var TABS = [{ id: 'overview', label: 'Overview' }, { id: 'roles', label: 'Sessions & roles' }, { id: 'rates', label: 'Rates' }, { id: 'allocations', label: 'Pay' },
-    { id: 'availability', label: 'Availability' }, { id: 'documents', label: 'Documents' }, { id: 'cover', label: 'Cover' }, { id: 'summaries', label: 'Work summaries' }];
+  /* Five tabs: the coach as a person, their sessions, their time (availability, time off and cover), their documents, and their pay and work */
+  var TABS = [{ id: 'overview', label: 'Overview' }, { id: 'roles', label: 'Sessions & roles' }, { id: 'availability', label: 'Time off & cover' },
+    { id: 'documents', label: 'Documents' }, { id: 'pay', label: 'Pay & work' }];
   Hub.screens['mgmt-coach'] = function (ctx) {
     var c = db.getCoach(ctx.param);
     var base = K.head({ back: ['mgmt-coaches', word()], eyebrow: one(), title: c ? c.name : one() });
@@ -115,16 +118,16 @@
     var tabs = TABS.map(function (t) {
       var m = Object.assign({}, t);
       if (t.id === 'documents') { m.meta = comp.state === 'Current' ? 'Current' : comp.state; m.state = comp.tone === 'danger' ? 'Urgent' : comp.tone === 'warn' ? 'Warning' : null; }
-      if (t.id === 'cover' && openCover) { m.meta = openCover + ' open'; m.state = 'Warning'; }
+      if (t.id === 'availability' && openCover) { m.meta = openCover + ' cover open'; m.state = 'Warning'; }
       return m;
     });
     var h = K.head({ back: ['mgmt-coaches', word()], eyebrow: c.code + ' · ' + c.role, title: c.name,
       sub: esc(c.hub + ' hub access') + ' · ' + (c.active ? 'Active' : 'Inactive') + ' · started ' + esc(K.dm(c.started) + ' ' + c.started.slice(0, 4)),
-      actions: K.actBtn('Record absence', 'co-absence', { coach: c.id }, { variant: 'secondary', icon: 'calendar' }) + K.goBtn('Cover workspace', 'mgmt-cover', { variant: 'secondary' }),
+      actions: K.actBtn('Record time off', 'co-absence', { coach: c.id }, { variant: 'secondary', icon: 'calendar' }),
       tabs: K.tabs('coach-prof', tabs) });
     var g = K.guard(ctx, h, { empty: ['coaches', 'Nothing on this profile yet', 'Details, documents and sessions appear once the coach is set up.'] }); if (g) return g;
     var tab = K.tab('coach-prof', TABS);
-    var body = { overview: pOverview, roles: pRoles, rates: pRates, allocations: pAllocs, availability: pAvail, documents: pDocs, cover: pCover, summaries: pSummaries }[tab](c);
+    var body = { overview: pOverview, roles: pRoles, availability: function (c) { return pAvail(c) + pCover(c); }, documents: pDocs, pay: function (c) { return pAllocs(c) + pSummaries(c) + pRates(c); } }[tab](c);
     return page(h, body);
   };
 
@@ -191,7 +194,7 @@
     var list = db.getRateProfiles(c.id), cur = db.getCurrentRate(c.id);
     var curCard = K.card({ title: 'Current rate', sub: 'Pay items keep the rate in force on the day of the session.', right: K.frozen('Never edited'), body: cur ? K.kv([['Evening (per hour)', '<span class="k-big num">' + K.money(cur.evening) + '</span>'], ['Day (per hour)', '<span class="k-big num">' + K.money(cur.day) + '</span>'], ['Effective from', K.d(cur.from)], ['Note', esc(cur.note || '—')]], true) +
       (cur.evening === 0 && cur.day === 0 ? ui.notice('info', cur.note || 'No per-session cost', 'Pay items still record the work at ' + K.money(0) + ' so sessions and cover stay visible.') : '') : '<p class="k-note">No rate profile.</p>' });
-    var hist = K.card({ title: 'Rate history', sub: 'A change adds a new profile from a date and ends the previous one. Earlier profiles are never edited.', body: K.table({ cols: 'minmax(0,2fr) 110px 110px auto', head: ['Effective', { label: 'Evening', cls: 'c-num wide' }, { label: 'Day', cls: 'c-num wide' }, ''], rows: rateRows(list) }) });
+    var hist = K.card({ title: 'Rate history', sub: 'A new rate starts from a date and ends the previous one. Earlier rates are never edited.', body: K.table({ cols: 'minmax(0,2fr) 110px 110px auto', head: ['Effective', { label: 'Evening', cls: 'c-num wide' }, { label: 'Day', cls: 'c-num wide' }, ''], rows: rateRows(list) }) });
     var form = K.canFin() ? K.card({ title: 'Change rate', sub: 'Effective date must be after ' + K.d(cur ? cur.from : K.today) + '. Pay items already made keep their rate.', body: K.form([
       K.field('Effective from', K.input('rate-from', '2026-11-01', { type: 'date' })), K.field('Note', K.input('rate-note', '', { placeholder: 'Why the rate changes' })),
       K.field('Evening rate (£ per hour)', K.input('rate-evening', pounds(cur ? cur.evening : 0))), K.field('Day rate (£ per hour)', K.input('rate-day', pounds(cur ? cur.day : 0)))
@@ -211,13 +214,13 @@
         { cls: 'c-end wide', html: K.status(a.state) }] };
     });
     var foot = '<span>' + list.length + ' pay item' + (list.length === 1 ? '' : 's') + ' · ' + K.sum(list, 'units') + ' h</span><span class="k-total">Total ' + K.money(K.sum(list, 'cost')) + '</span>';
-    return K.table({ cols: 'minmax(0,2fr) minmax(0,.9fr) 70px 90px 110px 110px', head: [showCoach ? 'Coach' : 'Session', { label: 'Role', cls: 'wide' }, { label: 'Units', cls: 'c-num wide' }, { label: 'Rate', cls: 'c-num wide' }, { label: 'Cost', cls: 'c-num' }, { label: 'State', cls: 'wide' }], rows: rows, empty: 'No pay items match.', foot: foot });
+    return K.table({ cols: 'minmax(0,2fr) minmax(0,.9fr) 70px 90px 110px 110px', head: [showCoach ? 'Coach' : 'Session', { label: 'Role', cls: 'wide' }, { label: 'Hours', cls: 'c-num wide' }, { label: 'Rate', cls: 'c-num wide' }, { label: 'Cost', cls: 'c-num' }, { label: 'State', cls: 'wide' }], rows: rows, empty: 'No pay items match.', foot: foot });
   }
   function pAllocs(c) {
     if (K.fin() === 'none') return finLocked('Coach pay and costs');
     var m = K.tab('co-palloc', [{ id: '2026-09' }, { id: '2026-10' }]);
     var list = db.getAllocations(function (a) { return a.coach === c.id && a.date.slice(0, 7) === m; }).sort(function (a, b) { return a.date < b.date ? -1 : 1; });
-    return K.section('Pay', 'One pay item per session worked, with the rate at the time and any adjustment. ' + K.link('mgmt-allocations', 'All pay items'),
+    return K.section('Work done and pay', 'One pay item per session worked, with the rate used and any adjustment. ' + K.link('mgmt-allocations', 'All pay items'),
       '<div class="k-bar">' + K.seg('co-palloc', [{ id: '2026-09', label: 'September' }, { id: '2026-10', label: 'October' }]) + '</div>' + allocTable(list, false));
   }
 
@@ -243,13 +246,13 @@
       K.field('From', K.input('exc-from', '2026-10-20', { type: 'date' })), K.field('To', K.input('exc-to', '2026-10-20', { type: 'date' })),
       K.field('Start (optional)', K.input('exc-start', '', { type: 'time' }), 'Leave empty for the whole day'), K.field('End (optional)', K.input('exc-end', '', { type: 'time' })),
       K.field('Reason', K.input('exc-reason', '', { placeholder: 'For example: wedding, exam, hospital appointment' }), null, true)
-    ].filter(Boolean)) + '<div class="k-bar co-formbar">' + K.actBtn('Add exception', 'co-exc-add', coach ? { coach: coach } : {}, { variant: 'primary' }) + '</div>';
+    ].filter(Boolean)) + '<div class="k-bar co-formbar">' + K.actBtn('Add time off or a change', 'co-exc-add', coach ? { coach: coach } : {}, { variant: 'primary' }) + '</div>';
   }
   function pAvail(c) {
     var wk = K.card({ title: 'Weekly pattern', sub: 'When this ' + one().toLowerCase() + ' can usually work. Tap a day to change it. ' + stamp('Last updated', db.getWeeklyUpdated().by, db.getWeeklyUpdated().at), body:
       '<div class="co-wk co-wk--one"><div class="co-wk__head">' + db.getDows().map(function (d) { return '<span>' + d + '</span>'; }).join('') + '</div><div class="co-wk__row">' + weekRow(c.id) + '</div></div>' });
-    var ex = K.card({ title: 'Date exceptions', sub: 'Holidays, unavailable dates and different hours. Each one is checked before cover is offered.', body: K.table({ cols: 'minmax(0,1.4fr) minmax(0,1.4fr) auto', head: ['Dates', { label: 'Recorded', cls: 'wide' }, ''], rows: exceptionRows(db.getAvailabilityExceptions(c.id), false), empty: 'No exceptions.' }) });
-    var add = K.card({ title: 'Add an exception', sub: 'A holiday or absence that affects sessions also opens a cover request: use Record absence at the top.', body: exceptionForm(c.id) });
+    var ex = K.card({ title: 'Date exceptions', sub: 'Holidays, unavailable dates and different hours. Each one is checked before cover is offered.', body: K.table({ cols: 'minmax(0,1.4fr) minmax(0,1.4fr) auto', head: ['Dates', { label: 'Recorded', cls: 'wide' }, ''], rows: exceptionRows(db.getAvailabilityExceptions(c.id), false), empty: 'No time off or changes.' }) });
+    var add = K.card({ title: 'Add an exception', sub: 'A holiday or absence that affects sessions also opens a cover request: use Record time off at the top.', body: exceptionForm(c.id) });
     return wk + K.grid([ex, add], 2);
   }
 
@@ -343,7 +346,7 @@
 
   /* ============================================================ ALLOCATIONS */
   Hub.screens['mgmt-allocations'] = function (ctx) {
-    var h = K.head({ back: ['mgmt-coaches', word()], eyebrow: word(), title: 'Coach pay', sub: 'One coach on one session. Each keeps the rate at the time, the units worked and any adjustment with its reason.' });
+    var h = K.head({ back: ['mgmt-coaches', word()], eyebrow: word(), title: 'Coach pay', sub: 'One coach on one session. Each keeps the rate used, the hours worked and any adjustment with its reason.' });
     var g = K.guard(ctx, h, { empty: ['finance', 'No pay items yet', 'Pay items are created when coaches are put on sessions.'] }); if (g) return g;
     if (K.fin() === 'none') return page(h, finLocked('Coach pay and costs'));
     var m = K.tab('co-al-month', [{ id: '2026-09' }, { id: '2026-10' }]), s = K.tab('co-al-state', [{ id: 'all' }, { id: 'Draft' }, { id: 'Confirmed' }, { id: 'Exported' }]);
@@ -368,7 +371,7 @@
     var a = db.getAllocation(el.dataset.id); if (!a) return;
     var o = db.getOccurrence(a.occurrence), canEdit = K.canFin() && a.state !== 'Exported';
     var body = K.kv([['Coach', K.link('mgmt-coach/' + a.coach, db.coachName(a.coach))], ['Session', o ? K.link('mgmt-occurrence/' + o.id, occLabel(o)) : esc(a.occurrence)], ['Role', esc(a.role || '—')],
-      ['Rate at the time', K.money(a.rate) + ' per hour' + (a.rateProfile ? ' · profile ' + K.id(a.rateProfile) : '')], ['Units', a.units + ' hours'], ['Calculated', K.money(Math.round(a.rate * a.units))],
+      ['Rate used', K.money(a.rate) + ' per hour'], ['Hours', a.units + ' hours'], ['Calculated', K.money(Math.round(a.rate * a.units))],
       ['Final cost', '<b>' + K.money(a.cost) + '</b>'], ['State', K.status(a.state) + (a.exported ? ' ' + stamp('Sent for payment', a.exported.by, a.exported.at) : '') + (a.confirmedBy ? ' ' + stamp('Confirmed', a.confirmedBy.by, a.confirmedBy.at) : '')]]) +
       (a.override ? ui.notice('warn', 'Override: ' + K.money(a.override.cost), esc(a.override.reason) + '<br>' + stamp('Set', a.override.by, a.override.at)) : '') +
       (a.overrideHistory || []).map(function (x) { return '<p class="k-note">Earlier adjustment ' + K.money(x.cost) + ' removed · ' + stamp('Removed', x.removedBy, x.removedAt) + '</p>'; }).join('') +
@@ -382,9 +385,9 @@
     if (cost == null || cost < 0) { Hub.toast('Enter a cost in pounds'); return; }
     if (!reason) { Hub.toast('A reason is required for an adjustment'); return; }
     var a = db.getAllocation(el.dataset.id), was = a.cost; Hub.closeSheet(true);
-    Hub.mutate(function () { db.overrideAllocation(a.id, cost, reason, K.me(), K.now()); }, 'Pay adjusted: ' + K.money(cost), log('Pay item ' + a.id + ' overridden: ' + reason, a.id, { before: K.money(was), after: K.money(cost), finance: true }));
+    Hub.mutate(function () { db.overrideAllocation(a.id, cost, reason, K.me(), K.now()); }, 'Pay adjusted: ' + K.money(cost), log('Pay item ' + a.id + ' adjusted: ' + reason, a.id, { before: K.money(was), after: K.money(cost), finance: true }));
   };
-  Hub.actions['co-alloc-clear'] = function (el) { var id = el.dataset.id; Hub.closeSheet(true); Hub.mutate(function () { db.clearAllocationOverride(id, K.me(), K.now()); }, 'Override removed', log('Pay item ' + id + ' adjustment removed', id, { finance: true })); };
+  Hub.actions['co-alloc-clear'] = function (el) { var id = el.dataset.id; Hub.closeSheet(true); Hub.mutate(function () { db.clearAllocationOverride(id, K.me(), K.now()); }, 'Adjustment removed', log('Pay item ' + id + ' adjustment removed', id, { finance: true })); };
   Hub.actions['co-alloc-confirm'] = function (el) { var id = el.dataset.id; Hub.closeSheet(true); Hub.mutate(function () { db.confirmAllocation(id, K.me(), K.now()); }, 'Pay item confirmed', log('Pay item ' + id + ' confirmed', id, { finance: true })); };
 
   /* ============================================================ AVAILABILITY */
@@ -399,8 +402,8 @@
     var ex = db.getAvailabilityExceptions().filter(function (e) { return f === 'all' || (f === 'upcoming' ? e.to >= K.today : e.to < K.today); });
     return page(h, alerts + K.section('Weekly pattern', 'Tap a day to change it. ' + stamp('Last updated', db.getWeeklyUpdated().by, db.getWeeklyUpdated().at), '<div class="lx-card co-wk-wrap">' + grid + '</div>') +
       K.grid([K.section('Date exceptions', 'Holidays, unavailable dates and different hours.', '<div class="k-bar">' + K.seg('co-exc', [{ id: 'upcoming', label: 'Today and later' }, { id: 'past', label: 'Past' }, { id: 'all', label: 'All' }]) + '</div>' +
-        K.table({ cols: 'minmax(0,1.4fr) minmax(0,1.6fr) auto', head: ['Coach and dates', { label: 'Reason', cls: 'wide' }, ''], rows: exceptionRows(ex, true), empty: 'No exceptions.' })),
-        K.card({ title: 'Add an exception', sub: 'To open cover for an absence, use Record absence on the cover workspace.', body: exceptionForm(null) })], '21'));
+        K.table({ cols: 'minmax(0,1.4fr) minmax(0,1.6fr) auto', head: ['Coach and dates', { label: 'Reason', cls: 'wide' }, ''], rows: exceptionRows(ex, true), empty: 'No time off or changes.' })),
+        K.card({ title: 'Add an exception', sub: 'To open cover for an absence, use Record time off on the Coaches page.', body: exceptionForm(null) })], '21'));
   };
   Hub.actions['co-week'] = function (el) {
     var key = el.dataset.coach, i = +el.dataset.day, w = db.getWeeklyAvailability(key)[i];
@@ -420,7 +423,7 @@
     if (!reason) { Hub.toast('Add a reason'); return; }
     Hub.mutate(function () { db.addAvailabilityException({ coach: coach, type: type, from: from, to: to, start: a || null, end: b || null, reason: reason, by: K.me(), at: K.now() }); }, type + ' added for ' + db.coachName(coach), log(type + ' recorded for ' + db.coachName(coach) + ' ' + range(from, to), coach));
   };
-  Hub.actions['co-exc-del'] = function (el) { var id = el.dataset.id; Hub.mutate(function () { db.removeAvailabilityException(id); }, 'Exception removed', log('Availability exception ' + id + ' removed', id)); };
+  Hub.actions['co-exc-del'] = function (el) { var id = el.dataset.id; Hub.mutate(function () { db.removeAvailabilityException(id); }, 'Time off removed', log('Availability exception ' + id + ' removed', id)); };
 
   /* ============================================================ DOCUMENTS */
   Hub.screens['mgmt-documents'] = function (ctx) {
@@ -512,7 +515,7 @@
   };
   Hub.actions['co-absence'] = function (el) {
     var coaches = db.getCoaches().filter(function (c) { return c.active; }).map(function (c) { return [c.id, c.name]; });
-    K.sheet({ overline: '<span class="overline">Cover</span>', title: 'Record an absence', body: K.form([
+    K.sheet({ overline: '<span class="overline">Cover</span>', title: 'Record time off', body: K.form([
       K.field(one(), K.select('abs-coach', coaches, el.dataset.coach || 'priya')), K.field('Type', K.select('abs-kind', ['Holiday', 'Illness'], 'Holiday')),
       K.field('From', K.input('abs-from', '2026-10-19', { type: 'date' })), K.field('To', K.input('abs-to', '2026-10-23', { type: 'date' })),
       K.field('Reason', K.input('abs-reason', '', { placeholder: 'Shown to management only' }), null, true)]) +
@@ -529,7 +532,7 @@
 
   function needCard(r, n) {
     var o = db.getOccurrence(n.occurrence), step = { Open: 0, 'Needs a phone call': 0, Offered: 1, Accepted: 2, Covered: 3 }[n.state];
-    var staff = o.staff.length ? ui.staffNames(o.staff) : '<span class="c-mute">No staff</span>';
+    var staff = o.staff.length ? ui.staffNames(o.staff) : '<span class="c-mute">No coach yet</span>';
     var head = K.kv([['Session', K.link('mgmt-occurrence/' + o.id, occLabel(o))], ['Venue', esc(db.venueName(o.venue))], ['Staff now', staff], ['Players expected', String(o.players)]], true);
     var offers = n.offers.length ? '<h3 class="co-h3">Offers</h3>' + ui.rows(n.offers.map(function (f) {
       var name = db.coachName(f.coach);
@@ -538,7 +541,7 @@
       return ui.row({ lead: ui.avatar(name, 'sm'), title: esc(name) + (K.fin() === 'none' ? '' : ' · ' + K.money(f.rate) + '/h, ' + K.money(f.cost)), sub: [stamp('Offered', f.sentBy, f.sentAt), f.respondedAt ? stamp(f.response, name, f.respondedAt) : 'Waiting for a reply', f.note ? '“' + esc(f.note) + '”' : ''], after: acts, trail: st(f.response || 'Offered') });
     }), 'rows--lead') : '';
     var body = '';
-    if (n.state === 'Covered') body = ui.notice('ok', 'Covered by ' + db.coachName(n.confirmed.coach), stamp('Confirmed', n.confirmed.by, n.confirmed.at) + '. Session staff and a draft pay item were updated.');
+    if (n.state === 'Covered') body = ui.notice('ok', 'Covered by ' + db.coachName(n.confirmed.coach), stamp('Confirmed', n.confirmed.by, n.confirmed.at) + '. The coaches for that date and a draft pay item were updated.');
     else if (n.state === 'Accepted') {
       var acc = n.offers.filter(function (f) { return f.response === 'Accepted'; }).slice(-1)[0];
       body = ui.notice('info', db.coachName(acc.coach) + ' accepted', 'Confirm to put them on the session and create their pay item' + (K.fin() === 'none' ? '' : ' at ' + K.money(acc.cost)) + '.', { action: K.actBtn('Confirm cover', 'co-confirm', { req: r.id, need: n.id }, { variant: 'primary', size: 'sm' }) });
@@ -624,7 +627,7 @@
       rows: w.lines.map(function (l) { return { action: 'co-alloc', data: { id: l.allocation }, label: 'Open pay item', cells: [K.cell(esc(l.session), K.dd(l.date) + (l.override ? ' · Adjusted: ' + esc(l.override) : '')), { cls: 'wide', html: esc(l.role) }, { cls: 'c-num wide', html: l.units + ' h' }, { cls: 'c-num wide', html: K.money(l.rate) }, { cls: 'c-num', html: K.money(l.cost) }] }; }),
       foot: '<span>' + w.lines.length + ' sessions · ' + K.sum(w.lines, 'units') + ' hours</span><span class="k-total">Grand total ' + K.money(w.total) + '</span>' });
     var cycles = w.cycles.slice().reverse().map(function (cy) { return K.card({ title: 'Cycle ' + cy.n + (cy.n === w.cycle ? ' (current)' : ''), sub: 'Lines frozen ' + K.dt(cy.frozenAt) + (K.fin() === 'none' ? '' : ' · total ' + K.money(cy.total)), body: K.timeline(cy.events.slice().reverse()) }); });
-    return page(h, ui.notice('info', 'A check of work done, not an invoice', NOT_INVOICE) + stateNote + K.section('Lines', 'Frozen copies of the pay items. Changing an pay item does not change these until the summary is reopened.', lines) +
+    return page(h, ui.notice('info', 'A check of work done, not an invoice', NOT_INVOICE) + stateNote + K.section('Lines', 'Frozen copies of the pay items. Changing a pay item does not change these until the summary is reopened.', lines) +
       K.section('History', 'Each cycle: prepared, confirmed or queried, finalised or reopened.', '<div class="lx-stack">' + cycles.join('') + '</div>'));
   };
   Hub.actions['co-ws-coach'] = function (el) { var w = db.getWorkSummary(el.dataset.id), n = db.coachName(w.coach); Hub.mutate(function () { db.coachConfirmSummary(w.id, K.now()); }, n + ' confirmed the summary', log(n + ' confirmed ' + w.label + ' work summary', w.id, { who: n })); };

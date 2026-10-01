@@ -11,28 +11,38 @@
   function monthName(m) { return { '2026-04': 'April 2026', '2026-05': 'May 2026', '2026-06': 'June 2026', '2026-07': 'July 2026', '2026-08': 'August 2026', '2026-09': 'September 2026', '2026-10': 'October 2026' }[m] || m; }
   Hub.finView = Hub.finView || { expected: false, month: '2026-09' };
 
-  var NAV = [['mgmt-finance', 'Overview'], ['mgmt-fin-invoices', 'Invoices'], ['mgmt-fin-drafts', 'Drafts'], ['mgmt-fin-clients', 'Clients'], ['mgmt-fin-payments', 'Payments'], ['mgmt-fin-credit-notes', 'Credit notes'], ['mgmt-fin-client-credits', 'Client credits'], ['mgmt-fin-parent-money', 'Parent money'], ['mgmt-fin-money-out', 'Money out'], ['mgmt-fin-ledger', 'Session profit'], ['mgmt-fin-cash', 'Cash'], ['mgmt-fin-reports', 'Reports'], ['mgmt-fin-integrations', 'Integrations'], ['mgmt-fin-settings', 'Settings'], ['mgmt-fin-access', 'Access & audit']];
+  /* Six everyday sections; the rest of Finance is one step deeper (finance
+     tools on the overview). On a deeper page its name joins the bar so you
+     always know where you are. */
+  var NAV = [['mgmt-finance', 'Overview'], ['mgmt-fin-invoices', 'Invoices'], ['mgmt-fin-parent-money', 'Parent payments'], ['mgmt-fin-money-out', 'Money out'], ['mgmt-fin-cash', 'Cash'], ['mgmt-fin-reports', 'Month report']];
+  var TOOLS = [
+    ['Money in', [['mgmt-fin-drafts', 'Invoices to issue', 'Build an invoice from delivered sessions', 'finance'], ['mgmt-fin-payments', 'Payments received', 'Record, reverse and match payments', 'download'], ['mgmt-fin-credit-notes', 'Credit notes', 'Corrections to issued invoices', 'swap'], ['mgmt-fin-client-credits', 'Client credits', 'Overpayments and credit to use', 'card'], ['mgmt-fin-clients', 'Clients', 'Schools and their terms', 'users']]],
+    ['Costs and profit', [['mgmt-fin-ledger', 'Profit by session', 'Revenue and costs for each session', 'development'], ['mgmt-allocations', 'Coach pay', 'Work done and pay, session by session', 'coaches']]],
+    ['Setup', [['mgmt-fin-settings', 'Finance settings', 'Business details, VAT, invoice numbers', 'settings'], ['mgmt-fin-integrations', 'Connected apps', 'Card payments and accounting', 'link'], ['mgmt-fin-access', 'Access and history', 'Who can see Finance, and every change', 'shield']]]
+  ];
   function finNav(active) {
-    return '<nav class="fin-nav" aria-label="Finance sections">' + NAV.map(function (n) { return '<a href="#' + n[0] + '"' + (n[0] === active ? ' aria-current="page"' : '') + '>' + esc(n[1]) + '</a>'; }).join('') + '</nav>';
+    var list = NAV.slice(), known = NAV.some(function (n) { return n[0] === active; });
+    if (!known) { TOOLS.forEach(function (g) { g[1].forEach(function (t) { if (t[0] === active) list.push([t[0], t[1]]); }); }); }
+    return '<nav class="fin-nav" aria-label="Financials sections">' + list.map(function (n) { return '<a href="#' + n[0] + '"' + (n[0] === active ? ' aria-current="page"' : '') + '>' + esc(n[1]) + '</a>'; }).join('') + '</nav>';
   }
   function accessPill() { return K.fin() === 'view' ? '<span class="fin-access">' + I('shield', 'icon-sm') + 'Finance View: read only</span>' : ''; }
   function head(route, o) {
-    o.eyebrow = o.eyebrow || 'Finance';
-    o.back = o.back || ['mgmt-finance', 'Finance'];
+    o.eyebrow = o.eyebrow || 'Financials';
+    o.back = o.back || ['mgmt-finance', 'Financials'];
     o.actions = (o.actions || '') + accessPill();
     o.tabs = finNav(route) + (o.tabs || '');
     return K.head(o);
   }
   /* None: Finance is hidden. Every Finance route explains and stops here. */
   function gate(ctx, h, o) {
-    if (K.fin() === 'none') return K.page(K.head({ back: ['mgmt-more', 'More'], eyebrow: 'Finance', title: 'Finance' }),
+    if (K.fin() === 'none') return K.page(K.head({ back: ['mgmt-home', 'Home'], eyebrow: 'Home', title: 'Financials' }),
       '<div class="k-off">' + I('shield') + '<div><b>You don’t have Finance access</b><p>Finance View and Finance Manage are granted separately from Management. Ask a Finance Manage user (Josh Evans or David Cole) to grant access. Nothing in Finance is shown until then.</p></div></div>');
     return K.guard(ctx, h, o || {});
   }
-  function route(id, title) { K.route(id, { title: title, parent: 'more' }); }
+  function route(id, title) { K.route(id, { title: title, parent: 'home' }); }
 
   /* ================================================================ OVERVIEW */
-  route('mgmt-finance', 'Finance');
+  route('mgmt-finance', 'Financials');
   Hub.actions['fin-expected'] = function (el) { Hub.finView.expected = el.dataset.val === '1'; Hub.render(); };
   function expectedToggle() {
     return '<div class="segmented k-seg" role="group" aria-label="Figures"><button type="button" data-action="fin-expected" data-val="0" aria-pressed="' + !Hub.finView.expected + '">Actual only</button><button type="button" data-action="fin-expected" data-val="1" aria-pressed="' + Hub.finView.expected + '">Including expected</button></div>';
@@ -46,7 +56,7 @@
     return items;
   }
   Hub.screens['mgmt-finance'] = function (ctx) {
-    var h = head('mgmt-finance', { title: 'Finance', sub: 'A simple operating view of money in, money out, cash position and monthly performance.', back: ['mgmt-more', 'More'] });
+    var h = head('mgmt-finance', { eyebrow: 'Home', title: 'Financials', sub: 'Money coming in, money going out and where the business stands.', back: ['mgmt-home', 'Home'] });
     var g = gate(ctx, h, { empty: ['finance', 'No finance activity yet', 'Invoices, payments and costs appear here once the first month is set up.'] }); if (g) return g;
     var s = F.monthSummary('2026-09', Hub.finView.expected), t = s.totals, cash = F.cashPosition(), rec = F.receivables();
     var bar = '<div class="lx-periodbar"><p>September 2026 · ' + (Hub.finView.expected ? 'including expected (draft invoices)' : 'actual only') + ' · revenue shown net of VAT</p>' + expectedToggle() + '</div>';
@@ -56,16 +66,17 @@
       { label: 'Overheads', value: M(t.overheads), sub: db.getOverheads().length + ' monthly overheads', route: 'mgmt-fin-money-out' },
       { label: 'Profit', value: M(t.profit), sub: 'Before overheads ' + M(t.contribution) + ' (' + t.margin + '%)', tone: 'feature', route: 'mgmt-fin-reports' }]);
     var att = financeAttention();
-    var attn = K.card({ title: 'Needs attention', sub: 'Finance items from the main Management queue.', right: '<span class="lx-count num">' + att.length + '</span>', body: '<div class="lx-rows">' + att.map(function (r) { return '<a class="lx-row fin-rowlink" href="#' + r.route + '">' + K.pill(r.tag, r.tone) + '<span class="lx-row__main"><b>' + esc(r.title) + '</b><small>' + esc(r.meta || '') + '</small></span>' + I('chevron', 'icon-sm') + '</a>'; }).join('') + '</div>' });
+    var attn = K.card({ title: 'Needs you', sub: 'Money items that need a decision or a nudge.', right: '<span class="lx-count num">' + att.length + '</span>', body: '<div class="lx-rows">' + att.map(function (r) { return '<a class="lx-row fin-rowlink" href="#' + r.route + '">' + K.pill(r.tag, r.tone) + '<span class="lx-row__main"><b>' + esc(r.title) + '</b><small>' + esc(r.meta || '') + '</small></span>' + I('chevron', 'icon-sm') + '</a>'; }).join('') + '</div>' });
     var up = cash.events.filter(function (e) { return e.date >= K.today && e.kind === 'Out'; }).slice(0, 4);
     var upcoming = K.card({ title: 'Upcoming payments', sub: 'Next confirmed or expected outgoing cash.', right: K.goBtn('View cash flow', 'mgmt-fin-cash', { variant: 'secondary', size: 'sm' }), body: '<div class="lx-rows">' + up.map(function (e) { return '<div class="lx-row"><span class="lx-row__date num">' + K.dm(e.date) + '</span><span class="lx-row__main"><b>' + esc(e.label) + '</b><small>' + esc(e.certainty) + ' · ' + esc(e.authority) + '</small></span><b class="lx-row__amt num">' + M(e.expected) + '</b></div>'; }).join('') + '</div>' });
     var areas = K.tiles([
-      { route: 'mgmt-fin-invoices', icon: 'download', title: 'Money in', desc: 'Clients, invoices, credit notes, payments and parent money.', value: M(rec.total), label: 'owed to us' },
+      { route: 'mgmt-fin-invoices', icon: 'download', title: 'Money in', desc: 'School invoices and what is still owed.', value: M(rec.total), label: 'owed to us' },
       { route: 'mgmt-fin-money-out', icon: 'card', title: 'Money out', desc: 'Coach costs, venues, other costs and overheads.' },
       { route: 'mgmt-fin-cash', icon: 'finance', title: 'Cash flow', desc: 'Cash position, dated expected movements and the 30-day low.' },
       { route: 'mgmt-fin-reports', icon: 'development', title: 'Month report', desc: 'Programme breakdown, VAT estimate and profit.' }], 4);
     var band = '<section class="lx-band" aria-label="Cash position"><div><span>Current cash</span><b class="num">' + M(cash.current) + '</b><small>' + esc(K.d(K.today)) + '</small></div><div><span>Lowest next 30 days</span><b class="num">' + M(cash.low) + '</b><small>' + K.dm(cash.lowDate) + '</small></div><div><span>Safety threshold</span><b class="num">' + M(cash.threshold) + '</b><small>' + (cash.low >= cash.threshold ? 'Currently above threshold' : 'Projected below threshold') + '</small></div></section>';
-    return K.page(h, bar + kpis + K.section('Today', 'Actions and near-term commitments together.', '<div class="lx-pair">' + attn + upcoming + '</div>') + K.section('Finance work areas', '', areas) + band, 'fin');
+    var tools = K.moreIn('More in Financials', TOOLS.map(function (g) { return [g[0], g[1].map(function (t) { return { route: t[0], title: t[1], desc: t[2], icon: t[3] }; })]; }));
+    return K.page(h, bar + kpis + K.section('Today', 'What needs you and what is about to go out.', '<div class="lx-pair">' + attn + upcoming + '</div>') + band + K.section('Where the money is', '', areas) + tools, 'fin');
   };
 
   /* ================================================================ ACCESS & AUDIT */
@@ -148,15 +159,15 @@
   Hub.actions['fin-ovr-new'] = function (el) {
     var c = el.dataset.client, occs = [];
     db.getServices(c).forEach(function (s) { if (s.session) occs = occs.concat(db.getOccurrences(function (o) { return o.sessionId === s.session && o.status === 'Completed'; })); });
-    Hub.openSheet({ title: 'Billing exception', body: K.form([K.field('Session', K.select('o_occ', occs.slice(-12).map(function (o) { return [o.id, K.dd(o.date) + ' · ' + o.session]; }))), K.field('Change', K.select('o_type', ['Not billable', 'Quantity', 'Amount'])), K.field('Value (quantity or £)', K.input('o_val', '')), K.field('Reason', K.input('o_reason', '', { placeholder: 'Required' }), '', true)], 2),
-      foot: ui.btn('Cancel', { variant: 'tertiary', attrs: { 'data-action': 'close-sheet' } }) + K.actBtn('Add exception', 'fin-ovr-save', {}, { variant: 'primary' }) });
+    Hub.openSheet({ title: 'Change charge for a session', body: K.form([K.field('Session', K.select('o_occ', occs.slice(-12).map(function (o) { return [o.id, K.dd(o.date) + ' · ' + o.session]; }))), K.field('Change', K.select('o_type', ['Not billable', 'Quantity', 'Amount'])), K.field('Value (quantity or £)', K.input('o_val', '')), K.field('Reason', K.input('o_reason', '', { placeholder: 'Required' }), '', true)], 2),
+      foot: ui.btn('Cancel', { variant: 'tertiary', attrs: { 'data-action': 'close-sheet' } }) + K.actBtn('Save change', 'fin-ovr-save', {}, { variant: 'primary' }) });
   };
   Hub.actions['fin-ovr-save'] = function () {
     var type = K.val('o_type'), v = K.val('o_val'), r = K.val('o_reason'); if (!r) { Hub.toast('A reason is required'); return; }
     var o = { occurrence: K.val('o_occ'), type: type, value: type === 'Not billable' ? null : type === 'Amount' ? Math.round(parseFloat(v || '0') * 100) : +v, reason: r };
     Hub.closeSheet(true); Hub.mutate(function () { db.addOverride(o); }, 'Override added');
   };
-  Hub.actions['fin-ovr-remove'] = function (el) { Hub.mutate(function () { db.removeOverride(el.dataset.id, 'Removed from the client page'); }, 'Billing exception removed'); };
+  Hub.actions['fin-ovr-remove'] = function (el) { Hub.mutate(function () { db.removeOverride(el.dataset.id, 'Removed from the client page'); }, 'Charge change removed'); };
   Hub.actions['fin-client-edit'] = function (el) {
     var c = db.getClient(el.dataset.id);
     Hub.openSheet({ title: 'Billing details · ' + esc(c.name), body: K.form([K.field('Billing contact', K.input('c_contact', c.contact)), K.field('Billing email', K.input('c_email', c.email)), K.field('CC emails', K.input('c_cc', c.cc)), K.field('Client-specific payment terms (days)', K.input('c_terms', c.termsOverride ? c.terms : '', { placeholder: 'Organisation default' })), K.field('PO required', K.select('c_po', [['yes', 'Yes'], ['no', 'No']], c.poRequired ? 'yes' : 'no')), K.field('Billing method', K.select('c_method', ['Email PDF', 'Email PDF + Xero', 'Post'], c.method)), K.field('Status', K.select('c_status', ['Active', 'Paused', 'Ended'], c.status))], 2),
@@ -180,7 +191,7 @@
           (can() ? '<div class="k-bar" style="margin-top:10px">' + K.actBtn('New terms', 'fin-term-new', { svc: s.id }, { variant: 'secondary', size: 'sm', icon: 'plus' }) + '<span class="k-note">Terms are never edited; new terms start on their effective date.</span></div>' : '') });
     }).join('');
     var ovs = db.getBillingOverrides().filter(function (o) { var occ = db.getOccurrence(o.occurrence); return occ && db.getServices(c.id).some(function (s) { return s.session === occ.sessionId; }); });
-    var overrides = K.section('Billing exceptions for single sessions', 'Not billable, a different quantity or a different amount, always with a reason.', K.table({ cols: 'minmax(0,1.3fr) 130px minmax(0,1.6fr) minmax(0,1.2fr) 110px', head: ['Session', 'Change', 'Reason', 'By', ''], empty: 'No billing exceptions for this client.', rows: ovs.map(function (o) { var occ = db.getOccurrence(o.occurrence); return { cells: [K.cell(esc(occ.session), K.dd(occ.date)), { html: K.pill(o.type + (o.value != null ? ': ' + (o.type === 'Amount' ? M(o.value) : o.value) : ''), o.removed ? '' : 'info') }, { cls: 'c-cell', html: esc(o.reason) + (o.removed ? '<br><small class="c-mute">Removed: ' + esc(o.removed.reason) + '</small>' : '') }, { cls: 'c-cell', html: K.stamp('Set', o.by, o.at) }, { cls: 'c-end', html: !o.removed && can() ? K.actBtn('Remove', 'fin-ovr-remove', { id: o.id }, { variant: 'tertiary', size: 'sm' }) : '' }] }; }) }), can() ? K.actBtn('Add billing exception', 'fin-ovr-new', { client: c.id }, { variant: 'secondary', size: 'sm', icon: 'plus' }) : '');
+    var overrides = K.section('Charge changes for single sessions', 'Not billable, a different quantity or a different amount, always with a reason.', K.table({ cols: 'minmax(0,1.3fr) 130px minmax(0,1.6fr) minmax(0,1.2fr) 110px', head: ['Session', 'Change', 'Reason', 'By', ''], empty: 'No charge changes for this client.', rows: ovs.map(function (o) { var occ = db.getOccurrence(o.occurrence); return { cells: [K.cell(esc(occ.session), K.dd(occ.date)), { html: K.pill(o.type + (o.value != null ? ': ' + (o.type === 'Amount' ? M(o.value) : o.value) : ''), o.removed ? '' : 'info') }, { cls: 'c-cell', html: esc(o.reason) + (o.removed ? '<br><small class="c-mute">Removed: ' + esc(o.removed.reason) + '</small>' : '') }, { cls: 'c-cell', html: K.stamp('Set', o.by, o.at) }, { cls: 'c-end', html: !o.removed && can() ? K.actBtn('Remove', 'fin-ovr-remove', { id: o.id }, { variant: 'tertiary', size: 'sm' }) : '' }] }; }) }), can() ? K.actBtn('Change charge for a session', 'fin-ovr-new', { client: c.id }, { variant: 'secondary', size: 'sm', icon: 'plus' }) : '');
     var inv = db.getInvoices(function (i) { return i.client === c.id; });
     var credits = db.getClientCredits(c.id);
     return K.page(h, K.grid([details, K.card({ title: 'Account', body: K.kv([['Invoices issued', String(inv.length)], ['Owed now', M(K.sum(inv, function (i) { return Math.max(0, F.balance(i)); }))], ['Client credit available', M(K.sum(credits, function (x) { return F.creditRemaining(x); }))]]) })], 2) +
@@ -229,7 +240,7 @@
     var lines = K.table({ cols: '88px minmax(0,2fr) 60px 100px 100px 130px', head: ['Include', 'Delivered session', 'Qty', { label: 'Unit (net)', cls: 'c-num' }, { label: 'Total (gross)', cls: 'c-num' }, ''], rows: d.lines.map(function (l) {
       F.price(l);
       return { cells: [{ html: K.pill(l.include ? 'Included' : 'Excluded', l.include ? 'ok' : (l.exception ? 'warn' : '')) },
-        K.cell(esc(l.description), (l.exception ? '<span class="text-warn">' + esc(l.exception) + '</span> · ' : '') + (l.override ? 'Exception: ' + esc(l.override) + ' · ' : '') + (!l.include && l.reason ? esc(l.reason) : '') + (l.term ? ' ' + esc(l.term) : '')),
+        K.cell(esc(l.description), (l.exception ? '<span class="text-warn">' + esc(l.exception) + '</span> · ' : '') + (l.override ? 'Charge changed: ' + esc(l.override) + ' · ' : '') + (!l.include && l.reason ? esc(l.reason) : '') + (l.term ? ' ' + esc(l.term) : '')),
         { cls: 'c-cell', html: String(l.qty) }, { cls: 'c-num', html: l.unitNet == null ? '—' : M(l.unitNet) }, { cls: 'c-num', html: l.include ? M(l.gross) : '<s class="c-mute">' + M(l.gross) + '</s>' },
         { cls: 'c-end', html: editable && l.unitNet != null ? K.actBtn(l.include ? 'Exclude' : 'Include', 'fin-line', { d: d.id, l: l.id, inc: l.include ? '0' : '1' }, { variant: 'tertiary', size: 'sm' }) : '' }] };
     }), foot: '<span>' + t.count + ' lines included</span><span class="num">Net <b>' + M(t.net) + '</b> · VAT <b>' + M(t.vat) + '</b> · Total <b class="k-total">' + M(t.gross) + '</b></span>' });

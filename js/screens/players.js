@@ -16,8 +16,8 @@
   [['mgmt-players', 'Players & Parents'], ['mgmt-players-list', 'Players'], ['mgmt-player', 'Player'], ['mgmt-parents', 'Parents'], ['mgmt-parent', 'Parent'],
     ['mgmt-families', 'Families'], ['mgmt-family', 'Family'], ['mgmt-memberships', 'Memberships'], ['mgmt-membership', 'Membership'], ['mgmt-requests', 'Requests'],
     ['mgmt-session-requests', 'Session requests'], ['mgmt-player-migration', 'Move players onto sessions']].forEach(function (r) { K.route(r[0], { title: r[1], parent: 'home' }); });
-  [['mgmt-bookings', 'Bookings'], ['mgmt-booking', 'Booking'], ['mgmt-commercial', 'Commercial setup'], ['mgmt-adjustments', 'Commercial adjustments'], ['mgmt-audit', 'History']].forEach(function (r) { K.route(r[0], { title: r[1], parent: 'more' }); });
-  K.route('mgmt-players', { title: function () { return 'Players & ' + client() + 's'; }, parent: 'home' });
+  [['mgmt-bookings', 'Bookings'], ['mgmt-booking', 'Booking'], ['mgmt-commercial', 'Prices and policies'], ['mgmt-adjustments', 'Charges and credits'], ['mgmt-audit', 'History']].forEach(function (r) { K.route(r[0], { title: r[1], parent: 'more' }); });
+  K.route('mgmt-players', { title: 'Players & Parents', parent: 'home' });
   K.route('mgmt-parents', { title: function () { return client() + 's'; }, parent: 'home' });
   K.route('mgmt-parent', { title: function () { return client(); }, parent: 'home' });
 
@@ -87,8 +87,8 @@
   /* ================================================================ HUB */
   Hub.screens['mgmt-players'] = function (ctx) {
     var c = client();
-    var h = K.head({ back: ['mgmt-home', 'Home'], eyebrow: 'Management', title: 'Players & ' + c + 's', sub: 'A quick operational view, then straight into the player or ' + c.toLowerCase() + ' you need.',
-      actions: ui.btn(c + ' hub preview', { variant: 'secondary', icon: 'external', attrs: { 'data-action': 'area', 'data-area': 'client' } }) });
+    var h = K.head({ back: ['mgmt-home', 'Home'], eyebrow: 'Home', title: 'Players & Parents', sub: 'The families you work with: players, parents, memberships, requests and bookings.',
+      actions: K.goBtn('Find a player', 'mgmt-players-list', { variant: 'secondary', icon: 'search' }) + K.actBtn('Add a player or family', 'pp-add', {}, { variant: 'primary', icon: 'plus' }) });
     var g = K.guard(ctx, h, { empty: ['players', 'No players yet', 'Players appear here once families sign up or are moved across.'] }); if (g) return g;
     var F = db.getPlayerFigures();
     var claims = (db.getApprovals().filter(function (a) { return a.id === 'parent-claims'; })[0] || { count: 0 }).count;
@@ -98,30 +98,48 @@
       { label: 'Claims waiting', value: claims, sub: c + 's claiming a child', route: 'mgmt-parent-claims' },
       { label: 'Needs action', value: F.openRequests, sub: 'Open requests', route: 'mgmt-requests', tone: 'feature' }]);
     var links = '<div class="lx-links">' +
-      areaCard({ route: 'mgmt-players-list', icon: 'players', title: 'Players', desc: 'Search active players, include inactive when needed, and open one player profile.', cta: 'Open players' }) +
-      areaCard({ route: 'mgmt-parents', icon: 'family', title: c + 's', desc: 'All ' + c.toLowerCase() + ' accounts, linked children, access status and current requests.', cta: 'Open ' + c.toLowerCase() + 's' }) + '</div>';
+      areaCard({ route: 'mgmt-players-list', icon: 'players', title: 'Players', desc: 'Search players, then open one for their sessions, family, medical details and history.', cta: 'Open players' }) +
+      areaCard({ route: 'mgmt-parents', icon: 'family', title: c + 's', desc: 'Parent accounts, the children they are linked to and anything they have asked for.', cta: 'Open ' + c.toLowerCase() + 's' }) + '</div>';
     var mems = db.getMemberships(), bookings = db.getBookings();
-    var tiles = K.tiles([
-      { route: 'mgmt-families', icon: 'family', title: 'Families', value: F.families, label: 'open families', desc: 'Status, reviews, family credits and history' },
-      { route: 'mgmt-memberships', icon: 'calendar', title: 'Memberships', value: mems.filter(function (m) { return m.state === 'Active'; }).length, label: 'active', desc: 'Pauses, cancellations and notice periods' },
-      { route: 'mgmt-requests', icon: 'inbox', title: 'Requests', value: F.openRequests, label: 'open', desc: 'Pauses, cancellations, detail changes' },
-      { route: 'mgmt-bookings', icon: 'card', title: 'Bookings', value: bookings.length, label: 'checkouts', desc: 'Camps, trials and single sessions' },
-      { route: 'mgmt-commercial', icon: 'settings', title: 'Commercial setup', desc: 'Discounts, refund policies, packages, billing rules, terms' },
-      { route: 'mgmt-adjustments', icon: 'finance', title: 'Adjustments', value: db.getAdjustments().length, label: 'this term', desc: 'One-off charges and credits' },
-      { route: 'mgmt-player-migration', icon: 'move', title: 'Move players onto sessions', value: db.getMigrationCandidates().length, label: 'not on a session', desc: 'Move existing players onto sessions' },
-      { route: 'mgmt-audit', icon: 'clock', title: 'History', desc: 'Who changed what, and when' }], 4);
+    var more = K.moreIn('More in Players & Parents', [
+      ['Families and memberships', [{ route: 'mgmt-families', icon: 'family', title: 'Families', desc: 'Status, reviews and family credits', count: F.families },
+        { route: 'mgmt-memberships', icon: 'calendar', title: 'Memberships', desc: 'Pauses, cancellations and notice', count: mems.filter(function (m) { return m.state === 'Active'; }).length },
+        { route: 'mgmt-player-migration', icon: 'move', title: 'Move players onto sessions', desc: 'Players not yet on a session', count: db.getMigrationCandidates().length }]],
+      ['Requests and sign-ups', [{ route: 'mgmt-requests', icon: 'inbox', title: 'Requests', desc: 'Pauses, cancellations and detail changes', count: F.openRequests },
+        { route: 'mgmt-parent-claims', icon: 'link', title: 'Parent claims', desc: 'Parents asking to link to a child', count: claims },
+        { route: 'mgmt-trial-leads', icon: 'whistle', title: 'Trial interest', desc: 'Free sessions, trials and waitlist requests' },
+        { route: 'mgmt-session-requests', icon: 'calendar', title: 'Session requests', desc: 'Parents asking for a weekly place' }]],
+      ['Bookings and charges', [{ route: 'mgmt-bookings', icon: 'card', title: 'Bookings', desc: 'Camps, events and tours', count: bookings.length },
+        { route: 'mgmt-adjustments', icon: 'finance', title: 'Charges and credits', desc: 'One-off charges and goodwill credits', count: db.getAdjustments().length },
+        { route: 'mgmt-commercial', icon: 'settings', title: 'Prices and policies', desc: 'Discounts, refunds, packages and terms' },
+        { route: 'mgmt-audit', icon: 'clock', title: 'History', desc: 'Who changed what, and when' }]]
+    ]);
     var checks = [];
     db.getPlayersMissingMedical().forEach(function (p) { checks.push(ui.row({ lead: I('alertCircle', 'row-glyph'), title: esc(p.name) + ': medical details not confirmed', sub: [esc(p.ageGroup), esc(db.getFamily(p.family).name)], href: '#mgmt-player/' + p.id, trail: K.status('Not confirmed') })); });
     db.getPlayersPhotoUnknown().forEach(function (p) { checks.push(ui.row({ lead: I('info', 'row-glyph'), title: esc(p.name) + ': photo and video permission unknown', sub: [esc(p.ageGroup)], href: '#mgmt-player/' + p.id, trail: K.status('Unknown') })); });
     db.getFamiliesReviewDue(30).forEach(function (f) { checks.push(ui.row({ lead: I('family', 'row-glyph'), title: esc(f.name) + ': family review due', sub: [K.d(f.reviewDue)], href: '#mgmt-family/' + f.id, trail: K.status('Pending') })); });
     db.getParents().filter(function (p) { return !p.link.ended && p.link.invite === 'Invite sent'; }).forEach(function (p) { checks.push(ui.row({ lead: I('link', 'row-glyph'), title: esc(p.name) + ': invite not yet accepted', sub: [esc(db.getFamily(p.family).name)], href: '#mgmt-parent/' + p.id, trail: K.status('Pending') })); });
-    return K.page(h, stats + links + K.section('Families, memberships and bookings', null, tiles) +
-      K.section('Worth checking', 'Computed from the latest details. Each clears once fixed.', checks.length ? K.list(checks) : emptyNote('checkCircle', 'Nothing to check', 'Every player has confirmed medical details and permissions.')));
+    /* Anything already listed under Needs you is not repeated here */
+    var shown = db.getAttentionCases().filter(function (k) { return k.category === 'Players & Families'; }).map(function (k) { return 'href="#' + k.route + '"'; });
+    checks = checks.filter(function (row) { return !shown.some(function (x) { return row.indexOf(x) >= 0; }); });
+    return K.page(h, K.findBar('Find a player, parent or family') + K.areaNeeds(['Players & Families'], { clear: 'No requests, claims or cancellations are waiting.' }) + stats + links +
+      K.section('Also worth checking', 'Each clears once it is fixed.', checks.length ? K.list(checks) : emptyNote('checkCircle', 'Nothing to check', 'Every player has confirmed medical details and permissions.')) + more);
   };
+
+  /* New families join through the public site (child matched, never by name alone);
+     existing players are put onto a session from here. */
+  Hub.actions['pp-add'] = function () {
+    K.sheet({ overline: '<span class="overline">Players & Parents</span>', title: 'Add a player or family', body:
+      '<p class="k-note">New families sign up themselves on the public site, then we match their child so details are never linked on a name alone.</p>' +
+      K.list([ui.row({ lead: I('link', 'row-glyph'), title: 'Send a family the sign-up link', sub: ['They choose a session, create an account and add their child'], action: 'pp-add-link', trail: '' }),
+        ui.row({ lead: I('move', 'row-glyph'), title: 'Put an existing player onto a session', sub: [db.getMigrationCandidates().length + ' players are not on a session yet'], href: '#mgmt-player-migration' }),
+        ui.row({ lead: I('external', 'row-glyph'), title: 'See what families see', sub: ['The public site, where sign-up starts'], href: '#pub-offers' })]) });
+  };
+  Hub.actions['pp-add-link'] = function () { Hub.closeSheet(true); Hub.mutate(null, 'Sign-up link copied', { area: 'Players', summary: 'Sign-up link copied to send to a family' }); };
 
   /* ================================================================ PLAYERS LIST */
   Hub.screens['mgmt-players-list'] = function (ctx) {
-    var h = K.head({ back: ['mgmt-players', 'Players & ' + client() + 's'], eyebrow: 'Players & ' + client() + 's', title: 'Players', sub: 'Search by name, school or family. Inactive players are kept for history.',
+    var h = K.head({ back: ['mgmt-players', 'Players & Parents'], eyebrow: 'Players & Parents', title: 'Players', sub: 'Search by name, school or family. Inactive players are kept for history.',
       actions: K.goBtn('Move players onto sessions', 'mgmt-player-migration', { variant: 'secondary', icon: 'move' }) });
     var g = K.guard(ctx, h, { empty: ['players', 'No players yet', 'Players appear here once families sign up.'] }); if (g) return g;
     var st = K.tab('pp-pstatus', [{ id: 'Active' }, { id: 'Trial' }, { id: 'Inactive' }, { id: 'All' }]);
@@ -302,7 +320,7 @@
 
   /* ================================================================ FAMILIES */
   Hub.screens['mgmt-families'] = function (ctx) {
-    var h = K.head({ back: ['mgmt-players', 'Players & ' + client() + 's'], eyebrow: 'Players & ' + client() + 's', title: 'Families', sub: 'Status, reviews, closure reasons and family credits.' });
+    var h = K.head({ back: ['mgmt-players', 'Players & Parents'], eyebrow: 'Players & Parents', title: 'Families', sub: 'Status, reviews, closure reasons and family credits.' });
     var g = K.guard(ctx, h, { empty: ['family', 'No families yet', 'Families appear when the first ' + client().toLowerCase() + ' signs up.'] }); if (g) return g;
     var st = K.tab('pp-famstate', [{ id: 'Open' }, { id: 'Active' }, { id: 'Trial' }, { id: 'Closed' }, { id: 'All' }]);
     var all = db.getFamilies();
@@ -372,7 +390,7 @@
       }), empty: 'No memberships.' });
   }
   Hub.screens['mgmt-memberships'] = function (ctx) {
-    var h = K.head({ back: ['mgmt-players', 'Players & ' + client() + 's'], eyebrow: 'Players & ' + client() + 's', title: 'Memberships', sub: 'One player on one session. Statuses: Active, Paused, Cancellation Pending, Ending Scheduled, Ended.' });
+    var h = K.head({ back: ['mgmt-players', 'Players & Parents'], eyebrow: 'Players & Parents', title: 'Memberships', sub: 'One player on one session. Statuses: Active, Paused, Cancellation Pending, Ending Scheduled, Ended.' });
     var g = K.guard(ctx, h, { empty: ['calendar', 'No memberships yet', 'Memberships appear when players join a session.'] }); if (g) return g;
     var all = db.getMemberships();
     var list0 = [{ id: 'Open' }].concat(STATES.map(function (s) { return { id: s }; })).concat([{ id: 'All' }]);
@@ -467,7 +485,7 @@
       }), empty: 'No requests here.' });
   }
   Hub.screens['mgmt-requests'] = function (ctx) {
-    var h = K.head({ back: ['mgmt-players', 'Players & ' + client() + 's'], eyebrow: 'Players & ' + client() + 's', title: 'Requests', sub: 'Session requests, pauses, cancellations and detail changes from families. Resolve or decline with a note.' });
+    var h = K.head({ back: ['mgmt-players', 'Players & Parents'], eyebrow: 'Players & Parents', title: 'Requests', sub: 'Session requests, pauses, cancellations and detail changes from families. Resolve or decline with a note.' });
     var g = K.guard(ctx, h, { empty: ['inbox', 'No requests', 'Requests from families appear here.'] }); if (g) return g;
     var all = db.getRequests(), st = K.tab('pp-reqstate', [{ id: 'Open' }, { id: 'Done' }, { id: 'All' }]);
     function inState(r, s) { var open = r.status === 'Open' || r.status === 'In review'; return s === 'All' || (s === 'Open' ? open : !open); }
@@ -513,7 +531,7 @@
 
   Hub.screens['mgmt-session-requests'] = function (ctx) {
     var on = K.feature('sessionRequests');
-    var h = K.head({ back: ['mgmt-requests', 'Requests'], eyebrow: 'Players & ' + client() + 's', title: 'Session requests', sub: client() + 's asking for their child to join a session.' });
+    var h = K.head({ back: ['mgmt-requests', 'Requests'], eyebrow: 'Players & Parents', title: 'Session requests', sub: client() + 's asking for their child to join a session.' });
     var g = K.guard(ctx, h, { empty: ['inbox', 'No session requests', 'Requests to join a session appear here.'] }); if (g) return g;
     var list = db.getSessionRequests();
     var waiting = list.filter(function (r) { return r.status === 'Open' || r.status === 'In review'; });
@@ -525,7 +543,7 @@
   /* ================================================================ PLAYER MIGRATION */
   var MIG = { step: 0, player: '', session: '', start: K.addDays(K.today, 7) };
   Hub.screens['mgmt-player-migration'] = function (ctx) {
-    var h = K.head({ back: ['mgmt-players', 'Players & ' + client() + 's'], eyebrow: 'Players & ' + client() + 's', title: 'Move players onto sessions', sub: 'Move existing players who are not on a session onto one. Each move creates an Active membership.' });
+    var h = K.head({ back: ['mgmt-players', 'Players & Parents'], eyebrow: 'Players & Parents', title: 'Move players onto sessions', sub: 'Move existing players who are not on a session onto one. Each move creates an Active membership.' });
     var g = K.guard(ctx, h, { empty: ['move', 'Nobody to move', 'Every active player is already on a session.'] }); if (g) return g;
     var cands = db.getMigrationCandidates(), body;
     var steps = K.steps(['Choose player', 'Choose session', 'Confirm'], MIG.step);
@@ -561,7 +579,7 @@
 
   /* ================================================================ BOOKINGS */
   Hub.screens['mgmt-bookings'] = function (ctx) {
-    var h = K.head({ back: ['mgmt-more', 'More'], eyebrow: 'Bookings', title: 'Bookings', sub: 'One checkout, many player and date lines. Paid lines are history; cancellations are new events.' });
+    var h = K.head({ back: ['mgmt-players', 'Players & Parents'], eyebrow: 'Players & Parents', title: 'Bookings', sub: 'One checkout, many player and date lines. Paid lines are history; cancellations are new events.' });
     var g = K.guard(ctx, h, { empty: ['card', 'No bookings yet', 'Camp, trial and single-session bookings appear here.'] }); if (g) return g;
     var off = K.feature('bookings') ? '' : K.featureOff('bookings');
     var all = db.getBookings(), st = K.tab('pp-bkstate', [{ id: 'All' }, { id: 'Paid' }, { id: 'Confirmed' }, { id: 'Cancelled' }]);
@@ -613,7 +631,7 @@
   Hub.screens['mgmt-commercial'] = function (ctx) {
     var tl = [{ id: 'discounts', label: 'Discounts' }, { id: 'refunds', label: 'Refund policies' }, { id: 'packages', label: 'Package pricing' }, { id: 'billing', label: 'Billing rules' }, { id: 'terms', label: 'Terms and policies' }];
     var t = K.tab('pp-comm', tl);
-    var h = K.head({ back: ['mgmt-more', 'More'], eyebrow: 'Bookings', title: 'Commercial setup', sub: 'Rules that set prices for memberships and bookings. Each booking and membership keeps a copy of the rule it was set up under.', tabs: K.tabs('pp-comm', tl) });
+    var h = K.head({ back: ['mgmt-players', 'Players & Parents'], eyebrow: 'Players & Parents', title: 'Prices and policies', sub: 'Rules that set prices for memberships and bookings. Each booking and membership keeps a copy of the rule it was set up under.', tabs: K.tabs('pp-comm', tl) });
     var g = K.guard(ctx, h, { empty: ['settings', 'Nothing set up yet', 'Discounts, refund policies and billing rules appear here.'] }); if (g) return g;
     var lines = [].concat.apply([], db.getBookings().map(function (b) { return b.lines; })), body;
     if (t === 'discounts') {
@@ -652,7 +670,7 @@
 
   /* ================================================================ ADJUSTMENTS */
   Hub.screens['mgmt-adjustments'] = function (ctx) {
-    var h = K.head({ back: ['mgmt-more', 'More'], eyebrow: 'Bookings', title: 'Commercial adjustments', sub: 'One-off charges and credits for a family. A credit adjustment creates a family credit, used oldest first.',
+    var h = K.head({ back: ['mgmt-players', 'Players & Parents'], eyebrow: 'Players & Parents', title: 'Charges and credits', sub: 'One-off charges and credits for a family. A credit adjustment creates a family credit, used oldest first.',
       actions: K.actBtn('New adjustment', 'pp-adj-new', {}, { variant: 'primary', icon: 'plus' }) });
     var g = K.guard(ctx, h, { empty: ['finance', 'No adjustments yet', 'One-off charges and credits appear here.'] }); if (g) return g;
     var all = db.getAdjustments();

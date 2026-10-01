@@ -32,7 +32,19 @@
       ]
     }[area];
   }
-  var CORE = ['mgmt-attention', 'mgmt-schedule', 'mgmt-coaches', 'mgmt-players'];
+  var CORE = ['mgmt-attention', 'mgmt-approvals', 'mgmt-schedule', 'mgmt-coaches', 'mgmt-players', 'mgmt-finance'];
+  /* Management's four operating areas. Every detailed screen belongs to one,
+     so the breadcrumb and sidebar always say "Home › Sessions › …" and the
+     office never has to know how the Hub is structured underneath. */
+  var MGMT_AREAS = [
+    { id: 'mgmt-schedule', label: 'Sessions', routes: ['mgmt-sessions', 'mgmt-session', 'mgmt-session-new', 'mgmt-session-edit', 'mgmt-calendar', 'mgmt-occurrences', 'mgmt-occurrence', 'mgmt-occurrence-outcome', 'mgmt-eligibility', 'mgmt-venues', 'mgmt-venue', 'mgmt-register', 'mgmt-registers', 'mgmt-attendance'] },
+    { id: 'mgmt-coaches', label: 'Coaches', routes: ['mgmt-coach', 'mgmt-coach-roles', 'mgmt-allocations', 'mgmt-availability', 'mgmt-documents', 'mgmt-document', 'mgmt-cover', 'mgmt-cover-request', 'mgmt-work-summaries', 'mgmt-work-summary', 'mgmt-coach-signups', 'mgmt-trial-coaches'] },
+    { id: 'mgmt-players', label: 'Players & Parents', routes: ['mgmt-players-list', 'mgmt-player', 'mgmt-parents', 'mgmt-parent', 'mgmt-families', 'mgmt-family', 'mgmt-memberships', 'mgmt-membership', 'mgmt-requests', 'mgmt-session-requests', 'mgmt-player-migration', 'mgmt-bookings', 'mgmt-booking', 'mgmt-commercial', 'mgmt-adjustments', 'mgmt-parent-claims', 'mgmt-trial-leads'] },
+    { id: 'mgmt-finance', label: 'Financials', routes: [] }
+  ];
+  function mgmtArea(r) { r = r || S.route; return MGMT_AREAS.filter(function (a) { return a.id === r || a.routes.indexOf(r) >= 0 || (a.id === 'mgmt-finance' && r.indexOf('mgmt-fin-') === 0); })[0] || null; }
+  Hub.mgmtArea = function (r) { return mgmtArea(r); };
+  function underHome(r) { r = r || S.route; return CORE.indexOf(r) >= 0 || !!mgmtArea(r) || meta(r).parent === 'home'; }
   function staffPlural() { var t = terms().staff; return t === 'Coach' ? 'Coaches' : t; }
   Hub.staffPlural = staffPlural;
   var HOME = { management: 'mgmt-home', staff: 'coach-home', client: 'parent-home', public: 'pub-home' };
@@ -52,8 +64,8 @@
     /* Core areas sit under Home; everything else is reached through More. */
     var m = meta();
     if (m.nav) return id === m.nav;
-    if (id === 'mgmt-home') return CORE.indexOf(S.route) >= 0 || m.parent === 'home';
-    return id === 'mgmt-more' && S.route.indexOf('mgmt-') === 0 && S.route !== 'mgmt-home' && CORE.indexOf(S.route) < 0 && m.parent !== 'home';
+    if (id === 'mgmt-home') return underHome();
+    return id === 'mgmt-more' && S.route.indexOf('mgmt-') === 0 && S.route !== 'mgmt-home' && !underHome();
   }
 
   function tabLinks(area, cls) {
@@ -77,8 +89,9 @@
     function link(id, label, icon, open, trail) {
       return '<a class="nav-link' + (open ? ' is-open' : '') + '" href="#' + id + '"' + (S.route === id ? ' aria-current="page"' : '') + '>' + I(icon) + '<span>' + esc(label) + '</span>' + (trail || '') + '</a>';
     }
-    var inCore = CORE.indexOf(S.route) >= 0 || meta().parent === 'home', inMore = !inCore && S.route !== 'mgmt-home' && S.route !== 'mgmt-more';
-    var child = '<a class="nav-child" href="#' + S.route + '" aria-current="page"><span>' + esc(pageTitle()) + '</span></a>';
+    var inCore = underHome(), inMore = !inCore && S.route !== 'mgmt-home' && S.route !== 'mgmt-more', ar = mgmtArea();
+    var child = ar ? '<a class="nav-child" href="#' + ar.id + '"' + (S.route === ar.id ? ' aria-current="page"' : '') + '><span>' + esc(ar.label) + '</span></a>'
+      : '<a class="nav-child" href="#' + S.route + '" aria-current="page"><span>' + esc(pageTitle()) + '</span></a>';
     var c = D.attention.summary.counts;
     var status = '<a class="side-status" href="#mgmt-attention"><span class="side-status__k">' + ui.sev('Urgent') + 'Needs attention</span>' +
       '<b class="num">' + c.Urgent + ' urgent</b><small class="num">' + c.Warning + ' warning \u00b7 ' + c.Normal + ' normal</small><span class="side-status__go">Review' + I('arrowRight', 'icon-sm') + '</span></a>';
@@ -94,7 +107,7 @@
 
   function canvasBar() {
     var n = NAV('management').filter(function (x) { return x.id === S.route; })[0];
-    var extra = { 'mgmt-schedule': 'Schedule & Sessions', 'mgmt-finance': 'Finance' };
+    var extra = { 'mgmt-schedule': 'Sessions', 'mgmt-finance': 'Financials' };
     var title = extra[S.route] || (n && (n.long || n.label)) || pageTitle();
     var tail = Hub.crumbTail ? I('chevron') + '<b>' + esc(Hub.crumbTail) + '</b>' : '';
     if (S.route === 'mgmt-home') {
@@ -103,8 +116,10 @@
         '<button type="button" class="icon-btn" data-action="go" data-route="mgmt-notifications" aria-label="Notifications">' + I('bell') + '<span class="dot"></span></button>' +
         '<button type="button" class="me-btn" data-action="profile" aria-label="Account">' + ui.avatar(D.me.name, 'sm') + '</button></div>';
     }
-    var parent = (CORE.indexOf(S.route) >= 0 || meta().parent === 'home') ? 'Home' : S.route === 'mgmt-more' ? 'Management' : 'More';
-    return '<div class="canvas-bar"><div class="crumbs"><a href="#' + (parent === 'More' ? 'mgmt-more' : 'mgmt-home') + '">' + parent + '</a>' + I('chevron') + (tail ? '<span>' + esc(title) + '</span>' + tail : '<b>' + esc(title) + '</b>') + '</div><span class="canvas-bar__spacer"></span>' +
+    var parent = underHome() ? 'Home' : S.route === 'mgmt-more' ? 'Management' : 'More', ar = mgmtArea();
+    var mid = ar && ar.id !== S.route ? '<a href="#' + ar.id + '">' + esc(ar.label) + '</a>' + I('chevron') : '';
+    if (ar && ar.id === S.route) title = ar.label;
+    return '<div class="canvas-bar"><div class="crumbs"><a href="#' + (parent === 'More' ? 'mgmt-more' : 'mgmt-home') + '">' + parent + '</a>' + I('chevron') + mid + (tail ? '<span>' + esc(title) + '</span>' + tail : '<b>' + esc(title) + '</b>') + '</div><span class="canvas-bar__spacer"></span>' +
       '<button type="button" class="search-trigger" data-action="search">' + I('search') + '<span>Search people, sessions, items</span><span class="kbd">⌘K</span></button>' +
       '<button type="button" class="icon-btn" data-action="go" data-route="mgmt-notifications" aria-label="Notifications">' + I('bell') + '<span class="dot"></span></button></div>';
   }
@@ -188,7 +203,7 @@
   function pageTitle() {
     if (Hub.title) return Hub.title;
     var m = meta(); if (m.title) return typeof m.title === 'function' ? m.title() : m.title;
-    var fixed = { 'mgmt-attention': 'Needs attention', 'mgmt-coaches': staffPlural(), 'mgmt-players': 'Players & ' + terms().client + 's', 'mgmt-content': 'Content & Brand', 'mgmt-reports': 'Reports' };
+    var fixed = { 'mgmt-attention': 'Needs attention', 'mgmt-coaches': 'Coaches', 'mgmt-players': 'Players & Parents', 'mgmt-content': 'Content & Brand', 'mgmt-reports': 'Reports' };
     if (fixed[S.route]) return fixed[S.route];
     var n = (NAV(S.area) || []).filter(function (x) { return x.id === S.route; })[0];
     var area = D.areas.filter(function (a) { return 'mgmt-' + a.id === S.route; })[0];

@@ -16,7 +16,7 @@
   K.route('pub-waiting', { title: 'Waiting for approval', nav: 'pub-signin' });
   K.route('pub-parent-signup', { title: 'Find your child', nav: 'pub-signin' });
   K.route('pub-request', { title: 'Finish your request', nav: 'pub-offers' });
-  K.route('mgmt-approvals', { title: 'Approvals', parent: 'more' });
+  K.route('mgmt-approvals', { title: 'Approvals', parent: 'home' });
   K.route('mgmt-coach-signups', { title: 'Coach sign-ups', parent: 'more' });
   K.route('mgmt-trial-coaches', { title: 'Trial coaches', parent: 'more' });
   K.route('mgmt-parent-claims', { title: 'Parent claims', parent: 'more' });
@@ -385,7 +385,7 @@
   /* ---------- mgmt-approvals ---------- */
   Hub.screens['mgmt-approvals'] = function (ctx) {
     var c = db.getApprovalCounts();
-    var head = K.head({ back: ['mgmt-more', 'More'], eyebrow: 'More', title: 'Approvals', sub: 'Everything waiting for a management decision: new staff, trial coaches, parent claims and trial interest.' });
+    var head = K.head({ back: ['mgmt-home', 'Home'], eyebrow: 'Home', title: 'Approvals', sub: 'Everything waiting for a management decision: new staff, trial coaches, parent claims and trial interest.' });
     var g = K.guard(ctx, head, { empty: ['userCheck', 'Nothing waiting', 'New sign-ups, claims and trial interest appear here.'] }); if (g) return g;
     var shared = db.getApprovals().filter(function (a) { return a.id === 'session-requests' || a.id === 'player-migration'; });
     var tiles = [

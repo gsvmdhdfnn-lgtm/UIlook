@@ -132,6 +132,33 @@
       '<span class="lx-area__title">' + esc(o.title) + '</span>' + (o.value != null ? '<span class="lx-area__value"><b class="num">' + o.value + '</b><small>' + esc(o.label || '') + '</small></span>' : '') +
       '<span class="lx-area__desc">' + esc(o.desc || '') + '</span>' + (o.badge ? '<span class="k-tile__badge">' + o.badge + '</span>' : '') + '</a>';
   };
+  /* ---------- Area landing pieces (Management) ---------- */
+  /* What needs Management in one area: Needs Attention cases for the given
+     categories, each opening the actual task. */
+  K.areaNeeds = function (cats, o) {
+    o = o || {};
+    var A = Hub.db.getAttention(), list = A.cases.filter(function (k) { return cats.indexOf(k.category) >= 0; });
+    var word = { Urgent: 'Urgent', Warning: 'Warning', Normal: 'To do' };
+    var rows = list.slice(0, o.limit || 5).map(function (k) {
+      return ui.row({ lead: ui.sev(k.severity), title: esc(k.title), sub: [esc(word[k.severity]), esc(k.when || '')].concat(k.detail ? [esc(k.detail)] : []), href: '#' + (k.route || 'mgmt-attention'), trail: '<span class="k-needs__act">' + esc(k.actionLabel || 'Open') + '</span>' });
+    });
+    var body = list.length ? K.list(rows) + (list.length > rows.length ? '<p class="k-note">' + (list.length - rows.length) + ' more in ' + K.link('mgmt-attention', 'Needs attention') + '</p>' : '')
+      : '<div class="k-needs__clear">' + I('checkCircle', 'icon-sm') + '<span>' + esc(o.clear || 'Nothing here needs you right now.') + '</span></div>';
+    return K.section('Needs you', list.length ? list.length + ' item' + (list.length === 1 ? '' : 's') + ', most urgent first' : '', body, list.length ? K.goBtn('All needs attention', 'mgmt-attention', { size: 'sm', variant: 'secondary' }) : '');
+  };
+  /* Everything else in an area, one quiet step away (closed by default). */
+  K.moreIn = function (title, groups) {
+    var n = 0;
+    var body = groups.map(function (g) {
+      return '<div class="k-more__group"><h3>' + esc(g[0]) + '</h3>' + g[1].map(function (x) { n++;
+        return '<a class="k-more__link" href="#' + x.route + '">' + I(x.icon || 'arrowRight', 'icon-sm') + '<span><b>' + esc(x.title) + '</b>' + (x.desc ? '<small>' + esc(x.desc) + '</small>' : '') + '</span>' + (x.count != null && x.count !== '' ? '<span class="k-more__n num">' + esc(String(x.count)) + '</span>' : '') + '</a>'; }).join('') + '</div>';
+    }).join('');
+    return '<details class="k-more"><summary><span><b>' + esc(title) + '</b><small>' + n + ' more places, for when you need them</small></span>' + I('chevron', 'icon-sm k-more__chev') + '</summary><div class="k-more__grid">' + body + '</div></details>';
+  };
+  /* A search entry point that opens the hub search. */
+  K.findBar = function (placeholder) {
+    return '<button type="button" class="search-trigger k-find" data-action="search">' + I('search') + '<span>' + esc(placeholder) + '</span><span class="kbd">⌘K</span></button>';
+  };
   K.tiles = function (list, cols) { return '<div class="lx-areas k-tiles--' + (cols || 3) + '">' + list.map(K.tile).join('') + '</div>'; };
   K.kv = function (pairs, grid) { return ui.fields(pairs.filter(Boolean), grid); };
 

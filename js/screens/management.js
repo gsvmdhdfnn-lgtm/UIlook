@@ -15,7 +15,7 @@
   }
   K.route('mgmt-home', { title: 'Home' });
   K.route('mgmt-attention', { title: 'Needs attention', parent: 'home' });
-  K.route('mgmt-attention-rules', { title: 'Needs attention rules', parent: 'home' });
+  K.route('mgmt-attention-rules', { title: 'Needs attention rules', parent: 'more' });
   K.route('mgmt-more', { title: 'More' });
 
   /* ---------------------------------------------------------------- HOME */
@@ -27,7 +27,7 @@
   }
   function areaCard(o) {
     return '<a class="lx-area" href="#' + o.route + '"><span class="lx-area__top"><span class="lx-area__icon">' + I(o.icon) + '</span>' + I('arrowRight', 'icon-sm lx-area__go') + '</span><span class="lx-area__title">' + esc(o.title) + '</span>' +
-      '<span class="lx-area__value"><b class="num">' + o.value + '</b><small>' + esc(o.label) + '</small></span></a>';
+      '<span class="lx-area__value"><b class="num">' + o.value + '</b><small>' + esc(o.label) + '</small>' + (o.need ? '<span class="hm-areas__need">' + esc(o.need) + '</span>' : '') + '</span></a>';
   }
   function schedRow(o) {
     var ss = staffState(o), r = db.getRegister(o.id), client = !!db.getSession(o.sessionId).client;
@@ -44,7 +44,7 @@
     if (empty) return '<section class="hx-card hm-attn" id="hm-attn">' + head + ui.empty('checkCircle', 'All clear', 'Nothing currently needs management action.', 'ok') + '</section>';
     var sev = '<div class="hm-sev num">' + [['Urgent', 'urgent'], ['Warning', 'warning'], ['Normal', 'normal']].map(function (x) { return '<a class="hm-sev__i hm-sev--' + x[1] + '" href="#mgmt-attention"><i></i><b>' + c[x[0]] + '</b>' + SEVWORD[x[0]] + '</a>'; }).join('') + '</div>';
     var rows = '<div class="hx-list">' + A.cases.slice(0, 5).map(function (k) {
-      return '<button type="button" class="hx-attn' + (k.severity === 'Urgent' ? ' is-urgent' : '') + '" data-action="case" data-key="' + esc(k.caseKey) + '"><span class="hx-dot hx-tone--' + (k.severity === 'Urgent' ? 'danger' : k.severity === 'Warning' ? 'warn' : 'muted') + '"></span><span class="hx-attn__main"><b>' + esc(k.title) + '</b><small>' + esc(k.when) + ' · ' + esc(k.category) + '</small></span>' + I('chevron', 'icon-sm hx-chev') + '</button>';
+      return '<a class="hx-attn' + (k.severity === 'Urgent' ? ' is-urgent' : '') + '" href="#' + esc(k.route || 'mgmt-attention') + '"><span class="hx-dot hx-tone--' + (k.severity === 'Urgent' ? 'danger' : k.severity === 'Warning' ? 'warn' : 'muted') + '"></span><span class="hx-attn__main"><b>' + esc(k.title) + '</b><small>' + esc(k.when) + ' · ' + esc(k.actionLabel || 'Open') + '</small></span>' + I('chevron', 'icon-sm hx-chev') + '</a>';
     }).join('') + '</div>';
     return '<section class="hx-card hm-attn" id="hm-attn">' + head + sev + rows + '</section>';
   }
@@ -57,14 +57,17 @@
     var T = today(), expected = K.sum(T, 'players');
     var active = db.getCoaches().filter(function (c) { return c.active !== false; }).length;
     var players = db.getPlayers(function (p) { return p.status === 'Active'; }).length;
-    var areas = '<div class="lx-areas lx-areas--stat">' +
-      areaCard({ route: 'mgmt-schedule', icon: 'calendar', title: 'Schedule & Sessions', value: empty ? 0 : T.length, label: 'sessions today' }) +
-      areaCard({ route: 'mgmt-coaches', icon: 'coaches', title: Hub.staffPlural(), value: active, label: 'active' }) +
-      areaCard({ route: 'mgmt-players', icon: 'players', title: 'Players & ' + Hub.brand.terms.client + 's', value: players, label: 'active players' }) +
-      areaCard({ route: 'mgmt-registers', icon: 'clock', title: 'Today', value: empty ? 0 : expected, label: 'players expected' }) + '</div>';
+    var fin = K.fin() !== 'none', owed = fin ? db.fin.receivables().total : 0;
+    var A = db.getAttention().cases;
+    function waiting(cats) { var n = A.filter(function (k) { return cats.indexOf(k.category) >= 0; }).length; return n ? n + ' need' + (n === 1 ? 's' : '') + ' you' : ''; }
+    var areas = '<div class="lx-areas lx-areas--stat hm-areas" aria-label="Your four areas">' +
+      areaCard({ route: 'mgmt-schedule', icon: 'calendar', title: 'Sessions', value: empty ? 0 : T.length, label: 'today', need: waiting(['Sessions & Venues', 'Staffing & Cover']) }) +
+      areaCard({ route: 'mgmt-coaches', icon: 'coaches', title: 'Coaches', value: active, label: 'active', need: waiting(['Coaches & Compliance', 'Staffing & Cover']) }) +
+      areaCard({ route: 'mgmt-players', icon: 'players', title: 'Players & Parents', value: players, label: 'active players', need: waiting(['Players & Families']) }) +
+      areaCard({ route: 'mgmt-finance', icon: 'finance', title: 'Financials', value: fin ? K.money(owed).replace(/\.\d\d$/, '') : '—', label: fin ? 'owed to us' : 'ask for Finance access', need: fin ? waiting(['Finance']) : '' }) + '</div>';
     var urgent = db.getAttention().cases.filter(function (k) { return k.severity === 'Urgent'; }), c = db.getAttention().summary.counts;
     var urgentSum = empty || !urgent.length ? '' : '<section class="hm-urgent" aria-label="Urgent actions"><a class="hm-urgent__head" href="#hm-attn"><span class="hm-urgent__k">' + ui.sev('Urgent') + '<b class="num">' + urgent.length + ' urgent</b><span class="num">· ' + c.Warning + ' warning · ' + c.Normal + ' to do</span></span><span class="hm-urgent__go">Review' + I('arrowRight', 'icon-sm') + '</span></a>' +
-      urgent.map(function (k) { return '<button type="button" class="hm-urgent__row" data-action="case" data-key="' + esc(k.caseKey) + '"><b>' + esc(k.title) + '</b><small>' + esc(k.when) + '</small></button>'; }).join('') + '</section>';
+      urgent.map(function (k) { return '<a class="hm-urgent__row" href="#' + esc(k.route || 'mgmt-attention') + '"><b>' + esc(k.title) + '</b><small>' + esc(k.when) + ' · ' + esc(k.actionLabel || 'Open') + '</small></a>'; }).join('') + '</section>';
     var sched = '<section class="hx-card hm-sched" id="hx-today"><div class="hx-card__head"><div><h2>Today’s schedule</h2><small class="hx-sub">' + (empty ? 'No sessions' : T.length + ' sessions · ' + expected + ' players expected') + '</small></div><a class="hx-link" href="#mgmt-calendar">View full day' + I('arrowRight', 'icon-sm') + '</a></div>' +
       (empty ? ui.empty('calendar', 'Nothing scheduled today', 'Tomorrow has ' + tomorrow().length + ' sessions.') : '<div class="hx-list">' + T.map(schedRow).join('') + '</div>') + '</section>';
     var week = [['Mon', 28, '2026-09-28'], ['Tue', 29, '2026-09-29'], ['Wed', 30, '2026-09-30'], ['Thu', 1, '2026-10-01'], ['Fri', 2, '2026-10-02'], ['Sat', 3, '2026-10-03'], ['Sun', 4, '2026-10-04']];
@@ -77,7 +80,7 @@
     var approvals = '<section class="hx-card hx-card--rail"><div class="hx-card__head"><div><h2>Approvals waiting</h2><small class="hx-sub">' + K.sum(appr, 'count') + ' to decide</small></div><a class="hx-link" href="#mgmt-approvals">All' + I('arrowRight', 'icon-sm') + '</a></div><div class="hx-list">' + appr.map(function (a) { return '<a class="hm-mini" href="#mgmt-' + a.id + '"><span class="hm-mini__icon">' + I(a.icon, 'icon-sm') + '</span><span><b>' + esc(a.label) + '</b><small>' + esc(a.sub) + '</small></span>' + K.pill(a.count + ' waiting', 'info') + '</a>'; }).join('') + '</div></section>';
     var changes = '<section class="hx-card hx-card--rail"><div class="hx-card__head"><div><h2>Since you last looked</h2><small class="hx-sub">Last visit ' + esc(db.getLastVisit()) + '</small></div><a class="hx-link" href="#mgmt-audit">History' + I('arrowRight', 'icon-sm') + '</a></div><div class="hx-activity">' +
       db.getChanges().map(function (ch, i) { var tone = ['warn', 'ok', 'blue'][i % 3], icon = ['calendar', 'shield', 'inbox'][i % 3]; var target = ch.key ? ' data-action="case" data-key="' + esc(ch.key) + '"' : ''; return '<' + (ch.key ? 'button type="button"' : 'a href="' + (ch.href || '#mgmt-audit') + '"') + ' class="hx-act hm-act"' + target + '><span class="hx-act__icon hx-tone--' + tone + '">' + I(icon, 'icon-sm') + '</span><span><b>' + esc(ch.text) + '</b><small>' + esc(ch.time) + '</small></span></' + (ch.key ? 'button' : 'a') + '>'; }).join('') + '</div></section>';
-    return shell(areas + urgentSum + '<div class="hm__pair">' + sched + attentionPanel(ctx.state) + '</div>', cal + tom + approvals + changes);
+    return shell(urgentSum + areas + '<div class="hm__pair">' + attentionPanel(ctx.state) + sched + '</div>', approvals + tom + cal);
   };
 
   /* ------------------------------------------------------ NEEDS ATTENTION */
@@ -106,7 +109,7 @@
     return K.page(h, body + '<p class="lx-note">Items clear on their own once the underlying issue is fixed. Accepting or overriding a case needs a reason and an approver, and stays in history.</p>');
   };
   Hub.actions['attn-refresh'] = function (el) { el.classList.add('is-busy'); setTimeout(function () { el.classList.remove('is-busy'); Hub.render(); Hub.toast('Checks re-run at ' + K.dt(K.now()).split(' ')[2]); }, 500); };
-  Hub.actions['attn-reopen'] = function (el) { Hub.mutate(function () { db.revokeAttentionException(el.dataset.id); }, 'Case reopened'); };
+  Hub.actions['attn-reopen'] = function (el) { Hub.mutate(function () { db.revokeAttentionException(el.dataset.id); }, 'Item reopened'); };
 
   /* Case drawer: detail, one action, and accept / override as an exception */
   Hub.actions['case'] = function (el) {
@@ -126,14 +129,14 @@
   Hub.actions['case-except'] = function (el) {
     var c = db.getAttentionCase(el.dataset.key);
     Hub.openSheet({ overline: '<span class="overline">Exception</span>', title: 'Accept or change priority: ' + esc(c.title), meta: '<p class="k-note">Accepting removes the case from the queue until it changes. Changing priority moves it up or down. Both need a reason and an approver, and are kept in history.</p>',
-      body: K.form([K.field('Decision', K.select('ex_type', [['Accepted', 'Accept this case (known and handled)'], ['Severity override', 'Change priority']], 'Accepted')), K.field('Change priority to', K.select('ex_sev', [['Normal', 'To do'], ['Warning', 'Warning'], ['Urgent', 'Urgent']], 'Normal')), K.field('Approver', K.select('ex_approver', ['Josh Evans', 'David Cole'], 'Josh Evans')), K.field('Reason', K.input('ex_reason', '', { placeholder: 'Required' }), '', true)], 2),
+      body: K.form([K.field('Decision', K.select('ex_type', [['Accepted', 'Accept (known and handled)'], ['Severity override', 'Change priority']], 'Accepted')), K.field('Change priority to', K.select('ex_sev', [['Normal', 'To do'], ['Warning', 'Warning'], ['Urgent', 'Urgent']], 'Normal')), K.field('Approver', K.select('ex_approver', ['Josh Evans', 'David Cole'], 'Josh Evans')), K.field('Reason', K.input('ex_reason', '', { placeholder: 'Required' }), '', true)], 2),
       foot: ui.btn('Cancel', { variant: 'tertiary', attrs: { 'data-action': 'close-sheet' } }) + K.actBtn('Save exception', 'case-except-save', { key: c.caseKey }, { variant: 'primary' }) });
   };
   Hub.actions['case-except-save'] = function (el) {
     var c = db.getAttentionCase(el.dataset.key), r = K.val('ex_reason'); if (!r) { Hub.toast('A reason is required'); return; }
     var t = K.val('ex_type'), e = { caseKey: c.caseKey, title: c.title, type: t, severity: t === 'Severity override' ? K.val('ex_sev') : null, from: c.severity, approver: K.val('ex_approver'), reason: r };
     if (t === 'Severity override') { var rl = db.getAttentionRule(c.ruleId); if (rl.locked && ({ Normal: 1, Warning: 2, Urgent: 3 })[e.severity] < ({ Normal: 1, Warning: 2, Urgent: 3 })[rl.locked]) { Hub.toast('This rule has a locked minimum of ' + rl.locked); return; } }
-    Hub.closeSheet(true); Hub.mutate(function () { db.addAttentionException(e); }, t === 'Accepted' ? 'Case accepted' : 'Priority changed');
+    Hub.closeSheet(true); Hub.mutate(function () { db.addAttentionException(e); }, t === 'Accepted' ? 'Item accepted' : 'Priority changed');
   };
 
   /* Rule settings */
@@ -168,24 +171,19 @@
   /* ---------------------------------------------------------------- MORE */
   Hub.screens['mgmt-more'] = function (ctx) {
     var me = db.getMe(), t = Hub.brand.terms;
-    var h = K.head({ eyebrow: 'Management', title: 'More', sub: 'Management areas that don’t need to occupy the daily Home screen.', actions: '<span class="lx-me">' + ui.avatar(me.name, 'md') + '<span><b>' + esc(me.name) + '</b><small>' + esc(me.email) + '</small></span></span>' });
+    var h = K.head({ eyebrow: 'Management', title: 'More', sub: 'Less frequent work: development, communication, reports and settings.', actions: '<span class="lx-me">' + ui.avatar(me.name, 'md') + '<span><b>' + esc(me.name) + '</b><small>' + esc(me.email) + '</small></span></span>' });
     var g = K.guard(ctx, h, { empty: false }); if (g) return g;
     function group(title, rows) { return '<section class="lx-group"><h2 class="lx-group__title">' + esc(title) + '</h2><div class="zone-inset">' + ui.rows(rows, 'rows--lead') + '</div></section>'; }
     function r(icon, title, sub, route, trail) { return ui.row({ lead: I(icon, 'row-glyph'), title: esc(title), sub: sub ? [esc(sub)] : null, href: '#' + route, trail: trail || '' }); }
-    var fin = K.fin();
     var dev = [r('development', 'Development', 'Framework, feedback review and ' + K.label('IDPs'), 'mgmt-development', K.feature('development') ? '' : '<span class="text-4">Off</span>'),
-      r('comms', 'Communications', 'Notices, messages and communication history', 'mgmt-comms', K.feature('communications') ? '' : '<span class="text-4">Off</span>'),
+      r('comms', 'Communications', 'Notices and messages to families and coaches', 'mgmt-comms', K.feature('communications') ? '' : '<span class="text-4">Off</span>'),
       r('star', 'Content & Brand', 'Resources, coach support, public pages, what we offer', 'mgmt-content')];
-    var biz = [fin === 'none' ? ui.row({ lead: I('finance', 'row-glyph'), title: 'Finance', sub: ['You don’t have Finance access'], href: '#mgmt-finance', trail: '<span class="text-4">No access</span>' }) : r('finance', 'Finance', 'Invoices, payments, parent money, costs, cash and reporting', 'mgmt-finance', fin === 'view' ? '<span class="text-4">View only</span>' : ''),
-      r('card', 'Bookings', 'Checkouts, booking lines and refunds', 'mgmt-bookings'),
-      r('selector', 'Commercial setup', 'Discounts, refund policies, packages, billing rules, terms', 'mgmt-commercial'),
-      r('plus', 'Adjustments', 'One-off charges and credits', 'mgmt-adjustments'),
-      r('grid', 'Reports', 'Operational, programme and business reporting', 'mgmt-reports'),
-      r('shield', 'Audit history', 'Who changed what, and when', 'mgmt-audit'),
-      r('settings', 'Settings & System', 'Organisation, branding, labels and feature controls', 'mgmt-settings')];
-    var appr = db.getApprovalsWaiting().map(function (a) { return ui.row({ lead: I(a.icon, 'row-glyph'), title: esc(a.label), sub: [esc(a.sub)], trail: a.count ? '<span class="num">' + a.count + ' waiting</span>' : '', href: '#mgmt-' + a.id }); });
-    appr.unshift(r('inbox', 'All approvals', 'Sign-ups, trial coaches, claims and trial interest', 'mgmt-approvals'));
-    var acct = [ui.row({ lead: I('swap', 'row-glyph'), title: 'Switch to ' + t.staff.toLowerCase() + ' hub', action: 'area', data: { area: 'staff' } }), r('user', 'Profile', '', 'mgmt-profile'), r('bell', 'Notifications', '', 'mgmt-notifications'), r('external', 'View the public site', '', 'pub-home'), ui.row({ lead: I('logout', 'row-glyph'), title: 'Log out', href: '#pub-signin', chevron: false })];
-    return K.page(h, '<div class="lx-columns"><div class="lx-col">' + group('Development & Communication', dev) + group('Business & System', biz) + '</div><div class="lx-col">' + group('Approvals', appr) + group('Account', acct) + '</div></div>');
+    var reports = [r('grid', 'Reports', 'Attendance, registers, schools and development', 'mgmt-reports'),
+      r('clock', 'History', 'Who changed what, and when, across the Hub', 'mgmt-audit')];
+    var sys = [r('settings', 'Settings & System', 'Organisation, branding, labels and feature controls', 'mgmt-settings'),
+      r('alertCircle', 'Needs attention rules', 'What raises an item, and how urgent it is', 'mgmt-attention-rules')];
+    var acct = [ui.row({ lead: I('swap', 'row-glyph'), title: 'Switch to ' + t.staff.toLowerCase() + ' hub', action: 'area', data: { area: 'staff' } }), r('user', 'Profile', '', 'mgmt-profile'), r('bell', 'Notifications', '', 'mgmt-notifications'), r('external', 'View the public site', '', 'pub-home')];
+    var note = '<p class="k-note lx-more-note">Sessions, Coaches, Players & Parents and Financials are on ' + K.link('mgmt-home', 'Home') + '.</p>';
+    return K.page(h, note + '<div class="lx-columns"><div class="lx-col">' + group('Development & communication', dev) + group('Reports & history', reports) + '</div><div class="lx-col">' + group('Settings', sys) + group('Account', acct) + '</div></div>');
   };
 })();

@@ -14,7 +14,7 @@
       identity: '#0b0b0b',
       accent: '#d9a441',          /* Relvor Amber */
       fill: '#d9a441', onFill: '#0b0b0b',
-      terms: { staff: 'Staff', client: 'Client' }
+      terms: { staff: 'Coach', client: 'Parent' }
     },
     joshevans: {
       id: 'joshevans',
