@@ -1,1 +1,48 @@
-/* players (pass 12): filled in by a later commit in this series. */
+/* players area styles (pass 12): build on kit.css tokens only. */
+
+/* Lists: on phones keep the main cell and the status side by side. */
+@media (max-width: 759px) {
+  .pp-t .tbl__row { grid-template-columns: minmax(0, 1fr) auto; }
+  .pp-t .tbl__row > .c-time { grid-column: 1 / -1; display: flex; gap: 6px; align-items: baseline; }
+  .pp-t .tbl__row > .c-time small { display: inline; }
+}
+.pp-t .c-end { display: flex; justify-content: flex-end; text-align: right; }
+.pp-t .c-sub .icon { width: 12px; height: 12px; vertical-align: -2px; }
+
+/* Filter bar with search */
+.pp-filters { margin-bottom: 2px; }
+.pp-search { flex: 1 1 240px; min-width: 0; max-width: 420px; }
+.pp-search .input { height: 42px; border-radius: 12px; background: var(--hx-surface-solid); box-shadow: inset 0 0 0 1px var(--hx-edge, var(--line)); }
+.pp-filters .k-seg { max-width: 100%; overflow-x: auto; flex-wrap: nowrap; }
+@media (max-width: 759px) {
+  .pp-search { flex-basis: 100%; max-width: none; }
+  .pp-filters .k-seg { width: 100%; }
+}
+
+/* "Preview restricted details as" */
+.pp-viewas { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; font-size: 13px; color: var(--text-3); }
+.pp-viewas > span { display: inline-flex; align-items: center; gap: 6px; }
+.pp-viewas .k-seg { max-width: 100%; overflow-x: auto; flex-wrap: nowrap; }
+
+/* Care and permissions */
+.pp-care { display: grid; gap: 12px; }
+.pp-care__row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.pp-care__row > span:first-child { min-width: 120px; font-size: 13px; font-weight: 600; color: var(--text-2); }
+.pp-p { margin: 0; font-size: 14px; color: var(--text); line-height: 1.5; overflow-wrap: anywhere; }
+.pp-actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; margin-top: 14px; }
+.lx-card > .k-sensitive, .lx-card > .k-locked { margin-bottom: 8px; }
+.pp-note { display: flex; gap: 8px; align-items: flex-start; margin: 4px 0 2px; }
+.pp-note .icon { flex: none; margin-top: 1px; color: var(--text-4); }
+.pp-linkbtn { padding: 0; font-size: 12.5px; background: none; }
+
+/* Membership lifecycle strip */
+.pp-life { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.pp-life li { display: inline-flex; align-items: center; height: 30px; padding: 0 12px; border-radius: 999px; font-size: 12.5px; font-weight: 600; color: var(--text-3); background: var(--hover); }
+.pp-life li.is-done { color: var(--ok); background: var(--ok-soft); }
+.pp-life li.is-current { color: var(--text); background: var(--hx-surface-solid); box-shadow: inset 0 0 0 2px var(--accent), var(--hx-shadow); }
+
+/* Switched-off content stays visible but inert */
+.pp-disabled { opacity: .55; pointer-events: none; filter: saturate(.4); }
+
+/* Long values inside fields never push the page wider */
+.lx-card .fields dd, .sheet__body .fields dd { min-width: 0; overflow-wrap: anywhere; }
