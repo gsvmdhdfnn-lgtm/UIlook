@@ -20,6 +20,8 @@ trying out the look and feel. It is not a second Hub.
 
 - The real product lives in `gsvmdhdfnn-lgtm/Coach-allocation-TEST`. This repo
   never changes it.
+- All data is invented for UI/UX testing: people, venues, sessions, figures and
+  organisations are fictional and do not describe any real records.
 - There is no backend, auth, Supabase, Airtable or business logic here. Data is
   mocked in `js/data.js` using product concepts (Coach, Session, Occurrence,
   Player, Parent, Attention Case), not storage field names.

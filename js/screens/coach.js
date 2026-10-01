@@ -31,7 +31,7 @@
       card('calendar', 'My schedule', 'Your sessions, roles and availability.', '#coach-schedule') + card('book', 'Library', 'Session plans, drills and resources.', '#coach-library') + card('support', 'Support', 'Locations, contacts and help from the office.', '#coach-support') + '</div>';
     if (ctx.state === 'loading') return '<div class="page lx-page">' + hello + '<span class="skeleton" style="height:280px;border-radius:24px"></span></div>';
     if (ctx.state === 'error') return '<div class="page lx-page">' + hello + ui.notice('danger', 'Couldn’t load your schedule', 'This is usually a weak connection. Check your signal and try again.', { action: ui.btn('Retry', { size: 'sm', icon: 'refresh' }) }) + '</div>';
-    if (ctx.state === 'empty') return '<div class="page lx-page">' + hello + '<div class="surface">' + ui.empty('calendar', 'Nothing on today', 'Your next session is St Peter\u2019s After School on Friday at 16:00.') + '</div>' + cards + '</div>';
+    if (ctx.state === 'empty') return '<div class="page lx-page">' + hello + '<div class="surface">' + ui.empty('calendar', 'Nothing on today', 'Your next session is Kingsmead After School on Friday at 16:00.') + '</div>' + cards + '</div>';
     return '<div class="page lx-page">' + hello + nextHero(today[0]) + cards + '</div>';
   };
 })();

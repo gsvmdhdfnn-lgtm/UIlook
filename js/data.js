@@ -17,22 +17,22 @@
   };
 
   var venues = {
-    freemens: { name: "City of London Freemen's", area: 'Ashtead, KT21', meetingPoint: 'Astro gate' },
-    therfield: { name: 'Therfield School', area: 'Leatherhead' },
-    daneshill: { name: 'Daneshill', area: 'Leatherhead' },
-    stpeters: { name: "St Peter's School", area: 'Leatherhead' }
+    northgate: { name: "Northgate Sports Centre", area: 'Westbrook', meetingPoint: 'Astro gate' },
+    hollins: { name: 'Hollins Park School', area: 'Ashby Vale' },
+    riverside: { name: 'Riverside Academy', area: 'Ashby Vale' },
+    kingsmead: { name: "Kingsmead Primary", area: 'Ashby Vale' }
   };
 
   /* Occurrences: dated instances of a Session. */
   function occ(o) { return o; }
   var occurrences = [
-    occ({ id: 'o1', session: 'Daneshill Years 5-6', programme: 'Day', ageGroup: 'Years 5-6', date: '2026-10-01', start: '15:30', end: '16:30', venue: 'daneshill', staff: [{ coach: 'tom', lead: true }], capacity: 18, players: 16, status: 'ok' }),
-    occ({ id: 'o2', session: 'U8 Development', programme: 'Evening', ageGroup: 'U8', date: '2026-10-01', start: '16:30', end: '17:30', venue: 'freemens', staff: [{ coach: 'jack', lead: true }, { coach: 'ellie' }], capacity: 14, players: 11, status: 'ok' }),
-    occ({ id: 'o3', session: 'U9/10 Development', programme: 'Evening', ageGroup: 'U9/10', date: '2026-10-01', start: '17:30', end: '18:30', venue: 'freemens', staff: [{ coach: 'david', lead: true }, { coach: 'charlie' }], capacity: 16, players: 12, status: 'ok', theme: 'Receiving to play forward' }),
-    occ({ id: 'o4', session: 'U12 Academy', programme: 'Evening', ageGroup: 'U12', date: '2026-10-01', start: '19:00', end: '20:30', venue: 'freemens', staff: [{ coach: 'david', lead: true }, { coach: 'charlie', unavailable: true }], capacity: 16, players: 14, status: 'attention', theme: 'Playing through pressure' }),
-    occ({ id: 'o5', session: 'U13/14 Development', programme: 'Evening', ageGroup: 'U13/14', date: '2026-10-02', start: '18:00', end: '19:00', venue: 'therfield', staff: [], capacity: 16, players: 15, status: 'attention' }),
-    occ({ id: 'o6', session: "St Peter's After School", programme: 'Day', ageGroup: 'Years 3-4', date: '2026-10-02', start: '16:00', end: '17:00', venue: 'stpeters', staff: [{ coach: 'david', lead: true }], capacity: 20, players: 18, status: 'ok' }),
-    occ({ id: 'o7', session: 'U12 Academy', programme: 'Evening', ageGroup: 'U12', date: '2026-10-08', start: '19:00', end: '20:30', venue: 'freemens', staff: [{ coach: 'david', lead: true }, { coach: 'charlie' }], capacity: 16, players: 14, status: 'ok' })
+    occ({ id: 'o1', session: 'Riverside Years 5-6', programme: 'Day', ageGroup: 'Years 5-6', date: '2026-10-01', start: '15:30', end: '16:30', venue: 'riverside', staff: [{ coach: 'tom', lead: true }], capacity: 18, players: 16, status: 'ok' }),
+    occ({ id: 'o2', session: 'U8 Development', programme: 'Evening', ageGroup: 'U8', date: '2026-10-01', start: '16:30', end: '17:30', venue: 'northgate', staff: [{ coach: 'jack', lead: true }, { coach: 'ellie' }], capacity: 14, players: 11, status: 'ok' }),
+    occ({ id: 'o3', session: 'U9/10 Development', programme: 'Evening', ageGroup: 'U9/10', date: '2026-10-01', start: '17:30', end: '18:30', venue: 'northgate', staff: [{ coach: 'david', lead: true }, { coach: 'charlie' }], capacity: 16, players: 12, status: 'ok', theme: 'Receiving to play forward' }),
+    occ({ id: 'o4', session: 'U12 Academy', programme: 'Evening', ageGroup: 'U12', date: '2026-10-01', start: '19:00', end: '20:30', venue: 'northgate', staff: [{ coach: 'david', lead: true }, { coach: 'charlie', unavailable: true }], capacity: 16, players: 14, status: 'attention', theme: 'Playing through pressure' }),
+    occ({ id: 'o5', session: 'U13/14 Development', programme: 'Evening', ageGroup: 'U13/14', date: '2026-10-02', start: '18:00', end: '19:00', venue: 'hollins', staff: [], capacity: 16, players: 15, status: 'attention' }),
+    occ({ id: 'o6', session: "Kingsmead After School", programme: 'Day', ageGroup: 'Years 3-4', date: '2026-10-02', start: '16:00', end: '17:00', venue: 'kingsmead', staff: [{ coach: 'david', lead: true }], capacity: 20, players: 18, status: 'ok' }),
+    occ({ id: 'o7', session: 'U12 Academy', programme: 'Evening', ageGroup: 'U12', date: '2026-10-08', start: '19:00', end: '20:30', venue: 'northgate', staff: [{ coach: 'david', lead: true }, { coach: 'charlie' }], capacity: 16, players: 14, status: 'ok' })
   ];
 
   /* Needs Attention: mirrors the needs-attention function's case contract
@@ -44,11 +44,11 @@
     generatedAt: '2026-10-01T14:05:00',
     summary: { state: 'Urgent', total: 9, counts: { Urgent: 2, Warning: 3, Normal: 4 } },
     cases: [
-      { caseKey: 'session_no_coach|occurrence:o5', ruleId: 'ATT-013', ruleName: 'Session has no coach', category: 'Staffing & Cover', severity: 'Urgent', severityReason: 'Starts within 48 hours', title: 'U13/14 Development has no coach', detail: 'Fri 2 Oct, 18:00 · Therfield School · 15 players', when: 'Starts in 28 h', actionLabel: 'Assign Staff', destination: { area: 'Schedule & Sessions' }, related: { occurrence: 'o5' } },
-      { caseKey: 'assigned_coach_unavailable|occurrence:o4|coach:charlie', ruleId: 'ATT-014', ruleName: 'Assigned coach unavailable', category: 'Staffing & Cover', severity: 'Urgent', severityReason: 'Starts within 48 hours', title: 'Charlie Hughes is unavailable for U12 Academy', detail: 'Today, 19:00 · City of London Freemen’s · marked unavailable 30 Sep', when: 'Starts in 4 h 50 m', actionLabel: 'Review Staffing', destination: { area: 'Schedule & Sessions' }, related: { occurrence: 'o4', coach: 'charlie' } },
-      { caseKey: 'learning_coach_only|occurrence:o8', ruleId: 'ATT-002', ruleName: 'Learning coach only', category: 'Staffing & Cover', severity: 'Warning', severityReason: 'Base severity', title: "St Peter's After School has only a learning coach", detail: 'Mon 5 Oct, 16:00 · St Peter’s School · Ellie Shaw', when: 'In 4 days', actionLabel: 'Review Staffing', destination: { area: 'Schedule & Sessions' } },
+      { caseKey: 'session_no_coach|occurrence:o5', ruleId: 'ATT-013', ruleName: 'Session has no coach', category: 'Staffing & Cover', severity: 'Urgent', severityReason: 'Starts within 48 hours', title: 'U13/14 Development has no coach', detail: 'Fri 2 Oct, 18:00 · Hollins Park School · 15 players', when: 'Starts in 28 h', actionLabel: 'Assign Staff', destination: { area: 'Schedule & Sessions' }, related: { occurrence: 'o5' } },
+      { caseKey: 'assigned_coach_unavailable|occurrence:o4|coach:charlie', ruleId: 'ATT-014', ruleName: 'Assigned coach unavailable', category: 'Staffing & Cover', severity: 'Urgent', severityReason: 'Starts within 48 hours', title: 'Charlie Hughes is unavailable for U12 Academy', detail: 'Today, 19:00 · Northgate Sports Centre · marked unavailable 30 Sep', when: 'Starts in 4 h 50 m', actionLabel: 'Review Staffing', destination: { area: 'Schedule & Sessions' }, related: { occurrence: 'o4', coach: 'charlie' } },
+      { caseKey: 'learning_coach_only|occurrence:o8', ruleId: 'ATT-002', ruleName: 'Learning coach only', category: 'Staffing & Cover', severity: 'Warning', severityReason: 'Base severity', title: "Kingsmead After School has only a learning coach", detail: 'Mon 5 Oct, 16:00 · Kingsmead Primary · Ellie Shaw', when: 'In 4 days', actionLabel: 'Review Staffing', destination: { area: 'Schedule & Sessions' } },
       { caseKey: 'coach_compliance_expiry|requirement:jack-dbs', ruleId: 'ATT-011', ruleName: 'Compliance expiring', category: 'Coaches & Compliance', severity: 'Warning', severityReason: 'Base severity', title: "Jack Morgan's DBS check expires in 12 days", detail: 'Expires 13 Oct 2026 · Enhanced DBS', when: 'Expires 13 Oct', actionLabel: 'Review Compliance', destination: { area: 'Coaches' } },
-      { caseKey: 'non_compliant_coach_assigned|occurrence:o9|coach:tom', ruleId: 'ATT-031', ruleName: 'Non-compliant coach assigned', category: 'Coaches & Compliance', severity: 'Warning', severityReason: 'Locked minimum: Warning', title: 'Tom Reid is assigned without a current first aid certificate', detail: 'Daneshill Years 1-2 · Mon 5 Oct, 15:30', when: 'In 4 days', actionLabel: 'Review Compliance', destination: { area: 'Coaches' } },
+      { caseKey: 'non_compliant_coach_assigned|occurrence:o9|coach:tom', ruleId: 'ATT-031', ruleName: 'Non-compliant coach assigned', category: 'Coaches & Compliance', severity: 'Warning', severityReason: 'Locked minimum: Warning', title: 'Tom Reid is assigned without a current first aid certificate', detail: 'Riverside Years 1-2 · Mon 5 Oct, 15:30', when: 'In 4 days', actionLabel: 'Review Compliance', destination: { area: 'Coaches' } },
       { caseKey: 'venue_missing|occurrence:o10', ruleId: 'ATT-018', ruleName: 'Venue missing', category: 'Sessions & Venues', severity: 'Normal', severityReason: 'Base severity', title: 'U11 Development has no venue', detail: 'Sat 10 Oct, 09:30 · 10 players', when: 'In 9 days', actionLabel: 'Assign Venue', destination: { area: 'Schedule & Sessions' } },
       { caseKey: 'cover_open|coverdate:tom-2026-10-12', ruleId: 'ATT-041', ruleName: 'Cover open', category: 'Staffing & Cover', severity: 'Normal', severityReason: 'Base severity', title: 'Cover needed while Tom Reid is on holiday', detail: '12–16 Oct · 3 sessions affected', when: 'Opened 1 day ago', actionLabel: 'Resolve Cover', destination: { area: 'Coaches' } },
       { caseKey: 'compliance_verification_pending|requirement:tom-firstaid', ruleId: 'ATT-042', ruleName: 'Verification pending', category: 'Coaches & Compliance', severity: 'Normal', severityReason: 'Base severity', title: 'First aid certificate from Tom Reid awaits verification', detail: 'Uploaded 30 Sep', when: '1 day ago', actionLabel: 'Review Compliance', destination: { area: 'Coaches' } },
@@ -80,18 +80,18 @@
     email: 'sarah.whitfield@example.com',
     children: [
       { id: 'alfie', name: 'Alfie Whitfield', ageGroup: 'U9/10', sessions: ['U9/10 Development'],
-        next: { session: 'U9/10 Development', dateLabel: 'Today', date: 'Thursday 1 October', time: '5:30pm – 6:30pm', venue: "City of London Freemen's", venueArea: 'Ashtead, KT21', coach: 'David Cole', meetingPoint: 'Astro gate' },
+        next: { session: 'U9/10 Development', dateLabel: 'Today', date: 'Thursday 1 October', time: '5:30pm – 6:30pm', venue: "Northgate Sports Centre", venueArea: 'Westbrook', coach: 'David Cole', meetingPoint: 'Astro gate' },
         feedback: { date: '20 September 2026', coach: 'David Cole', keepDoing: 'Scanning before you receive. You’re finding space early and it shows.', focus: 'Using your weaker foot to play forward under pressure.' } },
       { id: 'isla', name: 'Isla Whitfield', ageGroup: 'U8', sessions: ['U8 Development'],
-        next: { session: 'U8 Development', dateLabel: 'Today', date: 'Thursday 1 October', time: '4:30pm – 5:30pm', venue: "City of London Freemen's", venueArea: 'Ashtead, KT21', coach: 'Jack Morgan', meetingPoint: 'Astro gate' },
+        next: { session: 'U8 Development', dateLabel: 'Today', date: 'Thursday 1 October', time: '4:30pm – 5:30pm', venue: "Northgate Sports Centre", venueArea: 'Westbrook', coach: 'Jack Morgan', meetingPoint: 'Astro gate' },
         feedback: null }
     ],
     /* Upcoming sessions across every linked child, soonest first. */
     schedule: [
-      { child: 'isla', session: 'U8 Development', dow: 'Thu', day: 1, mon: 'Oct', time: '16:30', venue: "Freemen's" },
-      { child: 'alfie', session: 'U9/10 Development', dow: 'Thu', day: 1, mon: 'Oct', time: '17:30', venue: "Freemen's" },
-      { child: 'isla', session: 'U8 Development', dow: 'Thu', day: 8, mon: 'Oct', time: '16:30', venue: "Freemen's" },
-      { child: 'alfie', session: 'U9/10 Development', dow: 'Thu', day: 8, mon: 'Oct', time: '17:30', venue: "Freemen's" }
+      { child: 'isla', session: 'U8 Development', dow: 'Thu', day: 1, mon: 'Oct', time: '16:30', venue: "Northgate" },
+      { child: 'alfie', session: 'U9/10 Development', dow: 'Thu', day: 1, mon: 'Oct', time: '17:30', venue: "Northgate" },
+      { child: 'isla', session: 'U8 Development', dow: 'Thu', day: 8, mon: 'Oct', time: '16:30', venue: "Northgate" },
+      { child: 'alfie', session: 'U9/10 Development', dow: 'Thu', day: 8, mon: 'Oct', time: '17:30', venue: "Northgate" }
     ],
     updates: [
       { title: 'Tonight’s sessions are on the back astro', body: 'The front pitch is being resurfaced. Please use the sports hall car park and meet at the astro gate.', meta: 'From the office · today, 11:20' }
@@ -99,22 +99,21 @@
   };
 
 
-  /* Finance overview: example figures from the Finance design pack,
-     shown as mock data only. */
+  /* Finance overview: invented figures, mock data only. */
   var finance = {
     period: 'September 2026', basis: 'Actual only · revenue shown net of VAT',
-    kpis: [['Revenue', '£41,860'], ['Direct costs', '£13,420'], ['Overheads', '£17,930'], ['Profit', '£10,510']],
+    kpis: [['Revenue', '£28,450'], ['Direct costs', '£9,180'], ['Overheads', '£11,620'], ['Profit', '£7,650']],
     attention: [
-      { tone: 'danger', tag: 'Overdue', title: 'Parkside invoice', meta: '£1,296 · 4 days overdue', action: 'Open' },
-      { tone: 'warn', tag: 'Due today', title: 'Coach payments', meta: 'September work · £6,840', action: 'Review' },
-      { tone: 'warn', tag: 'Review', title: 'VAT estimate', meta: '£8,000 · due in 3 days', action: 'Review' }
+      { tone: 'danger', tag: 'Overdue', title: 'Harbour Lane invoice', meta: '£940 · 4 days overdue', action: 'Open' },
+      { tone: 'warn', tag: 'Due today', title: 'Coach payments', meta: 'September work · £4,720', action: 'Review' },
+      { tone: 'warn', tag: 'Review', title: 'VAT estimate', meta: '£5,300 · due in 3 days', action: 'Review' }
     ],
     upcoming: [
-      { when: '7 Oct', title: 'Coach payments', meta: 'September work', amount: '£6,840' },
-      { when: '10 Oct', title: 'VAT', meta: 'Estimated until reviewed', amount: '£8,000' },
-      { when: '15 Oct', title: "Freemen's", meta: 'Venue instalment', amount: '£2,000' }
+      { when: '7 Oct', title: 'Coach payments', meta: 'September work', amount: '£4,720' },
+      { when: '10 Oct', title: 'VAT', meta: 'Estimated until reviewed', amount: '£5,300' },
+      { when: '15 Oct', title: "Northgate", meta: 'Venue instalment', amount: '£1,450' }
     ],
-    cash: [['Current cash', '£19,250', ''], ['Lowest next 30 days', '£6,920', ''], ['Safety threshold', '£5,000', 'Currently above threshold']]
+    cash: [['Current cash', '£14,800', ''], ['Lowest next 30 days', '£5,260', ''], ['Safety threshold', '£4,000', 'Currently above threshold']]
   };
 
   /* People: staff list canvas (visual language for staff/client rows). */
