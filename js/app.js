@@ -102,7 +102,25 @@
       '<button type="button" class="icon-btn" data-action="soon" aria-label="Notifications">' + I('bell') + '<span class="dot"></span></button></div>';
   }
 
+  /* Josh Evans: the Hub's own shell (Coach-allocation-TEST, read only as
+     a reference): white header with a lime rule, the JE logo over a hub
+     label, a hub switch, and an Anton pill nav beneath. */
+  function jeHeader() {
+    var who = S.area === 'client' ? D.parent.name : D.me.name;
+    var mode = { management: 'Management Hub', staff: 'Coach Hub', client: 'Parent / Player Hub' }[S.area];
+    var sw = S.role === 'management' && S.area !== 'client' ? (S.area === 'management'
+      ? '<button type="button" class="je-switch" data-action="area" data-area="staff">' + I('chevron', 'icon-sm flip') + 'Coach Hub</button>'
+      : '<button type="button" class="je-switch je-switch--primary" data-action="area" data-area="management">Management Hub</button>') : '';
+    return '<header class="je-top"><a class="je-brand" href="#' + HOME[S.area] + '" aria-label="Josh Evans home"><img src="assets/je-logo.png" alt="Josh Evans Soccer School"><span class="je-brand__mode">' + mode + '</span></a>' +
+      '<span class="topbar__spacer"></span>' + sw + '<button type="button" class="je-me" data-action="profile" aria-label="Account">' + ui.avatar(who, '') + '</button></header>' +
+      '<nav class="je-nav" aria-label="Main">' + NAV(S.area).map(function (n) {
+        var cur = isCurrent(n.id);
+        return '<a class="je-pill' + (cur ? ' is-active' : '') + '" href="#' + n.id + '"' + (cur ? ' aria-current="page"' : '') + '>' + esc(n.label) + (n.bubble ? '<span class="je-pill__n">' + D.attention.summary.counts.Urgent + '</span>' : '') + '</a>';
+      }).join('') + '</nav>';
+  }
+
   function topbar() {
+    if (S.brand === 'joshevans') return jeHeader();
     var who = S.area === 'client' ? D.parent.name : D.me.name;
     return '<header class="topbar">' +
       '<a class="org" href="#' + HOME[S.area] + '">' + Hub.orgMark() + '<span class="org__name">' + esc(Hub.brand.orgName) + '<span class="org__sub">' + esc(areaLabel(S.area)) + '</span></span></a>' +
@@ -161,20 +179,22 @@
   Hub.state = S;
   Hub.render = function () {
     var root = document.documentElement;
-    if (S.theme === 'auto') root.removeAttribute('data-theme'); else root.setAttribute('data-theme', S.theme);
+    /* The Josh Evans Hub is light only, so its brand ignores the theme switch. */
+    var theme = S.brand === 'joshevans' ? 'light' : S.theme;
+    if (theme === 'auto') root.removeAttribute('data-theme'); else root.setAttribute('data-theme', theme);
     Hub.applyBrand(S.brand);
     var app = document.getElementById('app');
     app.dataset.area = S.area;
     app.dataset.brand = S.brand;
     var pal = S.palette === 'area' ? AREA_PALETTE[S.area] : S.palette;
-    if (pal && pal !== 'original') app.dataset.palette = pal; else delete app.dataset.palette;
+    if (pal && pal !== 'original' && S.brand !== 'joshevans') app.dataset.palette = pal; else delete app.dataset.palette;
     var screen = Hub.screens[S.route];
     Hub.crumbTail = null;
     var content = screen && BUILT[S.route] ? screen({ state: S.state }) : placeholder();
     var animate = Hub.animateSection; Hub.animateSection = false;
     app.innerHTML = protoBar() +
-      '<div class="frame">' + (S.area === 'management' ? sidebar() : '') +
-      '<div class="main">' + topbar() + (S.area === 'management' ? canvasBar() : '') + '<main id="main" tabindex="-1">' + content + '</main></div></div>' +
+      '<div class="frame">' + (S.area === 'management' && S.brand !== 'joshevans' ? sidebar() : '') +
+      '<div class="main">' + topbar() + (S.area === 'management' && S.brand !== 'joshevans' ? canvasBar() : '') + '<main id="main" tabindex="-1">' + content + '</main></div></div>' +
       '<nav class="tabbar" data-glide="bar-' + S.area + '" aria-label="Main">' + tabLinks(S.area, 'tab') + '</nav>';
     if (animate) { var sec = app.querySelector('.lx-body') || app.querySelector('.ws + .page'); if (sec) sec.classList.add(Hub.sectionDir < 0 ? 'enter-left' : 'enter-right'); }
     placePucks(app);

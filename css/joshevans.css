@@ -1,0 +1,181 @@
+/* =====================================================================
+   Josh Evans brand: follows the live Hub's UI (gsvmdhdfnn-lgtm/
+   Coach-allocation-TEST, styles.css, read only as a reference).
+   Navy #062A59 · Blue #1187EE · Lime #C8ED21 · Cream #F0F0C8
+   Ground #F4F7FB · Lines #E7EDF5 · Ink #102B53 · Muted #728198
+   Anton for headings and navigation, Inter for everything else.
+   White header with a lime rule, Anton pill nav, white bordered cards,
+   blue gradient feature cards with a lime ring, lime primary buttons.
+   Light only, like the Hub. Page structure stays the design pack's.
+   ===================================================================== */
+.app[data-brand="joshevans"] {
+  --je-navy: #062a59; --je-navy-2: #0b3e78; --je-blue: #1187ee; --je-lime: #c8ed21; --je-cream: #f0f0c8;
+  --je-ink: #102b53; --je-muted: #728198; --je-line: #e7edf5; --je-bg: #f4f7fb;
+  --je-feature: linear-gradient(135deg, #0a3f7a 0%, #0c579c 60%, #0e6cb5 100%);
+  --je-anton: Anton, "Oswald", "Arial Narrow", sans-serif;
+
+  --ground: var(--je-bg); --canvas: #fff; --band: #fff; --raised: #fff; --selected: #fff;
+  --hover: #eef4fa; --press: #e4edf7; --line: var(--je-line); --line-soft: #edf1f5; --line-strong: #d8e5f2;
+  --text: var(--je-ink); --text-2: #3c5170; --text-3: var(--je-muted); --text-4: #a7b3c4;
+  --porcelain: var(--je-bg); --porcelain-image: none;
+  --hx-surface: #fff; --hx-surface-solid: #fff; --hx-rail: #fff; --hx-edge: var(--je-line); --hx-row-hover: #f4f8fc;
+  --hx-shadow: 0 0 0 1px var(--je-line), 0 5px 18px rgba(6, 42, 89, .045);
+  --hx-shadow-hover: 0 0 0 1px #dbe5f1, 0 8px 28px rgba(10, 43, 84, .08);
+  --spine-image: var(--je-feature); --spine-text: #fff; --spine-text-2: rgba(255, 255, 255, .82); --spine-text-3: rgba(255, 255, 255, .66);
+  --shell-solid: var(--je-blue); --shell-active-icon: var(--je-lime); --tab-bar: var(--je-lime);
+  background: var(--je-bg); color: var(--je-ink); min-height: 100dvh;
+}
+.app[data-brand="joshevans"] .frame { background: var(--je-bg) !important; display: block; }
+.app[data-brand="joshevans"] .main { background: transparent; }
+.app[data-brand="joshevans"] .main::before, .app[data-brand="joshevans"] .hx__backdrop { display: none !important; }
+.app[data-brand="joshevans"] .tabbar { display: none !important; }
+
+/* ---------- Header: white, lime rule, logo + hub label ---------- */
+.je-top {
+  position: sticky; top: 0; z-index: 30; height: 72px; padding: 10px 16px; display: flex; align-items: center; gap: 10px;
+  background: rgba(255, 255, 255, .96); border-bottom: 3px solid var(--je-lime); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
+}
+.je-brand { display: flex; align-items: center; gap: 12px; text-decoration: none; min-width: 0; }
+.je-brand img { height: 54px; width: auto; display: block; object-fit: contain; }
+.je-brand__mode { font-size: 10px; font-weight: 900; letter-spacing: .14em; text-transform: uppercase; color: var(--je-blue); padding-left: 12px; border-left: 1px solid var(--je-line); white-space: nowrap; }
+.je-switch {
+  display: inline-flex; align-items: center; gap: 4px; min-height: 40px; padding: 0 14px; border-radius: 999px; white-space: nowrap;
+  border: 1px solid #dfe7f1; background: #fff; color: var(--je-navy); font-size: 12px; font-weight: 800; box-shadow: 0 3px 10px rgba(6, 42, 89, .05); transition: .15s ease;
+}
+.je-switch:hover { border-color: #c9d8ea; }
+.je-switch--primary { background: var(--je-navy); border-color: var(--je-navy); color: #fff; }
+.je-switch--primary:hover { background: var(--je-navy-2); }
+.je-me { width: 42px; height: 42px; border-radius: 50%; border: 1px solid #dfe7f1; background: #fff; display: grid; place-items: center; box-shadow: 0 3px 10px rgba(6, 42, 89, .05); }
+.je-me .avatar { --size: 32px; }
+
+/* ---------- Pill nav: Anton, uppercase, blue active ---------- */
+.je-nav {
+  position: sticky; top: 75px; z-index: 29; display: flex; gap: 4px; max-width: 640px; margin: 8px auto 0; padding: 5px;
+  background: #fff; border: 1px solid var(--je-line); border-radius: 16px; box-shadow: 0 4px 14px rgba(6, 42, 89, .05); overflow-x: auto; scrollbar-width: none;
+}
+.app[data-area="management"] .je-nav { max-width: 360px; }
+.je-nav::-webkit-scrollbar { display: none; }
+.je-pill {
+  flex: 1; display: flex; align-items: center; justify-content: center; gap: 7px; min-height: 46px; padding: 12px 8px; border-radius: 12px;
+  color: #6c7c94; font-family: var(--je-anton); text-transform: uppercase; letter-spacing: .02em; font-size: 13px; white-space: nowrap; text-decoration: none; transition: .15s ease;
+}
+.je-pill:hover { color: var(--je-navy); background: #f4f8fc; }
+.je-pill.is-active { background: var(--je-blue); color: #fff; box-shadow: 0 4px 12px rgba(17, 135, 238, .22); }
+.je-pill__n { min-width: 18px; height: 18px; padding: 0 5px; display: inline-grid; place-items: center; border-radius: 999px; font: 800 10px/1 Inter, sans-serif; background: #d94b5c; color: #fff; }
+.je-pill.is-active .je-pill__n { background: #fff; color: #b2382c; }
+@media (min-width: 760px) {
+  .je-top { height: 78px; padding: 12px 24px; }
+  .je-nav { top: 82px; margin-top: 10px; padding: 6px; }
+  .je-pill { font-size: 14px; padding: 13px 18px; }
+}
+@media (max-width: 520px) {
+  .je-top { height: 68px; padding: 10px 12px; }
+  .je-brand img { height: 40px; }
+  .je-brand__mode { display: none; }
+  .je-switch { min-height: 38px; padding: 0 11px; font-size: 11px; }
+  .je-nav { top: 71px; margin: 8px 10px 0; }
+}
+
+/* ---------- Content width, as the Hub's screen root ---------- */
+.app[data-brand="joshevans"] .lx, .app[data-brand="joshevans"] .hm, .app[data-brand="joshevans"] .lx-page { max-width: 1180px; margin-left: auto; margin-right: auto; }
+.app[data-brand="joshevans"] .hx { margin-top: 0; padding-top: 0; }
+.app[data-brand="joshevans"] .hm { padding-top: 18px; }
+.app[data-brand="joshevans"] .lx { padding-top: 22px; }
+.app[data-brand="joshevans"] .page.lx-page { padding-top: 22px; }
+
+/* ---------- Type: Anton headings, blue eyebrows ---------- */
+.app[data-brand="joshevans"] .hm-hello__title, .app[data-brand="joshevans"] .lx-hello__title, .app[data-brand="joshevans"] .lx-title {
+  font-family: var(--je-anton) !important; font-weight: 400 !important; letter-spacing: -.005em !important; color: var(--je-navy) !important; line-height: 1.05 !important;
+}
+.app[data-brand="joshevans"] .hm-hello__title, .app[data-brand="joshevans"] .lx-hello__title { font-size: 34px !important; }
+.app[data-brand="joshevans"] .lx-title { font-size: 32px !important; }
+.app[data-brand="joshevans"] .lx-section__head h2, .app[data-brand="joshevans"] .lx-group__title, .app[data-brand="joshevans"] .section-title,
+.app[data-brand="joshevans"] .hx-card:not(.hx-card--rail) > .hx-card__head h2 {
+  font-family: var(--je-anton) !important; font-weight: 400 !important; font-size: 20px !important; letter-spacing: .015em !important; color: var(--je-navy) !important;
+}
+.app[data-brand="joshevans"] .hx-card--rail .hx-card__head h2, .app[data-brand="joshevans"] .lx-card__head h2,
+.app[data-brand="joshevans"] .lx-area__title, .app[data-brand="joshevans"] .lx-issue h3, .app[data-brand="joshevans"] .lx-person__text b,
+.app[data-brand="joshevans"] .lx-tile b, .app[data-brand="joshevans"] .lx-dated__main b, .app[data-brand="joshevans"] .lx-sess__main b,
+.app[data-brand="joshevans"] .hx-sched__main b, .app[data-brand="joshevans"] .hx-attn__main b, .app[data-brand="joshevans"] .lx-row__main b { color: var(--je-navy); font-weight: 800; }
+.app[data-brand="joshevans"] .hm-hello__date, .app[data-brand="joshevans"] .lx-eyebrow, .app[data-brand="joshevans"] .lx-stat__label,
+.app[data-brand="joshevans"] .lx-next__k, .app[data-brand="joshevans"] .lx-band span {
+  color: var(--je-blue); font-size: 10.5px; font-weight: 900; letter-spacing: .16em;
+}
+.app[data-brand="joshevans"] .lx-next__k, .app[data-brand="joshevans"] .lx-band span { color: rgba(255, 255, 255, .78); }
+.app[data-brand="joshevans"] .lx-stat--feature .lx-stat__label { color: rgba(255, 255, 255, .78); }
+.app[data-brand="joshevans"] .hm-hello__lede, .app[data-brand="joshevans"] .lx-sub { color: var(--je-muted); }
+.app[data-brand="joshevans"] .lx-stat__value, .app[data-brand="joshevans"] .lx-area__value b { font-family: var(--je-anton); font-weight: 400; letter-spacing: .005em; color: var(--je-navy); }
+.app[data-brand="joshevans"] .lx-stat--feature .lx-stat__value { color: #fff; }
+.app[data-brand="joshevans"] .lx-band b { font-family: var(--je-anton); font-weight: 400; letter-spacing: .01em; }
+
+/* Hero band behind page heads, as the Hub's .hero */
+.app[data-brand="joshevans"] .hm-hello, .app[data-brand="joshevans"] .lx-head, .app[data-brand="joshevans"] .lx-hello { position: relative; }
+
+/* ---------- Cards and rows ---------- */
+.app[data-brand="joshevans"] .hx-card, .app[data-brand="joshevans"] .lx-card, .app[data-brand="joshevans"] .lx-surface, .app[data-brand="joshevans"] .zone-inset,
+.app[data-brand="joshevans"] .lx-day, .app[data-brand="joshevans"] .lx-issue, .app[data-brand="joshevans"] .lx-person { border-radius: 16px; }
+.app[data-brand="joshevans"] .hx-card--rail { background: #fff; box-shadow: var(--hx-shadow); }
+.app[data-brand="joshevans"] .hx-sched__bar.hx-tone--ok { background: var(--je-lime); }
+.app[data-brand="joshevans"] .lx-sess::before { background: var(--je-lime); }
+.app[data-brand="joshevans"] .lx-sess.is-risk::before { background: var(--warn); }
+.app[data-brand="joshevans"] .lx-sess__fill i::after { background: var(--je-blue); }
+.app[data-brand="joshevans"] .lx-area__icon, .app[data-brand="joshevans"] .lx-tile__icon, .app[data-brand="joshevans"] .lx-date {
+  background: #edf6ff !important; color: var(--je-blue) !important;
+}
+.app[data-brand="joshevans"] .lx-date b, .app[data-brand="joshevans"] .lx-date small { color: var(--je-navy); }
+.app[data-brand="joshevans"] .lx-dated__who { color: var(--je-blue) !important; }
+.app[data-brand="joshevans"] .hx-link, .app[data-brand="joshevans"] .lx-area__cta, .app[data-brand="joshevans"] .lx-action__go, .app[data-brand="joshevans"] .lx-back {
+  color: var(--je-blue); font-weight: 800;
+}
+.app[data-brand="joshevans"] .lx-action__dot { background: var(--je-blue); box-shadow: 0 0 0 4px rgba(17, 135, 238, .14); }
+.app[data-brand="joshevans"] .hx-week__day.is-today, .app[data-brand="joshevans"] .hm__rail .hx-week__day.is-today { background: var(--je-blue) !important; box-shadow: 0 4px 12px rgba(17, 135, 238, .22); }
+.app[data-brand="joshevans"] .hm-sev__i { background: #eef4fa; }
+
+/* ---------- Feature cards: blue gradient with a lime ring ---------- */
+.app[data-brand="joshevans"] .lx-next, .app[data-brand="joshevans"] .lx-feature, .app[data-brand="joshevans"] .lx-band, .app[data-brand="joshevans"] .lx-stat--feature {
+  background: var(--je-feature) !important; color: #fff; border: 1px solid rgba(255, 255, 255, .12); box-shadow: 0 18px 50px rgba(5, 37, 78, .16) !important;
+}
+.app[data-brand="joshevans"] .lx-next::before, .app[data-brand="joshevans"] .lx-feature::after {
+  width: 180px; height: 180px; right: -30px; bottom: -60px; top: auto; background: none; opacity: 1;
+  border: 28px solid rgba(200, 237, 33, .13); border-radius: 50%;
+}
+.app[data-brand="joshevans"] .lx-next::after { display: none; }
+.app[data-brand="joshevans"] .lx-next__title { font-family: var(--je-anton); font-weight: 400; text-transform: uppercase; letter-spacing: .01em; font-size: 26px; color: #fff; }
+.app[data-brand="joshevans"] .lx-feature h2 { font-family: var(--je-anton); font-weight: 400; letter-spacing: .015em; font-size: 22px; }
+.app[data-brand="joshevans"] .lx-next__eta { color: var(--je-lime); }
+.app[data-brand="joshevans"] .lx-next__facts { background: rgba(255, 255, 255, .08); }
+.app[data-brand="joshevans"] .lx-next__facts dt { color: rgba(255, 255, 255, .7); }
+.app[data-brand="joshevans"] .lx-next__pills span { border-color: rgba(255, 255, 255, .4); }
+.app[data-brand="joshevans"] .lx-feature__facts .is-alert, .app[data-brand="joshevans"] .lx-feature__facts .is-alert b { color: var(--je-cream); }
+
+/* ---------- Buttons: lime primary, white secondary with blue text ---------- */
+.app[data-brand="joshevans"] .btn--primary, .app[data-brand="joshevans"] .lx-next__btn, .app[data-brand="joshevans"] .lx-feature__btn, .app[data-brand="joshevans"] .lx-hero__btn {
+  background: var(--je-lime) !important; color: var(--je-navy) !important; font-weight: 800; border-radius: 12px; box-shadow: none !important;
+}
+.app[data-brand="joshevans"] .btn--primary:hover, .app[data-brand="joshevans"] .lx-next__btn:hover, .app[data-brand="joshevans"] .lx-feature__btn:hover { filter: brightness(.96); }
+.app[data-brand="joshevans"] .btn--secondary, .app[data-brand="joshevans"] .btn--tertiary, .app[data-brand="joshevans"] .lx-row .btn,
+.app[data-brand="joshevans"] .lx-issue__act .btn--primary {
+  background: #fff !important; color: var(--je-blue) !important; box-shadow: inset 0 0 0 1px #d8e5f2 !important; font-weight: 800;
+}
+.app[data-brand="joshevans"] .lx-issue--urgent .lx-issue__act .btn--primary { background: var(--je-navy) !important; color: #fff !important; box-shadow: none !important; }
+.app[data-brand="joshevans"] .lx-next__ghost { border-radius: 12px; color: #fff; box-shadow: inset 0 0 0 2px rgba(240, 240, 200, .7); background: transparent; }
+
+/* ---------- In-page tabs: navy filled active, as the design pack ---------- */
+.app[data-brand="joshevans"] .lx-tabs.glide, .app[data-brand="joshevans"] .lx-filterbar .glide { background: #fff; box-shadow: inset 0 0 0 1px var(--je-line); }
+.app[data-brand="joshevans"] .lx-tabs .glide__puck { background: var(--je-navy); box-shadow: 0 4px 12px rgba(6, 42, 89, .22); }
+.app[data-brand="joshevans"] .lx-tabs .glide__puck::after { display: none; }
+.app[data-brand="joshevans"] .lx-tabs .glide__tab { padding-left: 18px; }
+.app[data-brand="joshevans"] .lx-tabs .glide__tab[aria-selected="true"] .glide__label { color: #fff; }
+.app[data-brand="joshevans"] .lx-tabs .glide__tab[aria-selected="true"] .glide__meta, .app[data-brand="joshevans"] .lx-tabs .glide__tab[aria-selected="true"] .glide__meta .is-alert { color: rgba(255, 255, 255, .78); }
+.app[data-brand="joshevans"] .lx-tabs .glide__label { color: var(--je-navy); font-weight: 800; }
+
+/* Drawers and toasts in Hub tones */
+.app[data-brand="joshevans"] ~ .sheet .sheet__scrim { background: rgba(3, 22, 46, .45); }
+.app[data-brand="joshevans"] ~ .toast { background: #0b2b54; }
+
+@media (max-width: 899px) {
+  .app[data-brand="joshevans"] .hm { padding-top: 14px; }
+  .app[data-brand="joshevans"] .hm-hello__title, .app[data-brand="joshevans"] .lx-hello__title { font-size: 30px !important; }
+  .app[data-brand="joshevans"] .lx-title { font-size: 28px !important; }
+  .app[data-brand="joshevans"] .main { padding-bottom: 24px; }
+}

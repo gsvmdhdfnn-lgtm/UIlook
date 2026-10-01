@@ -24,6 +24,7 @@
       mark: 'assets/je-mark.png',
       identity: '#062a59',
       accent: '#1187ee',
+      fill: '#c8ed21', onFill: '#062a59',   /* the Hub's lime primary with navy ink */
       terms: { staff: 'Coach', client: 'Parent' }
     }
   };

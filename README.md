@@ -4,6 +4,7 @@ A visual-design prototype for Relvor, the operations platform (Josh Evans is
 one example organisation using it). It is a static, mock-data front end for
 trying out the look and feel. It is not a second Hub.
 
+- **Josh Evans brand = live Hub design:** `docs/JOSH-EVANS-THEME.md`, `docs/screenshots/joshevans/`. Switch Brand to Josh Evans in the prototype bar.
 - **Pass 11, hierarchy and focus (current):** `docs/VISUAL-PASS-11.md`, `docs/screenshots/pass-11/`.
 - **Pass 10, Relvor brand system:** `docs/VISUAL-PASS-10.md`, `docs/screenshots/pass-10/`. Inter, obsidian/porcelain/amber, compact proportions, working-panel Home.
 - **Pass 9, design-pack layout:** `docs/VISUAL-PASS-9.md`, `docs/screenshots/pass-9/`. Home and More navigation, pack page structures, Relvor finish.
@@ -57,7 +58,8 @@ css/atelier.css     pass 6: spine, inset panel, glide rail, serif chapters, glas
 css/home.css        pass 7: floating sidebar shell and the Management Home composition
 css/reference.css   pass 8: the Home style applied to every area (type, tabs, surfaces, shell)
 css/layout.css      pass 9: design-pack page structures (heroes, area cards, issue cards, directory, tiles)
-css/palettes.css    palette experiment: Slate, Forest and Plum schemes
+css/palettes.css    palette experiment
+css/joshevans.css   Josh Evans brand, following the live Hub's UI (Coach-allocation-TEST, read only): Slate, Forest and Plum schemes
 js/brand.js         branding boundary (name, mark, accent, terms; accent clamped for contrast)
 js/icons.js         stroke icon set
 js/ui.js            component helpers (one per pattern)
