@@ -10,7 +10,7 @@
       summary: 'Northgate School, September',
       steps: [
         { role: 'management', route: 'mgmt-fin-drafts', title: 'Find the draft', text: 'September for Northgate School is still a draft. Open it.' },
-        { role: 'management', route: 'mgmt-fin-draft/DRF-01', title: 'Check the lines', text: 'Each line comes from a delivered occurrence and the client’s terms. Add the purchase order number Northgate needs, then mark it ready.' },
+        { role: 'management', route: 'mgmt-fin-draft/DRF-01', title: 'Check the lines', text: 'Each line comes from a delivered session and the client’s terms. Add the purchase order number Northgate needs, then mark it ready.' },
         { role: 'management', route: 'mgmt-fin-draft/DRF-01', title: 'Issue it', text: 'Issue the invoice. It gets the next number and is frozen from then on: corrections go through a credit note or a replacement invoice.' },
         { role: 'management', route: 'mgmt-fin-invoices', title: 'See it issued', text: 'The new invoice sits at the top with Issued · frozen. Open it to send it, record a payment or raise a credit note.' },
         { role: 'management', route: 'mgmt-fin-invoice/INV-0011', title: 'A late one, for comparison', text: 'Harbour Lane’s £1,296.00 invoice is overdue. Its due date moved from 16 to 26 Sep, with who changed it and when.' },
@@ -36,21 +36,24 @@
       summary: 'Tom Reid is away 12–15 Oct',
       steps: [
         { role: 'staff', coachRole: 'coach', route: 'coach-availability', title: 'The coach marks a holiday', text: 'A coach marks the dates they are away. Sessions they lead on those dates need cover.' },
-        { role: 'management', route: 'mgmt-attention', title: 'It shows in Needs Attention', text: 'Each affected occurrence raises a cover case, which grows more urgent as the date gets closer.' },
+        { role: 'management', route: 'mgmt-attention', title: 'It shows in Needs Attention', text: 'Each affected session raises a cover case, which grows more urgent as the date gets closer.' },
         { role: 'management', route: 'mgmt-cover', title: 'Cover board', text: 'Open cover across the next weeks, with who has been offered each one.' },
-        { role: 'management', route: 'mgmt-cover-request/CVR-01', title: 'Offer the cover', text: 'Choose a compliant, available coach for each occurrence and offer it. Accepted cover updates the occurrence’s staff.' },
+        { role: 'management', route: 'mgmt-cover-request/CVR-01', title: 'Offer the cover', text: 'Choose a compliant, available coach for each session and offer it. Accepted cover updates the session’s staff.' },
         { role: 'staff', coachRole: 'lead', route: 'coach-cover', title: 'The covering coach accepts', text: 'Coaches answer offers from their hub. Here Charlie (lead coach) has been offered Friday’s U13/14 session: accept or decline it.' },
-        { role: 'management', route: 'mgmt-occurrences', title: 'Staffed again', text: 'Once accepted, the occurrences show the covering coach and the case clears.' }
+        { role: 'management', route: 'mgmt-occurrences', title: 'Staffed again', text: 'Once accepted, the sessions show the covering coach and the case clears.' }
       ]
     },
     family: {
       title: 'New family joins',
       icon: 'players',
-      summary: 'From the public site to Parent home',
+      summary: 'Browse, choose, then sign up: through to Parent home',
       steps: [
-        { role: 'public', route: 'pub-offers', title: 'Find a session', text: 'A parent finds what they want on the public site.' },
-        { role: 'public', route: 'pub-register', title: 'Create an account', text: 'They register with their email and add their child.' },
-        { role: 'public', route: 'pub-check-email', title: 'Confirm the email', text: 'They confirm their email address before anything else happens.' },
+        { role: 'public', route: 'pub-offer/trials', title: 'Browse and choose', text: 'A parent browses sessions without an account. Each one shows its action: Book now, Book free session, Request a trial, Join waitlist or Register interest. Choose Book free session.' },
+        { role: 'public', route: 'pub-register', title: 'Create an account', text: 'Only now do they create an account. The session they chose stays at the top of every step.', before: function () { if (!Hub.db.getPubIntent()) Hub.db.setPubIntent('trials', 0); } },
+        { role: 'public', route: 'pub-check-email', title: 'Confirm the email', text: 'They confirm their email address. The steps end with the action they chose.', before: function () { if (!Hub.db.getPubIntent()) Hub.db.setPubIntent('trials', 0); } },
+        { role: 'public', route: 'pub-parent-signup', title: 'Add their child', text: 'They add their child (try an example), then Continue: Book free session.', before: function () { if (!Hub.db.getPubIntent()) Hub.db.setPubIntent('trials', 0); } },
+        { role: 'public', route: 'pub-request', title: 'Finish the booking', text: 'They pick a date for the free session. No payment is taken.', before: function () { if (!Hub.db.getPubIntent()) Hub.db.setPubIntent('trials', 0); } },
+        { role: 'management', route: 'mgmt-trial-leads', title: 'The office sees it', text: 'The request arrives in Trial interest with what was asked for and the date chosen.' },
         { role: 'management', route: 'mgmt-approvals', title: 'Management approves', text: 'New sign-ups and parent claims wait here. A partial match to an existing child is marked Needs review.' },
         { role: 'management', route: 'mgmt-parent-claims', title: 'Check the match', text: 'Compare what the parent entered with the child we hold before linking them.' },
         { role: 'management', route: 'mgmt-families', title: 'The family exists', text: 'The family, its parents and players are now linked, with who verified them and when.' },
@@ -62,7 +65,7 @@
       icon: 'calendar',
       summary: 'U9/10 Development on Thu 8 Oct',
       steps: [
-        { role: 'management', route: 'mgmt-occurrence/OCC-0042', title: 'Open the occurrence', text: 'Thu 8 Oct, U9/10 Development. Cancel it with a reason.' },
+        { role: 'management', route: 'mgmt-occurrence/OCC-0042', title: 'Open the session', text: 'Thu 8 Oct, U9/10 Development. Cancel it with a reason.' },
         { role: 'management', route: 'mgmt-occurrence-outcome/OCC-0042', title: 'Decide the outcome', text: 'Choose what families get (credit or refund), what the venue owes and whether coaches are paid.' },
         { role: 'management', route: 'mgmt-occurrence-outcome/OCC-0019', title: 'A past example', text: 'The 17 Sep cancellation gave each family a £21.75 credit, with who decided and when.' },
         { role: 'client', route: 'parent-sessions', title: 'What the parent sees', text: 'The cancelled session shows with the credit it created.' },

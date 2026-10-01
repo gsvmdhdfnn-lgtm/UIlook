@@ -15,6 +15,7 @@
   K.route('pub-check-email', { title: 'Check your email', nav: 'pub-signin' });
   K.route('pub-waiting', { title: 'Waiting for approval', nav: 'pub-signin' });
   K.route('pub-parent-signup', { title: 'Find your child', nav: 'pub-signin' });
+  K.route('pub-request', { title: 'Finish your request', nav: 'pub-offers' });
   K.route('mgmt-approvals', { title: 'Approvals', parent: 'more' });
   K.route('mgmt-coach-signups', { title: 'Coach sign-ups', parent: 'more' });
   K.route('mgmt-trial-coaches', { title: 'Trial coaches', parent: 'more' });
@@ -27,13 +28,43 @@
     if (r.price === 0) return '<b>Free</b><small>' + esc(r.period) + '</small>';
     return '<b class="num">' + K.money(r.price) + '</b><small>' + esc(r.period) + '</small>';
   }
-  function offerRows(rows) {
+  /* Each row shows the action that matches how it is taken up (see
+     D.bookingActions); school-booked rows have no action. */
+  function rowAction(r, offerId) {
+    if (!r.action) return '';
+    var primary = r.booking === 'book' || r.booking === 'free';
+    return K.actBtn(r.action, 'pub-choose', { offer: offerId, i: r.index }, { variant: primary ? 'primary' : 'secondary', size: 'sm' });
+  }
+  function offerRows(rows, offerId) {
     return '<div class="pub-rows" role="list">' + rows.map(function (r) {
-      return '<div class="pub-row" role="listitem"><div class="pub-row__who"><b>' + esc(r.name || r.who) + '</b>' + (r.name ? '<small>' + esc(r.who) + '</small>' : '') + '</div>' +
+      return '<div class="pub-row' + (offerId ? ' pub-row--act' : '') + '" role="listitem"><div class="pub-row__who"><b>' + esc(r.name || r.who) + '</b>' + (r.name ? '<small>' + esc(r.who) + '</small>' : '') + (r.booking === 'waitlist' ? K.pill(r.note || 'Full', 'warn') : '') + '</div>' +
         '<div class="pub-row__meta"><span>' + I('clock', 'icon-sm') + esc(r.when) + '</span><span>' + I('pin', 'icon-sm') + esc(r.venue) + '</span></div>' +
-        '<div class="pub-row__price">' + priceText(r) + '</div></div>';
+        '<div class="pub-row__price">' + priceText(r) + '</div>' + (offerId ? '<div class="pub-row__act">' + rowAction(r, offerId) + '</div>' : '') + '</div>';
     }).join('') + '</div>';
   }
+  /* The programme the visitor chose, carried through sign-in and sign-up */
+  function intentCard(o) {
+    var t = db.getPubIntent(); o = o || {};
+    if (!t || t.booking === 'interest') return '';
+    return '<div class="pub-intent" role="region" aria-label="Your selection"><div class="pub-intent__k">' + K.pill(t.action, 'info') + '<span>' + esc(t.offerTitle) + '</span></div>' +
+      '<b class="pub-intent__name">' + esc(t.name || t.who) + '</b><span class="pub-intent__meta">' + esc([t.name ? t.who : '', t.when, t.venue].filter(Boolean).join(' · ')) + '</span>' +
+      '<span class="pub-intent__price">' + priceText(t) + '</span>' +
+      (o.note === false ? '' : '<p class="k-note">' + esc(o.note || 'Sign in or create an account to finish. We keep this selection for you.') + '</p>') +
+      '<div class="pub-intent__act">' + K.link('pub-offer/' + t.offer, 'Change') + K.actBtn('Remove', 'pub-intent-clear', {}, { variant: 'tertiary', size: 'sm' }) + '</div></div>';
+  }
+  /* Where the visitor goes once signed in or signed up */
+  function intentNext(t) { return t.booking === 'book' ? 'parent-book/' + t.product : 'pub-request'; }
+  A['pub-choose'] = function (el) {
+    var t = db.setPubIntent(el.dataset.offer, el.dataset.i); if (!t) return;
+    K.log({ area: 'Public site', summary: 'Visitor chose “' + t.action + '” for ' + (t.name || t.who), who: 'Visitor' });
+    if (t.booking === 'interest') {
+      if (location.hash.slice(1) === 'pub-offer/' + t.offer) { Hub.render(); A['pub-scroll']({ dataset: { target: 'pub-interest' } }); }
+      else { location.hash = 'pub-offer/' + t.offer; setTimeout(function () { A['pub-scroll']({ dataset: { target: 'pub-interest' } }); }, 60); }
+      return;
+    }
+    location.hash = 'pub-signin';
+  };
+  A['pub-intent-clear'] = function () { db.clearPubIntent(); Hub.render(); Hub.toast('Selection removed'); };
   function offerCard(o) {
     var from = db.getOfferFrom(o.id);
     var fromTxt = !from ? 'Booked through your school' : from.price === 0 ? 'Free first session' : 'From ' + K.money(from.price) + ' ' + from.period;
@@ -47,7 +78,7 @@
       return '<div class="pub-form pub-form--sent" id="pub-interest">' + ui.notice('ok', 'Thanks, ' + sent.parent.split(' ')[0] + '. We have your details.', 'We will contact you within two working days about ' + esc(sent.child) + ' (' + esc(sent.ageGroup) + ') and the next free session.', { meta: 'Reference ' + sent.id }) +
         '<p class="k-note">' + K.stamp('Sent', sent.parent, sent.at) + '</p>' + K.actBtn('Register another child', 'pub-interest-again', { key: key }, { variant: 'secondary', size: 'sm' }) + '</div>';
     }
-    var offers = db.getPublicOffers().map(function (o) { return [o.id, o.title]; });
+    var offers = db.getPublicOffers().map(function (o) { return [o.id, o.title]; }), t = db.getPubIntent(), pre = t && t.booking === 'interest' && (!offerId || t.offer === offerId) ? t : null;
     var ages = [['', 'Choose an age group']].concat(db.getAgeGroups().map(function (a) { return [a, a]; }));
     return '<div class="pub-form" id="pub-interest"><div class="pub-form__head"><h2>Register interest</h2><p>Tell us about your child and we will invite you to a free session.</p></div>' +
       K.form([
@@ -56,8 +87,8 @@
         K.field('Phone', K.input('lead-phone', '', { type: 'tel', placeholder: 'Optional' })),
         K.field('Child’s name', K.input('lead-child', '')),
         K.field('Age group', K.select('lead-age', ages, '')),
-        K.field('Interested in', K.select('lead-offer', offers, offerId || 'trials')),
-        K.field('Anything we should know?', K.textarea('lead-msg', '', 'Experience, friends in a group, questions'), null, true)
+        K.field('Interested in', K.select('lead-offer', offers, pre ? pre.offer : offerId || 'trials')),
+        K.field('Anything we should know?', K.textarea('lead-msg', pre ? 'About: ' + (pre.name || pre.who) : '', 'Experience, friends in a group, questions'), null, true)
       ], 2) +
       '<div class="pub-form__foot">' + K.actBtn('Register interest', 'pub-interest', { key: key }, { variant: 'primary', icon: 'check' }) + '<span class="k-note">We only use these details to contact you about coaching.</span></div></div>';
   }
@@ -80,27 +111,27 @@
     var site = db.getPublicSite();
     var hero = '<header class="pub-hero"><div class="pub-hero__text"><span class="pub-hero__brand">' + Hub.orgMark() + '<span>' + esc(brandName()) + '</span></span>' +
       '<h1 class="pub-hero__title">' + esc(site.tagline) + '</h1><p class="pub-hero__sub">' + esc(site.intro) + '</p>' +
-      '<div class="pub-hero__actions">' + K.actBtn('Register interest', 'pub-scroll', { target: 'pub-interest' }, { variant: 'primary', icon: 'whistle' }) + K.goBtn('Create an account', 'pub-register', { variant: 'secondary' }) + K.goBtn('Sign in', 'pub-signin', { variant: 'tertiary', cls: 'pub-hero__ghost' }) + '</div></div>' +
+      '<div class="pub-hero__actions">' + K.goBtn('See sessions and book', 'pub-offers', { variant: 'primary', icon: 'calendar' }) + K.actBtn('Register interest', 'pub-scroll', { target: 'pub-interest' }, { variant: 'secondary' }) + K.goBtn('Sign in', 'pub-signin', { variant: 'tertiary', cls: 'pub-hero__ghost' }) + '</div></div>' +
       '<dl class="pub-facts">' + site.facts.map(function (f) { return '<div><dt>' + esc(f[0]) + '</dt><dd class="num">' + esc(f[1]) + '</dd></div>'; }).join('') + '</dl></header>';
     var g = K.guard(ctx, hero, { empty: ['grid', 'Nothing published yet', 'Offers appear here once they are published.'] }); if (g) return g;
     var offers = db.getPublicOffers();
     var body = off() +
       K.section('Choose how to start', 'Trials, weekly coaching, tours, holiday events and school clubs.', '<div class="pub-offers">' + offers.map(offerCard).join('') + '</div>', K.link('pub-offers', 'See everything we offer')) +
-      K.section('What we offer', 'Weekly groups in term time. Every group starts with a free session.', '<div class="pub-panel">' + offerRows(db.getOfferRows('academy')) + '</div>') +
-      K.section('Holiday camps and events', 'Open to members and non-members.', '<div class="pub-panel">' + offerRows(db.getOfferRows('events')) + '</div>') +
+      K.section('What we offer', 'Weekly groups in term time. Every group starts with a free session.', '<div class="pub-panel">' + offerRows(db.getOfferRows('academy'), 'academy') + '</div>') +
+      K.section('Holiday camps and events', 'Open to members and non-members.', '<div class="pub-panel">' + offerRows(db.getOfferRows('events'), 'events') + '</div>') +
       '<div class="pub-split"><div class="pub-why"><h2>Why families choose us</h2><ul>' +
       ['Small groups with a ratio of 1 coach to 8 players', 'Written feedback for every player each half term', 'Pause or cancel with a month’s notice', 'Free first session in every group'].map(function (t) { return '<li>' + I('checkCircle', 'icon-sm') + esc(t) + '</li>'; }).join('') +
-      '</ul><div class="pub-why__cta">' + K.goBtn('Sign in', 'pub-signin', { variant: 'secondary', size: 'sm' }) + K.goBtn('Register', 'pub-register', { variant: 'primary', size: 'sm' }) + '</div></div>' + interestForm('home', 'trials') + '</div>' + foot();
+      '</ul><div class="pub-why__cta">' + K.goBtn('See sessions and book', 'pub-offers', { variant: 'primary', size: 'sm' }) + K.goBtn('Sign in', 'pub-signin', { variant: 'secondary', size: 'sm' }) + '</div></div>' + interestForm('home', 'trials') + '</div>' + foot();
     return K.page(hero, body, 'pub');
   };
 
   /* ---------- pub-offers ---------- */
   Hub.screens['pub-offers'] = function (ctx) {
-    var head = K.head({ eyebrow: brandName(), title: 'What we offer', sub: 'Every programme, who it is for, when and where it runs, and what it costs.' });
+    var head = K.head({ eyebrow: brandName(), title: 'What we offer', sub: 'Every programme, who it is for, when and where it runs, and what it costs. Choose a session to book or request it; you sign in or create an account after you choose.' });
     var g = K.guard(ctx, head, { empty: ['grid', 'No offers published', 'Published offers appear here.'] }); if (g) return g;
     var body = off() + db.getPublicOffers().map(function (o) {
       return '<section class="pub-block"><div class="pub-block__head"><span class="pub-offer__icon">' + I(o.icon) + '</span><div><span class="pub-offer__kicker">' + esc(o.kicker) + '</span><h2>' + esc(o.title) + '</h2><p>' + esc(o.summary) + '</p></div>' +
-        '<div class="pub-block__act">' + K.goBtn('Details and interest', 'pub-offer/' + o.id, { variant: 'secondary', size: 'sm', trail: 'arrowRight' }) + '</div></div>' + offerRows(db.getOfferRows(o.id)) + '</section>';
+        '<div class="pub-block__act">' + K.goBtn('Details', 'pub-offer/' + o.id, { variant: 'secondary', size: 'sm', trail: 'arrowRight' }) + '</div></div>' + offerRows(db.getOfferRows(o.id), o.id) + '</section>';
     }).join('') + foot();
     return K.page(head, body, 'pub');
   };
@@ -110,12 +141,12 @@
     var o = db.getPublicOffer(ctx.param);
     if (!o) return K.page(K.head({ back: ['pub-offers', 'What we offer'], title: 'Offer not found' }), '<div class="zone-inset">' + ui.empty('grid', 'This offer is not available', 'It may have ended. See everything we offer instead.') + '</div>', 'pub');
     Hub.title = o.title;
-    var head = K.head({ back: ['pub-offers', 'What we offer'], eyebrow: o.kicker, title: o.title, sub: esc(o.summary), actions: K.actBtn('Register interest', 'pub-scroll', { target: 'pub-interest' }, { variant: 'primary' }) });
+    var head = K.head({ back: ['pub-offers', 'What we offer'], eyebrow: o.kicker, title: o.title, sub: esc(o.summary), actions: K.actBtn('See dates and book', 'pub-scroll', { target: 'pub-dates' }, { variant: 'primary' }) + K.actBtn('Register interest', 'pub-scroll', { target: 'pub-interest' }, { variant: 'secondary' }) });
     var g = K.guard(ctx, head, { empty: ['grid', 'Nothing scheduled yet', 'Dates and prices appear here once published.'] }); if (g) return g;
     var others = db.getPublicOffers().filter(function (x) { return x.id !== o.id; });
     var body = off() + '<div class="pub-split pub-split--detail"><div class="lx-stack">' +
       K.card({ title: 'About ' + o.title.toLowerCase(), body: '<p class="pub-copy">' + esc(o.body) + '</p>' }) +
-      K.card({ title: 'What we offer', sub: 'Age, day and time, venue and price', body: offerRows(db.getOfferRows(o.id)) }) +
+      '<div id="pub-dates">' + K.card({ title: 'Dates, prices and booking', sub: 'Choose one to book or request it. You sign in or create an account next.', body: offerRows(db.getOfferRows(o.id), o.id) }) + '</div>' +
       '<div class="pub-chips"><span class="k-note">Also on offer</span>' + others.map(function (x) { return '<a class="pub-chip" href="#pub-offer/' + x.id + '">' + I(x.icon, 'icon-sm') + esc(x.title) + '</a>'; }).join('') + '</div>' +
       '</div>' + interestForm('offer-' + o.id, o.id) + '</div>' + foot();
     return K.page(head, body, 'pub');
@@ -129,11 +160,12 @@
   }
   Hub.screens['pub-signin'] = function (ctx) {
     var demos = db.getDemoAccounts();
-    var inner = '<div class="pub-auth__card"><h1>Sign in</h1><p class="pub-auth__sub">Parents, coaches and management all sign in here. We take you to the right hub.</p>' +
+    var t = db.getPubIntent(), cont = t && t.booking !== 'interest';
+    var inner = intentCard() + '<div class="pub-auth__card"><h1>' + (cont ? 'Sign in to continue' : 'Sign in') + '</h1><p class="pub-auth__sub">' + (cont ? 'Sign in to ' + esc(t.action.toLowerCase()) + '. New to us? Create an account instead; your selection comes with you.' : 'Parents, coaches and management all sign in here. We take you to the right hub.') + '</p>' +
       K.form([K.field('Email', K.input('si-email', '', { type: 'email', placeholder: 'you@example.com' })), K.field('Password', K.input('si-pass', '', { type: 'password', placeholder: '••••••••' }))], 1) +
       '<div class="pub-auth__row">' + K.actBtn('Forgotten your password?', 'pub-forgot', {}, { variant: 'tertiary', size: 'sm' }) + '</div>' +
       K.actBtn('Sign in', 'pub-signin', {}, { variant: 'primary', block: true }) +
-      '<p class="pub-auth__alt">New here? ' + K.link('pub-register', 'Create an account') + '</p></div>' +
+      (cont ? K.goBtn('Create an account to continue', 'pub-register', { variant: 'secondary', block: true }) : '<p class="pub-auth__alt">New here? ' + K.link('pub-register', 'Create an account') + '</p>') + '</div>' +
       '<div class="pub-auth__demo"><span class="k-note">Prototype: sign in as</span><div class="pub-auth__demos">' + demos.map(function (d) { return K.actBtn(d.role, 'pub-demo-signin', { email: d.email }, { variant: 'secondary', size: 'sm' }); }).join('') + '</div></div>';
     return authPage(ctx, inner);
   };
@@ -142,6 +174,17 @@
     if (!r) { Hub.toast('No account uses that email. Create an account instead.'); return; }
     if (r.pending) { db.setPubAccount({ email: email, name: r.name }); location.hash = 'pub-waiting'; return; }
     K.log({ area: 'Sign in', summary: r.name + ' signed in', who: r.name });
+    var t = db.getPubIntent();
+    if (t && t.booking !== 'interest') {
+      if (r.route === 'parent-home') {
+        db.setPubAccount({ signedIn: { name: r.name, email: email } });
+        Hub.toast('Signed in as ' + r.name + '. ' + t.action + ': ' + (t.name || t.who));
+        if (t.booking === 'book') db.clearPubIntent();
+        location.hash = intentNext(t); return;
+      }
+      Hub.toast('Signed in as ' + r.name + '. Bookings are made from a parent account, so your selection is kept for later.');
+      location.hash = r.route; return;
+    }
     Hub.toast('Signed in as ' + r.name);
     location.hash = r.route;
   }
@@ -161,8 +204,8 @@
     { id: 'Management', icon: 'shield', text: 'Run the organisation: schedule, people and finance.', note: 'Needs approval' }
   ];
   Hub.screens['pub-register'] = function (ctx) {
-    var a = db.getPubAccount(), role = a.role || 'Parent', staff = role !== 'Parent';
-    var inner = '<div class="pub-auth__card"><h1>Create an account</h1><p class="pub-auth__sub">Choose who you are. You can add children after you confirm your email.</p>' +
+    var a = db.getPubAccount(), t = db.getPubIntent(), cont = t && t.booking !== 'interest', role = a.role || 'Parent', staff = role !== 'Parent';
+    var inner = intentCard({ note: 'Create a parent account to finish. We keep this selection for you.' }) + '<div class="pub-auth__card"><h1>Create an account</h1><p class="pub-auth__sub">' + (cont ? 'Create a parent account to ' + esc(t.action.toLowerCase()) + '. You add your child after you confirm your email.' : 'Choose who you are. You can add children after you confirm your email.') + '</p>' +
       '<div class="pub-roles" role="radiogroup" aria-label="Account type">' + ROLES.map(function (r) {
         return '<button type="button" class="pub-role" role="radio" aria-checked="' + (r.id === role) + '" data-action="pub-role" data-role="' + r.id + '"><span class="pub-role__icon">' + I(r.icon) + '</span><b>' + esc(r.id) + '</b><small>' + esc(r.text) + '</small>' + K.pill(r.note, r.note === 'Needs approval' ? 'warn' : 'ok') + '</button>';
       }).join('') + '</div>' +
@@ -185,7 +228,7 @@
     keepRegister();
     var a = db.getPubAccount();
     if (!a.name.trim() || !a.email.trim()) { Hub.toast('Add your name and email'); return; }
-    a.mode = 'confirm'; a.at = K.now();
+    a.mode = 'confirm'; a.at = K.now(); a.signedIn = null;
     if (a.role !== 'Parent') {
       db.addCoachSignup({ name: a.name.trim(), email: a.email.trim(), phone: a.phone || '', role: a.role, at: a.at, qualification: a.qualification || 'Not given', dbs: 'To be checked', experience: a.experience || 'Not given', heard: 'Public site' });
     }
@@ -199,9 +242,10 @@
     var a = db.getPubAccount(), reset = a.mode === 'reset', staff = a.role !== 'Parent';
     var next = reset ? K.goBtn('Back to sign in', 'pub-signin', { variant: 'primary', block: true })
       : K.goBtn('I’ve confirmed my email', staff ? 'pub-waiting' : 'pub-parent-signup', { variant: 'primary', block: true });
-    var inner = '<div class="pub-auth__card pub-auth__card--center"><span class="pub-bigicon">' + I('inbox') + '</span><h1>Check your email</h1>' +
+    var t = db.getPubIntent(), cont = !reset && !staff && t && t.booking !== 'interest';
+    var inner = (cont ? intentCard({ note: 'Next: confirm your email and add your child, then we finish this for you.' }) : '') + '<div class="pub-auth__card pub-auth__card--center"><span class="pub-bigicon">' + I('inbox') + '</span><h1>Check your email</h1>' +
       '<p class="pub-auth__sub">We sent ' + (reset ? 'a password reset link' : 'a confirmation link') + ' to <b>' + esc(a.email || 'your email address') + '</b>. The link works for 24 hours.</p>' +
-      (reset ? '' : K.steps(['Account', 'Confirm email', staff ? 'Approval' : 'Your child', 'Ready'], 1)) + next +
+      (reset ? '' : K.steps(['Account', 'Confirm email', staff ? 'Approval' : 'Your child', cont ? t.action : 'Ready'], 1)) + next +
       '<div class="pub-auth__row pub-auth__row--center">' + K.actBtn('Resend email', 'pub-resend', {}, { variant: 'tertiary', size: 'sm' }) + K.goBtn('Use a different email', reset ? 'pub-signin' : 'pub-register', { variant: 'tertiary', size: 'sm' }) + '</div>' +
       '<p class="k-note">Can’t see it? Check your junk folder, or ask the office to resend it.</p></div>';
     return authPage(ctx, inner);
@@ -229,7 +273,7 @@
     return '<ul class="pub-checks">' + checks.map(function (c) { return '<li class="' + (c.ok ? 'is-ok' : 'is-no') + '">' + I(c.ok ? 'check' : 'x', 'icon-sm') + '<span><b>' + esc(c.label) + '</b><small>' + esc(c.detail) + '</small></span><span class="pub-checks__v">' + (c.ok ? 'Matched' : 'Did not match') + '</span></li>'; }).join('') + '</ul>';
   }
   Hub.screens['pub-parent-signup'] = function (ctx) {
-    var a = db.getPubAccount(), s = db.getPubSignup(), r = s.result;
+    var a = db.getPubAccount(), s = db.getPubSignup(), r = s.result, t = db.getPubIntent(), cont = t && t.booking !== 'interest';
     var head = K.head({ back: ['pub-check-email', 'Back'], eyebrow: 'Parent sign-up', title: 'Find your child', sub: 'Tell us your child’s name and date of birth. If they already play with us, we link you; if not, we add them.' });
     var g = K.guard(ctx, head, { empty: false }); if (g) return g;
     var main;
@@ -241,10 +285,12 @@
         (r.outcome === 'Created' ? ui.notice('info', s.first + ' ' + s.last + ' has been added', 'New player ' + esc(r.player) + ' in a new family ' + esc(r.family) + '. Next, confirm medical details and book a free session.') : '') +
         (r.outcome === 'Needs review' ? ui.notice('warn', 'Sent to the office to check', 'Nothing about this child is shown to you until a person confirms the link. We email you when it is done. Reference ' + esc(r.claim) + '.') : '') +
         '<p>' + K.stamp('Submitted', r.who, r.at) + '</p>' +
-        '<div class="k-bar">' + (r.outcome === 'Needs review' ? K.goBtn('Back to the home page', 'pub-home', { variant: 'primary' }) + K.goBtn('Prototype: open Parent claims', 'mgmt-parent-claims', { variant: 'tertiary', trail: 'arrowRight' })
+        (cont && r.outcome === 'Needs review' && t.booking === 'book' ? ui.notice('info', 'Your selection is kept', 'Booking opens once the office confirms the link to ' + esc(s.first) + '. We email you when it is done.') : '') +
+        '<div class="k-bar">' + (cont && (r.outcome !== 'Needs review' || t.booking !== 'book') ? K.actBtn('Continue: ' + t.action, 'pub-intent-go', {}, { variant: 'primary', trail: 'arrowRight' })
+          : r.outcome === 'Needs review' ? K.goBtn('Back to the home page', 'pub-home', { variant: 'primary' }) + K.goBtn('Prototype: open Parent claims', 'mgmt-parent-claims', { variant: 'tertiary', trail: 'arrowRight' })
           : K.goBtn('Go to the Parent hub', 'parent-home', { variant: 'primary' })) + K.actBtn('Add another child', 'pub-signup-reset', {}, { variant: 'secondary' }) + '</div></div>';
     } else {
-      main = '<div class="pub-form">' + K.steps(['Account', 'Confirm email', 'Your child', 'Ready'], 2) +
+      main = '<div class="pub-form">' + K.steps(['Account', 'Confirm email', 'Your child', cont ? t.action : 'Ready'], 2) +
         '<div class="pub-examples"><span class="k-note">Prototype: try an example</span>' + db.getSignupExamples().map(function (x) { return K.actBtn(x.label, 'pub-example', { id: x.id }, { variant: 'secondary', size: 'sm' }); }).join('') + '</div>' +
         K.form([
           K.field('Child’s first name', K.input('ps-first', s.first)),
@@ -258,8 +304,61 @@
       '<li>' + K.status('Matched') + '<span>Child’s name, date of birth <b>and</b> your email all match a player. You are linked straight away.</span></li>' +
       '<li>' + K.status('Created') + '<span>Nothing matches. We create a new player and link them to you.</span></li>' +
       '<li>' + K.status('Needs review') + '<span>Only some details match. A person checks first. We never link on a name alone, because two children can share a name.</span></li></ul>' });
-    return K.page(head, '<div class="pub-split pub-split--detail">' + main + how + '</div>', 'pub');
+    return K.page(head, (cont ? intentCard({ note: false }) : '') + '<div class="pub-split pub-split--detail">' + main + how + '</div>', 'pub');
   };
+  A['pub-intent-go'] = function () { var t = db.getPubIntent(); if (!t) { location.hash = 'pub-offers'; return; } if (t.booking === 'book') db.clearPubIntent(); location.hash = intentNext(t); };
+
+  /* ---------- Finish a request: free session, trial or waitlist ---------- */
+  var REQ_TEXT = {
+    free: ['Book your free session', 'Choose a date. The office confirms it by email, usually within two working days.'],
+    trial: ['Request a trial', 'Tell us which date suits. The office arranges the trial and confirms it by email.'],
+    waitlist: ['Join the waitlist', 'We email you as soon as a place comes up. Nothing is charged until you accept a place.']
+  };
+  function requestChildren() {
+    var a = db.getPubAccount(), s = db.getPubSignup();
+    if (a.signedIn) { var par = db.getParents().filter(function (p) { return p.email.toLowerCase() === a.signedIn.email.toLowerCase(); })[0]; if (par) return db.getFamilyPlayers(par.family).filter(function (p) { return p.status !== 'Inactive'; }).map(function (p) { return [p.name, p.name + (p.ageGroup ? ' (' + p.ageGroup + ')' : '')]; }); }
+    if (s.result && s.first) return [[s.first + ' ' + s.last, s.first + ' ' + s.last]];
+    return [];
+  }
+  Hub.screens['pub-request'] = function (ctx) {
+    var t = db.getPubIntent(), a = db.getPubAccount(), txt = t && REQ_TEXT[t.booking];
+    var head = K.head({ back: t ? ['pub-offer/' + t.offer, t.offerTitle] : ['pub-offers', 'What we offer'], eyebrow: t ? t.offerTitle : 'Your request', title: txt ? txt[0] : 'Finish your request', sub: txt ? txt[1] : '' });
+    var g = K.guard(ctx, head, { empty: ['calendar', 'Nothing chosen yet', 'Choose a session on What we offer first.'] }); if (g) return g;
+    if (!txt) return K.page(head, '<div class="zone-inset">' + ui.empty('calendar', 'Nothing chosen yet', 'Choose a session on What we offer, then sign in or create an account to finish.') + '<p style="text-align:center;margin-top:12px">' + K.goBtn('See what we offer', 'pub-offers', { variant: 'primary', size: 'sm' }) + '</p></div>', 'pub');
+    var main;
+    if (t.sent) {
+      var l = db.getLead(t.sent);
+      var done = { free: 'Free session requested', trial: 'Trial requested', waitlist: 'You’re on the waitlist' }[t.booking];
+      var detail = t.booking === 'waitlist' ? l.child + ' is on the waitlist for ' + (t.name || t.who) + '. We email you when a place comes up.'
+        : l.child + (l.date ? ' on ' + K.dd(l.date) : '') + ' at ' + (t.name || t.who) + '. The office confirms by email, usually within two working days.';
+      main = '<div class="pub-form">' + ui.notice('ok', done, detail, { meta: 'Reference ' + l.id }) + '<p>' + K.stamp('Sent', l.parent, l.at) + '</p>' +
+        '<div class="k-bar">' + (a.signedIn ? K.goBtn('Go to the Parent hub', 'parent-home', { variant: 'primary' }) : '') + K.actBtn('Back to what we offer', 'pub-request-done', {}, { variant: a.signedIn ? 'secondary' : 'primary' }) + '</div></div>';
+    } else {
+      var kids = requestChildren();
+      var dates = t.session && t.booking !== 'waitlist' ? db.getOccurrences(function (o) { return o.sessionId === t.session && o.date > K.today && o.status === 'Scheduled'; }).slice(0, 4) : [];
+      main = '<div class="pub-form">' + (a.signedIn ? '<p class="k-note">Signed in as <b>' + esc(a.signedIn.name) + '</b></p>' : '') +
+        K.form([
+          K.field('Child', kids.length ? K.select('rq-child', kids, (kids.filter(function (k) { return t.who && k[1].indexOf('(' + t.who + ')') >= 0; })[0] || kids[0])[0]) : K.input('rq-child', '', { placeholder: 'Child’s first and last name' })),
+          dates.length ? K.field(t.booking === 'free' ? 'Date' : 'Preferred date', K.select('rq-date', dates.map(function (o) { return [o.date, K.dd(o.date) + ', ' + o.start]; }), dates[0].date)) : '',
+          K.field('Anything we should know?', K.textarea('rq-msg', '', 'Experience, friends in the group, questions'), null, true)
+        ].filter(Boolean), 2) +
+        '<div class="pub-form__foot">' + K.actBtn(t.action, 'pub-request-send', {}, { variant: 'primary', icon: 'check' }) + '<span class="k-note">No payment is taken for this.</span></div></div>';
+    }
+    var steps = t.booking === 'waitlist' ? ['We add your child to the waitlist in the order requests arrive.', 'When a place comes up we email you and hold it for 48 hours.', 'You accept the place and set up the membership in the Parent hub.']
+      : ['The office checks the group and confirms the date by email.', 'A coach meets you at the gate on the day.', 'Afterwards we tell you how it went and how to join.'];
+    return K.page(head, intentCard({ note: false }) + '<div class="pub-split pub-split--detail">' + main + K.card({ title: 'What happens next', body: '<ol class="pub-next">' + steps.map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ol>' }) + '</div>', 'pub');
+  };
+  A['pub-request-send'] = function () {
+    var t = db.getPubIntent(), a = db.getPubAccount(); if (!t) return;
+    var child = (K.val('rq-child') || '').trim(); if (!child) { Hub.toast('Add your child’s name'); return; }
+    var par = a.signedIn ? db.getParents().filter(function (p) { return p.email.toLowerCase() === a.signedIn.email.toLowerCase(); })[0] : null;
+    var pl = db.getPlayers(function (p) { return p.name === child; })[0];
+    var v = { parent: a.signedIn ? a.signedIn.name : (a.name || 'New parent'), email: a.signedIn ? a.signedIn.email : a.email, phone: par ? par.phone : '', child: child, ageGroup: pl ? pl.ageGroup : t.who, offer: t.offer,
+      message: (K.val('rq-msg') || '').trim(), request: t.action, choice: t.name || t.who, date: K.val('rq-date') || null, at: K.now() };
+    Hub.mutate(function () { var l = db.addLead(v); t.sent = l.id; }, { free: 'Free session requested', trial: 'Trial requested', waitlist: 'Added to the waitlist' }[t.booking],
+      { area: 'Public site', summary: t.action + ': ' + v.child + ' for ' + v.choice, who: v.parent, at: v.at });
+  };
+  A['pub-request-done'] = function () { db.clearPubIntent(); location.hash = 'pub-offers'; };
   function readSignup() { return db.setPubSignup({ first: K.val('ps-first').trim(), last: K.val('ps-last').trim(), dob: K.val('ps-dob'), email: K.val('ps-email').trim() }); }
   A['pub-example'] = function (el) { var x = db.getSignupExamples().filter(function (e) { return e.id === el.dataset.id; })[0]; db.setPubSignup({ first: x.first, last: x.last, dob: x.dob, email: x.email }); Hub.render(); Hub.toast(x.note); };
   A['pub-match'] = function () {
@@ -455,7 +554,7 @@
     var head = mhead({ back: ['mgmt-trial-leads', 'Trial interest'], eyebrow: 'Trial interest · ' + l.id, title: l.child, sub: esc(l.ageGroup) + ' · ' + esc(offerTitle(l.offer)) + ' · ' + K.status(l.status) });
     var g = K.guard(ctx, head, { empty: false }); if (g) return g;
     var statusBtns = '<div class="segmented k-seg" role="group" aria-label="Status">' + db.getLeadStatuses().map(function (s) { return '<button type="button" data-action="lead-status" data-id="' + l.id + '" data-status="' + s + '" aria-pressed="' + (l.status === s) + '">' + esc(s) + '</button>'; }).join('') + '</div>';
-    var left = K.card({ title: 'Details', body: K.kv([['Parent', esc(l.parent)], ['Email', esc(l.email)], ['Phone', esc(l.phone || '—')], ['Child', esc(l.child)], ['Age group', esc(l.ageGroup)], ['Interested in', K.link('pub-offer/' + l.offer, offerTitle(l.offer))], ['Message', esc(l.message || '—')]], true) + '<p>' + K.stamp('Submitted', l.parent, l.at) + '</p>' }) +
+    var left = K.card({ title: 'Details', body: K.kv([['Parent', esc(l.parent)], ['Email', esc(l.email)], ['Phone', esc(l.phone || '—')], ['Child', esc(l.child)], ['Age group', esc(l.ageGroup)]].concat(l.request ? [['Asked to', esc(l.request) + ': ' + esc(l.choice || '') + (l.date ? ' · ' + K.dd(l.date) : '')]] : []).concat([['Interested in', K.link('pub-offer/' + l.offer, offerTitle(l.offer))], ['Message', esc(l.message || '—')]]), true) + '<p>' + K.stamp('Submitted', l.parent, l.at) + '</p>' }) +
       K.card({ title: 'Notes', sub: 'Visible to management only', body: (l.notes.length ? '<ul class="pub-notes">' + l.notes.map(function (n) { return '<li><p>' + esc(n.text) + '</p>' + K.stamp('Added', n.by, n.at) + '</li>'; }).join('') + '</ul>' : '<p class="k-note">No notes yet.</p>') +
         K.form([K.field('Add a note', K.textarea('lead-note', '', 'Call outcome, preferred day, follow-up'))], 1) + '<div class="k-bar pub-actions">' + K.actBtn('Add note', 'lead-note', { id: l.id }, { variant: 'secondary', size: 'sm', icon: 'plus' }) + '</div>' });
     var right = K.card({ title: 'Status', body: statusBtns + (l.status === 'Declined' && l.declineReason ? ui.notice('neutral', 'Declined', esc(l.declineReason)) : '') +

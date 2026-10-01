@@ -25,33 +25,49 @@
     { id: 'academy', title: 'Academy', icon: 'star', kicker: 'Weekly coaching',
       summary: 'Development Centre, TDC and Academy groups from U8 to U14, every week of term.',
       body: 'Our weekly groups follow one coaching framework from U8 up. Players work on the ball, decision making and confidence, with written feedback each half term. Billed monthly; pause or cancel with a month’s notice.',
-      rows: [{ session: 'SES-01' }, { session: 'SES-02' }, { session: 'SES-03' }, { session: 'SES-04' }] },
+      rows: [{ session: 'SES-01' }, { session: 'SES-02' }, { session: 'SES-03' }, { session: 'SES-04' },
+        { name: 'Goalkeeper academy', who: 'U11 to U14', when: 'Wednesdays · 18:00–19:00', venue: 'northgate', price: 6000, period: 'a month', booking: 'waitlist', note: 'Full for this term' }] },
     { id: 'tours', title: 'Tours', icon: 'venue', kicker: 'Travel and play',
       summary: 'An Easter football tour for U12 to U14 players, with matches against club sides.',
       body: 'Four days of matches, training and team time with our coaches. Places are limited and held with a deposit; the balance is due eight weeks before travel.',
-      rows: [{ name: 'Easter tour 2027', who: 'U12 to U14 (Years 7-9)', when: 'Fri 2 to Mon 5 Apr 2027', venue: 'Easter tour, Netherlands', price: 49500, period: 'per player · £100 deposit' }] },
+      rows: [{ name: 'Easter tour 2027', who: 'U12 to U14 (Years 7-9)', when: 'Fri 2 to Mon 5 Apr 2027', venue: 'Easter tour, Netherlands', price: 49500, period: 'per player · £100 deposit', booking: 'book', product: 'easter-tour' }] },
     { id: 'events', title: 'Events', icon: 'calendar', kicker: 'Holiday camps',
       summary: 'Half-term camps and a Christmas festival, open to members and non-members.',
       body: 'Camps run 9:30 to 15:00 with a mix of skills, small-sided games and a tournament on the last day. Book single days or the three-day package; siblings get 10% off.',
       rows: [
-        { who: 'Ages 5 to 13', when: 'Mon 26 to Wed 28 Oct · 9:30–15:00', venue: 'northgate', price: 3000, period: 'per day' },
-        { who: 'Ages 5 to 13', when: 'Mon 26 to Wed 28 Oct · 9:30–15:00', venue: 'northgate', price: 8000, period: '3-day package' },
-        { name: 'Christmas festival', who: 'U8 to U12', when: 'Sat 12 Dec · 10:00–13:00', venue: 'northgate', price: 1500, period: 'per player' }] },
+        { who: 'Ages 5 to 13', when: 'Mon 26 to Wed 28 Oct · 9:30–15:00', venue: 'northgate', price: 3000, period: 'per day', booking: 'book', product: 'camp-oct' },
+        { who: 'Ages 5 to 13', when: 'Mon 26 to Wed 28 Oct · 9:30–15:00', venue: 'northgate', price: 8000, period: '3-day package', booking: 'book', product: 'camp-oct' },
+        { name: 'Christmas festival', who: 'U8 to U12', when: 'Sat 12 Dec · 10:00–13:00', venue: 'northgate', price: 1500, period: 'per player', booking: 'book', product: 'xmas-festival' }] },
     { id: 'general', title: 'General', icon: 'users', kicker: 'Schools and 1-to-1',
       summary: 'After-school clubs through local schools and one-to-one coaching on request.',
       body: 'We run after-school clubs and PE support for local primary schools; schools book these with us directly. One-to-one sessions are arranged around the player’s week.',
       rows: [
         { session: 'SES-06', schoolLed: true },
-        { name: 'One-to-one coaching', who: 'Any age', when: 'By arrangement, weekdays after 16:00', venue: 'northgate', price: 3500, period: 'per hour' }] }
+        { name: 'One-to-one coaching', who: 'Any age', when: 'By arrangement, weekdays after 16:00', venue: 'northgate', price: 3500, period: 'per hour', booking: 'interest' }] }
   ];
   var DOW = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-  function offerRow(r) {
-    if (!r.session) return { who: r.who, when: r.when, venue: db.venueName(r.venue) || r.venue, price: r.price, period: r.period, name: r.name || '' };
-    var s = db.getSession(r.session);
-    var when = s.days.map(function (d) { return DOW[d]; }).join(' and ') + 's · ' + s.start + '–' + s.end;
-    if (r.trial) return { name: s.name, who: s.ageGroup, when: when, venue: db.venueName(s.venue), price: 0, period: 'free first session', session: s.id };
-    if (r.schoolLed) return { name: s.name, who: s.ageGroup, when: when, venue: db.venueName(s.venue), price: null, period: 'Booked through your school', session: s.id };
-    return { name: s.name, who: s.ageGroup, when: when, venue: db.venueName(s.venue), price: s.price, period: 'a month', session: s.id };
+  /* How each row is taken up, shown as its action on the public site:
+     book = pay online (camps, events, tours), free = free first session,
+     trial = weekly group joined through a trial, waitlist = full,
+     interest = arranged by the office, school = booked by the school. */
+  D.bookingActions = { book: 'Book now', free: 'Book free session', trial: 'Request a trial', waitlist: 'Join waitlist', interest: 'Register interest' };
+  function members(sid) { return db.getMemberships(function (m) { return m.session === sid && m.state !== 'Ended'; }).length; }
+  function productFull(id) { var p = db.getBookable && db.getBookable(id); return !!(p && p.capacity && p.booked >= p.capacity); }
+  function offerRow(r, i) {
+    var row;
+    if (!r.session) {
+      row = { who: r.who, when: r.when, venue: db.venueName(r.venue) || r.venue, price: r.price, period: r.period, name: r.name || '', booking: r.booking || 'interest', product: r.product || null, note: r.note || '' };
+      if (row.booking === 'book' && row.product && productFull(row.product)) row.booking = 'waitlist';
+    } else {
+      var s = db.getSession(r.session);
+      var when = s.days.map(function (d) { return DOW[d]; }).join(' and ') + 's · ' + s.start + '–' + s.end;
+      var full = members(s.id) >= s.capacity;
+      if (r.trial) row = { name: s.name, who: s.ageGroup, when: when, venue: db.venueName(s.venue), price: 0, period: 'free first session', session: s.id, booking: full ? 'waitlist' : 'free' };
+      else if (r.schoolLed) row = { name: s.name, who: s.ageGroup, when: when, venue: db.venueName(s.venue), price: null, period: 'Booked through your school', session: s.id, booking: 'school' };
+      else row = { name: s.name, who: s.ageGroup, when: when, venue: db.venueName(s.venue), price: s.price, period: 'a month', session: s.id, booking: full ? 'waitlist' : 'trial' };
+    }
+    row.index = i; row.action = D.bookingActions[row.booking] || '';
+    return row;
   }
 
   /* ---------- Trial Interest leads ---------- */
@@ -95,7 +111,7 @@
   ];
 
   /* ---------- Sign-up journey state (this browser tab only) ---------- */
-  D.pubAccount = { role: 'Parent', name: '', email: '' };
+  D.pubAccount = { role: 'Parent', name: '', email: '', signedIn: null };
   D.pubSignup = { first: '', last: '', dob: '', email: '', result: null };
   D.pubInterest = {};
   D.signupExamples = [
@@ -114,6 +130,13 @@
   db.getPublicOffers = function () { return D.publicOffers; };
   db.getPublicOffer = function (id) { return by(D.publicOffers, id); };
   db.getOfferRows = function (id) { var o = by(D.publicOffers, id); return o ? o.rows.map(offerRow) : []; };
+  db.getOfferRow = function (id, i) { return db.getOfferRows(id)[+i] || null; };
+  db.getBookingActions = function () { return D.bookingActions; };
+  /* The visitor's chosen programme and action, kept through sign-in and registration */
+  D.pubIntent = null;
+  db.getPubIntent = function () { return D.pubIntent; };
+  db.setPubIntent = function (offerId, i) { var o = by(D.publicOffers, offerId), r = db.getOfferRow(offerId, i); if (!o || !r) return null; D.pubIntent = Object.assign({ offer: offerId, offerTitle: o.title, sent: null }, r); return D.pubIntent; };
+  db.clearPubIntent = function () { D.pubIntent = null; };
   /* Lowest paid price for the "from" line on an offer card */
   db.getOfferFrom = function (id) {
     var rows = db.getOfferRows(id), paid = rows.filter(function (r) { return r.price > 0; });

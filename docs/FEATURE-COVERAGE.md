@@ -23,13 +23,14 @@ All data is invented and lives in `js/data/*.js`. Screens read it only through `
 ## 1. Public site and sign-up
 | Feature | Route |
 |---|---|
-| Public landing: name, logo, tagline, offer cards, What we offer, Register interest | `pub-home` |
-| Offer list and offer pages (trials, academy, tours, events, general) | `pub-offers`, `pub-offer/<id>` |
-| Sign in (demo accounts route to the right hub; pending staff go to Waiting) | `pub-signin` |
-| Create account (Parent / Coach / Management; staff need approval) | `pub-register` |
+| Public landing: name, logo, tagline, offer cards, sessions with their booking action, Register interest. Browsing needs no account. | `pub-home` |
+| Offer list and offer pages (trials, academy, tours, events, general). Each session or product shows its action: Book now, Book free session, Request a trial, Join waitlist or Register interest. | `pub-offers`, `pub-offer/<id>` |
+| Sign in (demo accounts route to the right hub; pending staff go to Waiting). After choosing an action: "Sign in to continue", with the chosen session shown and kept. | `pub-signin` |
+| Create account (Parent / Coach / Management; staff need approval). The chosen session is carried through every step. | `pub-register` |
 | Check your email | `pub-check-email` |
 | Waiting for approval | `pub-waiting` |
-| Parent sign-up with Matched / Created / Needs review (never matched on name alone) | `pub-parent-signup` |
+| Parent sign-up with Matched / Created / Needs review (never matched on name alone), then "Continue: <action>" | `pub-parent-signup` |
+| Finish a free session, trial or waitlist request (child, date, note; no payment). Book now goes to the Parent hub's booking. | `pub-request`, `parent-book/camp-oct` |
 | Approvals hub | `mgmt-approvals` |
 | Coach and management sign-ups | `mgmt-coach-signups` |
 | Trial coaches | `mgmt-trial-coaches` |
@@ -42,9 +43,9 @@ All data is invented and lives in `js/data/*.js`. Screens read it only through `
 | Home: stats, mobile urgent summary, today's schedule with staffing and register state, attention panel, calendar, tomorrow, approvals, since you last looked | `mgmt-home` |
 | Needs Attention, computed live from every area (fixing the issue clears the case) | `mgmt-attention` |
 | Tabs All / Urgent / Warning / To do / Accepted, plus a category filter | `mgmt-attention` |
-| Case drawer: why this severity, related items, action | `mgmt-attention` → any case |
-| Accept a case or override its severity (reason, approver, locked minimum respected) | case drawer → Accept / Change severity |
-| Rule settings: on/off, base severity, warning and urgent thresholds, locked minimum, exceptions list | `mgmt-attention-rules` |
+| Case drawer: why this priority, related items, action | `mgmt-attention` → any case |
+| Accept a case or change its priority (reason, approver, lowest allowed priority respected) | case drawer → Accept / Change priority |
+| Rule settings: on/off, standard priority, warning and urgent points, lowest allowed priority, exceptions list | `mgmt-attention-rules` |
 | More: every area, respecting Finance access and feature switches | `mgmt-more` |
 | Search across players, parents, coaches, sessions, venues and invoices | header search |
 | Add new; switch organisation (switches brand) | header buttons, sidebar organisation card |
@@ -83,14 +84,14 @@ Rules and where their cases come from:
 |---|---|
 | Area hub with today, staffing notice, registers outstanding | `mgmt-schedule` |
 | Sessions list (All / Active / Draft / Inactive) | `mgmt-sessions` |
-| Session detail: fields, breaks, upcoming occurrences, coaches, players, eligibility, lifecycle with history | `mgmt-session/SES-02` |
-| Create / edit wizard: weekly or selected dates, breaks, venue and capacity, coaches, review of generated occurrences | `mgmt-session-new`, `mgmt-session-edit/SES-02` |
+| Session detail: fields, breaks, upcoming dates, coaches, players, eligibility, status with history | `mgmt-session/SES-02` |
+| Create / edit wizard: weekly or selected dates, breaks, venue and capacity, coaches, review of the dates it creates | `mgmt-session-new`, `mgmt-session-edit/SES-02` |
 | Calendar: day / week / month | `mgmt-calendar` |
-| Occurrences list with filters | `mgmt-occurrences` |
-| Occurrence detail: confirm, cancel, postpone, reschedule (linked replacement), venue and capacity override, notes, staff | `mgmt-occurrence/OCC-0035` |
+| Session dates: every dated session, with filters | `mgmt-occurrences` |
+| A single session date: confirm, cancel, postpone, reschedule (linked replacement), different venue or capacity for that date, notes, staff | `mgmt-occurrence/OCC-0035` |
 | Cancellation outcome: family credit or refund, venue, coach pay; past outcomes frozen | `mgmt-occurrence-outcome/OCC-0019` |
-| Eligibility rules and player overrides | `mgmt-eligibility` |
-| Venues, venue detail, site map, unavailability with affected occurrences | `mgmt-venues`, `mgmt-venue/northgate` |
+| Eligibility rules and player exceptions | `mgmt-eligibility` |
+| Venues, venue detail, site map, unavailability with the sessions it affects | `mgmt-venues`, `mgmt-venue/northgate` |
 | Register: mark, notes, all present, one-off player, complete, reopen with reason, headcount for school sessions | `mgmt-register/OCC-0033` |
 | Registers overview (outstanding first) | `mgmt-registers` |
 | Attendance by player and by session | `mgmt-attendance`, `mgmt-attendance/PLY-0001` |
@@ -99,10 +100,10 @@ Rules and where their cases come from:
 | Feature | Route |
 |---|---|
 | Directory with compliance, availability and cover pills, search and filters | `mgmt-coaches` |
-| Coach profile: overview, sessions and roles, rates, allocations, availability, documents, cover, work summaries | `mgmt-coach/tom` |
+| Coach profile: overview, sessions and roles, rates, pay, availability, documents, cover, work summaries | `mgmt-coach/tom` |
 | Roles and permissions matrix, temporary role changes, former access | `mgmt-coach-roles` |
 | Effective-dated rates (never edited, new rate ends the old one) | `mgmt-coach/<key>` → Rates |
-| Allocations reconciled with Finance; override with reason; confirm; exported items frozen | `mgmt-allocations` |
+| Coach pay: one pay item per coach per session, matching Finance; adjust with a reason; confirm; items sent for payment are frozen | `mgmt-allocations` |
 | Weekly availability and exceptions (holiday, unavailable, different hours) | `mgmt-availability` |
 | Documents: required types, states, verify / reject with reason | `mgmt-documents`, `mgmt-document/DOC-118` |
 | Cover workflow: need → offered → accepted → covered, eligible coach suggestions, decline reasons, phone-call flag | `mgmt-cover`, `mgmt-cover-request/CVR-01` |
@@ -116,11 +117,11 @@ Rules and where their cases come from:
 | Player profile, with restricted medical, support, address and emergency contacts (preview as Management / Lead / Coach) | `mgmt-player/PLY-0009` |
 | Parents: verification, invites, ended links | `mgmt-parents`, `mgmt-parent/PAR-01` |
 | Families: status, review due, close with reason, reopen | `mgmt-families`, `mgmt-family/FAM-01` |
-| Memberships: lifecycle, pause, cancellation with notice, end, resume | `mgmt-memberships`, `mgmt-membership/MEM-113` |
+| Memberships: status, pause, cancellation with notice, end, resume | `mgmt-memberships`, `mgmt-membership/MEM-113` |
 | Requests with stages; detail-change old and new values restricted | `mgmt-requests` |
 | Session requests (switched off by default) | `mgmt-session-requests` |
-| Player migration (three steps) | `mgmt-player-migration` |
-| Bookings with price, discount and refund-policy snapshots; cancel a line | `mgmt-bookings`, `mgmt-booking/BKG-001` |
+| Move players onto sessions (three steps) | `mgmt-player-migration` |
+| Bookings with price, discount and refund policy as booked; cancel a line | `mgmt-bookings`, `mgmt-booking/BKG-001` |
 | Commercial setup: discounts (no stacking), refund policies, packages, billing rules, terms versions | `mgmt-commercial` |
 | Adjustments (credits, charges, waive) | `mgmt-adjustments` |
 | History with before/after (restricted) | `mgmt-audit` |
@@ -148,8 +149,8 @@ Rules and where their cases come from:
 | Overview: month summary (actual or including expected), cash, receivables, VAT estimate | `mgmt-finance` |
 | Finance access per person (None / View / Manage) | `mgmt-fin-access` |
 | Finance settings: legal name, VAT, numbering, authority, coach payment day | `mgmt-fin-settings` |
-| Clients: terms, PO rules, payment days, services with lifecycle, billing overrides | `mgmt-fin-clients`, `mgmt-fin-client/CLI-01` |
-| Drafts from delivered occurrences: problems, PO, ready, issue | `mgmt-fin-drafts`, `mgmt-fin-draft/DRF-01` |
+| Clients: terms, PO rules, payment days, services with active periods, billing exceptions | `mgmt-fin-clients`, `mgmt-fin-client/CLI-01` |
+| Drafts from delivered sessions: problems, PO, ready, issue | `mgmt-fin-drafts`, `mgmt-fin-draft/DRF-01` |
 | Invoices: Issued / frozen with no edit button; send; Xero retry; move due date; payments; credit notes; replacement | `mgmt-fin-invoices`, `mgmt-fin-invoice/INV-0011` |
 | Printable invoice | `mgmt-fin-invoice-print/INV-0007` |
 | Credit notes (NC-1007 partly credited by CN-001) | `mgmt-fin-credit-notes` |
@@ -158,7 +159,7 @@ Rules and where their cases come from:
 | Parent money: family charges, credits used oldest first, bookings, refunds | `mgmt-fin-parent-money` |
 | Integrations (Stripe, Xero; test mode, all mock) | `mgmt-fin-integrations` |
 | Money out: coach payment runs, venue hire, other costs, overheads (salaries, van finance, van insurance) | `mgmt-fin-money-out` |
-| Ledger | `mgmt-fin-ledger` |
+| Session profit: revenue, coach and venue cost and profit before overheads for each session | `mgmt-fin-ledger` |
 | 30-day cash forecast with threshold | `mgmt-fin-cash` |
 | Finance reports | `mgmt-fin-reports` |
 | Finance history (before / after) | `mgmt-fin-audit` |
@@ -171,7 +172,7 @@ Signed in as Charlie Hughes (Lead), Jack Morgan (Coach) or Ellie Shaw (Learning 
 |---|---|
 | Home: next session, a "Needs you" list (registers, cover offers, feedback, sign-off, documents, work summary), today, your role's permissions, notices, hub tiles | `coach-home` |
 | Schedule: upcoming and past, grouped by week, with role, cover and register pills | `coach-schedule` |
-| Occurrence: venue access and parking, expected players, medical and support (restricted), staff or team, notes, history | `coach-session/OCC-0033` |
+| Session: venue access and parking, expected players, medical and support (restricted), staff or team, notes, history | `coach-session/OCC-0033` |
 | Message families: lead coaches only, and only when Communications is switched on | `coach-session/OCC-…` as Lead |
 | Register: Present / Late / Absent / Excused, notes, everyone else present, one-off player, complete with who and when. Headcount for school sessions. Future dates are locked; the lead can reopen. | `coach-register/OCC-0033` |
 | My players, and player profile (personal, medical, support and emergency details locked for the learning coach) | `coach-players`, `coach-player/PLY-0001` |
@@ -217,18 +218,22 @@ Start these from Prototype bar → Scenario. Each walkthrough moves between scre
 | a. Create and issue an invoice | `mgmt-fin-drafts` → `mgmt-fin-draft/DRF-01` (PO, ready, issue) → `mgmt-fin-invoices` → `mgmt-fin-invoice/INV-0011` → `mgmt-finance` |
 | b. Take a register | `coach-home` → `coach-session/OCC-0033` → `coach-register/OCC-0033` (as coach, then as learning coach) → `mgmt-register/OCC-0033` → `mgmt-registers` |
 | c. Cover a holiday | `coach-availability` → `mgmt-attention` → `mgmt-cover` → `mgmt-cover-request/CVR-01` → `coach-cover` → `mgmt-occurrences` |
-| d. New family joins | `pub-offers` → `pub-register` → `pub-check-email` → `mgmt-approvals` → `mgmt-parent-claims` → `mgmt-families` → `parent-home` |
+| d. New family joins | `pub-offer/trials` (choose Book free session) → `pub-register` → `pub-check-email` → `pub-parent-signup` → `pub-request` → `mgmt-trial-leads` → `mgmt-approvals` → `mgmt-parent-claims` → `mgmt-families` → `parent-home` |
 | e. Cancel a session | `mgmt-occurrence/OCC-0042` → `mgmt-occurrence-outcome/OCC-0042` → `mgmt-occurrence-outcome/OCC-0019` → `parent-sessions` → `mgmt-fin-parent-money` |
+
+## Language
+Screen wording follows `docs/LANGUAGE-AUDIT.md`. Routes and data keys keep their precise names: for example `mgmt-occurrences` shows "Session dates" and `mgmt-allocations` shows "Coach pay".
 
 ## 10. Mock data edge cases
 | Edge case | Where to see it |
 |---|---|
 | Coach with expired first aid (Tom Reid, 14 Sep) | `mgmt-coach/tom`, `mgmt-attention` |
 | Player with unconfirmed medical state (Leo Grant) | `mgmt-player/PLY-0009`, `mgmt-attention` |
-| Cancelled occurrence with refund decision (U9/10, 17 Sep) | `mgmt-occurrence-outcome/OCC-0019` |
+| Cancelled session with refund decision (U9/10, 17 Sep) | `mgmt-occurrence-outcome/OCC-0019` |
 | Overdue invoice with a moved due date (NC-1011, £1,296.00, 16 → 26 Sep) | `mgmt-fin-invoice/INV-0011` |
 | Partly credited invoice (NC-1007, CN-001) | `mgmt-fin-invoice/INV-0007` |
 | Paused membership (Jack Ellis) | `mgmt-memberships` |
+| A full group, shown as Join waitlist (Goalkeeper academy) | `pub-offer/academy` |
 | Needs review parent match (Paul Moss claims Harry Moss) | `mgmt-parent-claims` |
 
 ## Not built

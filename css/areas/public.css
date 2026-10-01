@@ -187,3 +187,26 @@
 }
 .pub .lx-section__head { flex-wrap: wrap; align-items: flex-end; }
 .pub .lx-section__head .k-link { white-space: nowrap; }
+
+/* Rows with a booking action (browse first; sign in after choosing) */
+.pub-row--act { grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.5fr) minmax(110px, .6fr) minmax(150px, auto); }
+.pub-row__who .pill { justify-self: start; margin-top: 4px; }
+.pub-row__act { display: flex; justify-content: flex-end; }
+.pub-row__act .btn { white-space: nowrap; }
+/* The selection carried through sign-in and sign-up */
+.pub-intent { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 16px; align-items: center; margin: 0 0 16px; padding: 16px 18px; border-radius: 16px; background: var(--hx-surface-solid); box-shadow: var(--hx-shadow); border: 1px solid var(--line-soft, var(--line)); }
+.pub-auth .pub-intent { width: 100%; max-width: 560px; margin: 0 auto 16px; }
+.pub-intent__k { grid-column: 1 / -1; display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--text-3); }
+.pub-intent__name { font-size: 16px; font-weight: 650; }
+.pub-intent__meta { grid-column: 1; font-size: 13px; color: var(--text-2); }
+.pub-intent__price { grid-column: 2; grid-row: 2 / span 2; display: grid; justify-items: end; text-align: right; }
+.pub-intent__price b { font-size: 17px; font-weight: 700; }
+.pub-intent__price small { font-size: 12px; color: var(--text-3); }
+.pub-intent .k-note { grid-column: 1 / -1; margin: 6px 0 0; }
+.pub-intent__act { grid-column: 1 / -1; display: flex; gap: 12px; align-items: center; }
+.pub-next { margin: 0; padding-left: 20px; display: grid; gap: 10px; font-size: 14px; line-height: 1.5; color: var(--text-2); }
+@media (max-width: 899px) {
+  .pub-row--act { grid-template-columns: minmax(0, 1fr) auto; }
+  .pub-row--act .pub-row__act { grid-column: 1 / -1; justify-content: stretch; }
+  .pub-row--act .pub-row__act .btn { width: 100%; justify-content: center; }
+}
