@@ -1,1 +1,135 @@
-/* settings (pass 12): filled in by a later commit in this series. */
+/* settings area styles (pass 12): development, content and settings.
+   Built on kit.css tokens only, so both brands, light and dark apply. */
+
+/* Tables: two columns on phones (main + trailing), middle cells hidden */
+@media (max-width: 759px) {
+  .st-tbl .tbl__head, .st-tbl .tbl__row { grid-template-columns: minmax(0, 1fr) auto !important; column-gap: 12px; }
+}
+.st-stack { flex-direction: column; align-items: flex-end !important; gap: 4px !important; }
+.st-tbl .c-sub .lx-pill, .st-tbl .c-title .lx-pill { height: 20px; font-size: 11px; vertical-align: 1px; margin-left: 4px; }
+
+/* Small pieces */
+.st-gap { margin-top: 14px; }
+.st-p { margin: 0 0 10px; font-size: 14px; line-height: 1.55; color: var(--text-2); }
+.st-p--sm { margin: 6px 0 0; font-size: 13px; color: var(--text-3); }
+.st-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.st-chip { display: inline-flex; align-items: center; height: 26px; padding: 0 10px; border-radius: 999px; font-size: 12.5px; font-weight: 500; color: var(--text-2); background: var(--hover); }
+.st-sw { display: inline-block; width: 14px; height: 14px; border-radius: 50%; background: var(--sw); box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .12); }
+.st-clabel { display: inline-flex; align-items: center; gap: 6px; height: 24px; padding: 0 10px 0 8px; border-radius: 999px; font-size: 12px; font-weight: 600; color: var(--text); background: color-mix(in oklab, var(--sw) 16%, transparent); }
+.st-clabel i { width: 9px; height: 9px; border-radius: 50%; background: var(--sw); }
+.k-bar .st-clabel + .st-clabel { margin-left: 2px; }
+.st-vis { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 600; white-space: nowrap; }
+.st-vis--off { color: var(--text-3); }
+.st-vis--on { color: var(--ok); }
+.st-note { padding: 12px 14px; border-radius: 12px; background: var(--hover); display: grid; gap: 6px; }
+.st-note + .st-note { margin-top: 10px; }
+.st-note p { margin: 0; font-size: 14px; color: var(--text); }
+.st-up .icon { transform: rotate(180deg); }
+.st-flipicon .icon { transform: rotate(180deg); }
+
+/* Framework groups */
+.st-group { display: grid; gap: 14px; }
+.st-group__head { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 14px; align-items: start; }
+.st-group__n { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 10px; font-size: 14px; font-weight: 700; color: var(--accent); background: color-mix(in oklab, var(--accent) 12%, transparent); }
+.st-group__title h3 { margin: 0; font-size: 17px; font-weight: 650; letter-spacing: -.01em; }
+.st-group__title p { margin: 3px 0 0; font-size: 13.5px; color: var(--text-3); }
+.st-group__toggles, .st-toggles { display: flex; flex-wrap: wrap; gap: 6px 22px; }
+.st-toggles { flex-direction: column; margin: 16px 0 14px; }
+.st-prompt { padding: 12px 14px; border-radius: 12px; background: var(--hover); }
+.st-prompt p { margin: 4px 0 0; font-size: 14px; color: var(--text-2); }
+@media (max-width: 759px) {
+  .st-group__head { grid-template-columns: auto minmax(0, 1fr); }
+  .st-group__head .k-row-actions { grid-column: 1 / -1; justify-content: flex-start; }
+}
+
+/* Colour labels and palettes */
+.st-labels { display: grid; gap: 14px; }
+.st-label { display: grid; grid-template-columns: auto minmax(0, 220px) minmax(0, 1fr); gap: 14px; align-items: end; }
+.st-label__n { align-self: center; margin-top: 18px; font-size: 13px; font-weight: 700; color: var(--text-3); }
+.st-pal { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding-bottom: 6px; }
+.st-pal__c { width: 26px; height: 26px; border-radius: 50%; background: var(--sw); box-shadow: inset 0 0 0 1px var(--line-strong); transition: transform var(--dur-1); }
+.st-pal__c:hover { transform: scale(1.08); }
+.st-pal__c.is-on { box-shadow: 0 0 0 2px var(--hx-surface-solid), 0 0 0 4px var(--text); }
+.st-pal__c--lg { width: 32px; height: 32px; }
+.st-hex { font-size: 12.5px; color: var(--text-3); margin-left: 4px; }
+@media (max-width: 759px) { .st-label { grid-template-columns: auto minmax(0, 1fr); } .st-label .st-pal { grid-column: 2; } }
+
+/* Feedback preview blocks */
+.st-fbprev { display: grid; gap: 12px; }
+.st-fbprev__b { padding: 14px 16px; border-radius: 14px; background: var(--hover); }
+.st-fbprev__b p { margin: 6px 0 0; font-size: 15px; line-height: 1.5; color: var(--text); }
+.st-fbprev__b.is-off { opacity: .55; }
+.st-fbprev__r { display: grid; grid-template-columns: auto auto; justify-content: start; gap: 8px 14px; align-items: center; font-size: 13.5px; color: var(--text-2); }
+
+/* Development plan targets */
+.st-targets { display: grid; gap: 8px; }
+.st-target { display: grid; grid-template-columns: auto minmax(0, 1fr) minmax(0, 170px); gap: 12px; align-items: center; padding: 10px 12px; border-radius: 12px; background: var(--hover); }
+.st-target__n { font-size: 13px; font-weight: 700; color: var(--text-3); width: 18px; }
+.st-target__main { display: grid; gap: 2px; min-width: 0; }
+.st-target__main b { font-size: 14.5px; font-weight: 600; }
+.st-target__main small { font-size: 12.5px; color: var(--text-3); }
+@media (max-width: 759px) { .st-target { grid-template-columns: auto minmax(0, 1fr); } .st-target__st { grid-column: 2; } }
+
+/* Communications switched off: a calm, disabled preview */
+.st-disabled { display: grid; gap: 20px; opacity: .55; filter: grayscale(.6); pointer-events: none; user-select: none; }
+.st-disabled__k { display: inline-flex; align-items: center; gap: 6px; margin: 0; font-size: 12px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--text-3); }
+
+/* Branding */
+.st-sticky { display: grid; gap: 16px; align-self: start; position: sticky; top: 16px; }
+@media (max-width: 1100px) { .st-sticky { position: static; } }
+.st-colour { display: grid; grid-template-columns: minmax(0, 200px) minmax(0, 1fr); gap: 14px; align-items: center; padding: 12px 0; }
+.st-colour + .st-colour { border-top: 1px solid var(--line-soft); }
+.st-colour__k { display: grid; gap: 2px; }
+.st-colour__k b { font-size: 14px; font-weight: 600; }
+.st-colour__k small { font-size: 12.5px; color: var(--text-3); }
+@media (max-width: 759px) { .st-colour { grid-template-columns: minmax(0, 1fr); gap: 8px; } }
+.st-logo { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+.st-logo__box { width: 72px; height: 72px; flex: none; display: grid; place-items: center; border-radius: 16px; background: var(--hover); box-shadow: inset 0 0 0 1px var(--line); border: 1px dashed var(--line-strong); overflow: hidden; }
+.st-logo__box img { width: 100%; height: 100%; object-fit: contain; }
+.st-logo__box b { font-size: 22px; font-weight: 700; color: var(--text-2); }
+.st-logo__text { display: grid; gap: 4px; min-width: 0; }
+.st-logo__text b { font-size: 14px; font-weight: 600; }
+.st-logo__text small { font-size: 12.5px; color: var(--text-3); }
+
+.st-bp { border-radius: 16px; overflow: hidden; background: #fbfaf8; color: #16171a; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .08); }
+.st-bp__bar { display: flex; align-items: center; gap: 12px; padding: 14px 16px; background: var(--bp-id); color: #fff; }
+.st-bp__mark { width: 36px; height: 36px; flex: none; display: grid; place-items: center; border-radius: 10px; background: rgba(255, 255, 255, .14); overflow: hidden; }
+.st-bp__mark img { width: 100%; height: 100%; object-fit: contain; background: #fff; }
+.st-bp__mark span { font-size: 13px; font-weight: 700; color: #fff; }
+.st-bp__name { display: grid; gap: 1px; min-width: 0; }
+.st-bp__name b { font-size: 14.5px; font-weight: 650; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.st-bp__name small { font-size: 12px; opacity: .72; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.st-bp__body { padding: 18px 16px 16px; display: grid; gap: 8px; }
+.st-bp__k { font-size: 10.5px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--bp-acc); }
+.st-bp__body h3 { margin: 0; font-size: 19px; font-weight: 680; letter-spacing: -.02em; overflow-wrap: anywhere; }
+.st-bp__body > p { margin: 0; font-size: 13.5px; color: #55585f; overflow-wrap: anywhere; }
+.st-bp__row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 6px; }
+.st-bp__btn { display: inline-flex; align-items: center; height: 34px; padding: 0 14px; border-radius: 10px; font-size: 13px; font-weight: 650; background: var(--bp-fill); color: var(--bp-on); }
+.st-bp__link { font-size: 13px; font-weight: 600; color: var(--bp-acc); text-decoration: underline; text-underline-offset: 3px; }
+.st-bp__pill { display: inline-flex; align-items: center; height: 22px; padding: 0 9px; border-radius: 999px; font-size: 11px; font-weight: 650; color: var(--bp-acc); background: color-mix(in oklab, var(--bp-acc) 14%, #fff); }
+.st-bp__foot { margin: 8px 0 0 !important; font-size: 12px !important; color: #7a7d84 !important; overflow-wrap: anywhere; }
+
+/* Feature controls */
+.st-feats { display: grid; }
+.st-feat { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 12px 0; flex-wrap: wrap; }
+.st-feat + .st-feat { border-top: 1px solid var(--line-soft); }
+.st-feat__main { display: grid; gap: 4px; min-width: 0; }
+.st-feat__meta { display: flex; flex-wrap: wrap; gap: 4px 12px; padding-left: 48px; }
+.st-feat__end { display: flex; align-items: center; gap: 14px; }
+.st-feat .k-toggle span:last-child { font-weight: 600; }
+
+/* Profile */
+.st-who { display: flex; align-items: center; gap: 14px; margin-bottom: 16px; }
+.st-who b { display: block; font-size: 17px; font-weight: 650; }
+.st-who small { font-size: 13px; color: var(--text-3); }
+
+/* Notifications */
+.st-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--line-strong); margin: 0 4px; }
+.st-dot.is-on { background: var(--accent); box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent) 22%, transparent); }
+.st-ntf.is-unread .row__title { font-weight: 650; color: var(--text); }
+.st-ntf .row__trail .btn { position: relative; z-index: 1; }
+.st-ntf .row__sub span { white-space: normal; }
+.st-prefs { display: grid; }
+.st-prefs__h, .st-prefs__r { display: grid; grid-template-columns: minmax(0, 1fr) 56px 56px; gap: 8px; align-items: center; }
+.st-prefs__h { font-size: 12px; font-weight: 600; color: var(--text-3); padding-bottom: 6px; }
+.st-prefs__r { padding: 8px 0; border-top: 1px solid var(--line-soft); font-size: 14px; }
