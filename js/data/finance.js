@@ -245,7 +245,7 @@
     });
     if (includeExpected) F.drafts.filter(function (d) { return d.period === month && d.state !== 'Issued'; }).forEach(function (d) { var t = totals(d.lines); var p = P('Schools'); p.gross += t.gross; p.vat += t.vat; p.net += t.net; });
     F.familyCharges.filter(function (c) { return c.month === month && c.gross > 0; }).forEach(function (c) {
-      var s = D.session(D.memberships.filter(function (m) { return m.id === c.membership; })[0].session), p = P(s.programme);
+      var m = c.membership && D.memberships.filter(function (x) { return x.id === c.membership; })[0], p = P(m ? D.session(m.session).programme : (c.programme || 'Camps & events'));
       var vat = Math.round(c.gross / 6); p.gross += c.gross; p.vat += vat; p.net += c.gross - vat;
     });
     F.familyCredits.filter(function (c) { return c.occurrence && c.at.slice(0, 7) === month; }).concat(F.refunds.filter(function (r) { return r.occurrence && r.at.slice(0, 7) === month; })).forEach(function (c) {
@@ -320,7 +320,7 @@
     return D.occurrences.filter(function (o) { return o.date.slice(0, 7) === month && !o.draft; }).map(function (o) {
       var s = D.session(o.sessionId), rev = 0;
       if (s.client) { var line = null; F.invoices.concat(F.drafts).forEach(function (i) { (i.lines || []).forEach(function (l) { if (l.occurrence === o.id && (l.include !== false)) line = l; }); }); rev = line ? price(line).net : 0; }
-      else if (o.status === 'Completed') { var weekly = D.occurrences.filter(function (x) { return x.sessionId === o.sessionId && x.date.slice(0, 7) === month && x.status === 'Completed'; }).length; rev = Math.round(K.sum(F.familyCharges.filter(function (c) { return c.month === month && D.memberships.filter(function (m) { return m.id === c.membership; })[0].session === o.sessionId; }), function (c) { return netOfGross(c.gross); }) / (weekly || 1)); }
+      else if (o.status === 'Completed') { var weekly = D.occurrences.filter(function (x) { return x.sessionId === o.sessionId && x.date.slice(0, 7) === month && x.status === 'Completed'; }).length; rev = Math.round(K.sum(F.familyCharges.filter(function (c) { var m = c.membership && D.memberships.filter(function (x) { return x.id === c.membership; })[0]; return c.month === month && m && m.session === o.sessionId; }), function (c) { return netOfGross(c.gross); }) / (weekly || 1)); }
       var coach = K.sum(F.allocations.filter(function (a) { return a.occurrence === o.id; }), 'cost'), venue = F.venueCost(o);
       return { occurrence: o, revenue: rev, coach: coach, venue: venue, contribution: rev - coach - venue };
     });

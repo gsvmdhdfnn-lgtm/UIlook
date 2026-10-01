@@ -1,1 +1,115 @@
-/* parent-hub (pass 12): filled in by a later commit in this series. */
+/* parent-hub area styles (pass 12): build on kit.css tokens only. */
+.app[data-area="client"] main > .lx { max-width: 1120px; margin-left: auto; margin-right: auto; }
+.ph .lx-head__actions { flex-wrap: wrap; }
+
+.ph-note { display: flex; gap: 8px; align-items: flex-start; }
+.ph-note .icon { flex: none; margin-top: 2px; color: var(--text-4); }
+.ph-empty { display: grid; justify-items: center; padding-bottom: 8px; }
+.ph-empty__act { padding: 0 0 24px; }
+.ph-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.ph-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 12px; }
+.ph-row-note { margin-top: 6px; }
+.ph-sub { margin: 14px 0 8px; font-size: 13px; font-weight: 600; color: var(--text-2); }
+.ph-price { font-size: 14px; font-weight: 600; color: var(--text); white-space: nowrap; }
+.ph-body { margin: 0; font-size: 14.5px; line-height: 1.55; color: var(--text-2); }
+.ph-hero-empty { margin: 0; max-width: 46ch; opacity: .8; }
+
+/* Session rows */
+.ph-dated .lx-pill { flex: none; }
+.ph-struck { text-decoration: line-through; text-decoration-color: color-mix(in oklab, var(--danger) 70%, transparent); }
+
+/* A change (cancelled / rescheduled occurrence) with its outcome */
+.ph-change { display: flex; align-items: flex-start; gap: 14px; padding: 14px 16px; border-radius: 16px; text-decoration: none; color: var(--text);
+  background: color-mix(in oklab, var(--danger-soft, rgba(200, 60, 50, .1)) 70%, var(--hx-surface-solid)); box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--danger) 18%, transparent); }
+.ph-change:hover { box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--danger) 34%, transparent); }
+.ph-change > .icon { margin-top: 4px; color: var(--text-4); flex: none; }
+.ph-change__icon { width: 32px; height: 32px; flex: none; display: grid; place-items: center; border-radius: 10px; color: var(--danger); background: var(--hx-surface-solid); }
+.ph-change__main { flex: 1; min-width: 0; display: grid; gap: 3px; }
+.ph-change__main b { font-size: 14.5px; font-weight: 600; }
+.ph-change__main small { font-size: 13px; color: var(--text-2); }
+
+/* Lists with ticks */
+.ph-list { margin: 0; padding: 0; list-style: none; display: grid; gap: 8px; }
+.ph-list li { display: flex; gap: 10px; align-items: flex-start; font-size: 14px; color: var(--text-2); }
+.ph-list li .icon { flex: none; margin-top: 2px; color: var(--ok); }
+.ph-sens { margin: 0; font-size: 14px; }
+.lx-card .k-sensitive, .lx-card .k-locked { margin-top: 12px; }
+.lx-card .k-sensitive:first-child, .lx-card .k-locked:first-child { margin-top: 0; }
+
+/* Bookable products and resource cards */
+.ph-product, .ph-res { display: grid; gap: 10px; align-content: start; padding-bottom: 16px; }
+.ph-product h3, .ph-res h3 { margin: 2px 0 0; font-size: 17px; font-weight: 650; letter-spacing: -.01em; }
+.ph-product .k-note, .ph-res .k-note { margin: 0; }
+.ph-product__top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.ph-product__left { margin-left: auto; font-size: 12.5px; color: var(--text-3); }
+.ph-product__foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-top: 4px; }
+.ph-chips { display: flex; gap: 6px; flex-wrap: wrap; }
+.ph-chip { display: inline-flex; align-items: center; gap: 4px; height: 26px; padding: 0 10px 0 7px; border-radius: 999px; font-size: 12.5px; font-weight: 600; color: var(--text-3); background: var(--hover); }
+.ph-chip.is-ok { color: var(--ok); background: var(--ok-soft); }
+.ph-chip .icon { width: 13px; height: 13px; }
+
+/* Booking choices */
+.ph-pick { display: inline-flex; flex-wrap: wrap; max-width: 100%; }
+.ph-pick button:disabled { opacity: .45; cursor: not-allowed; }
+.ph-why { margin: 10px 0 0; padding-left: 18px; font-size: 13px; color: var(--text-3); }
+.ph-pol { display: flex; gap: 6px; align-items: flex-start; margin-top: 12px; }
+.ph-pol .icon { flex: none; margin-top: 2px; }
+.ph-due { font-size: 18px; }
+@media (min-width: 900px) { .ph-sticky { position: sticky; top: 16px; } }
+
+/* Memberships */
+.ph-mem { display: grid; gap: 12px; text-decoration: none; color: var(--text); padding-bottom: 14px; transition: transform 200ms, box-shadow 200ms; }
+.ph-mem:hover { transform: translateY(-1px); box-shadow: var(--hx-shadow-hover, var(--hx-shadow)); }
+.ph-mem__top { display: flex; align-items: center; gap: 12px; }
+.ph-mem__top > div { flex: 1; min-width: 0; display: grid; gap: 1px; }
+.ph-mem__top b { font-size: 15px; font-weight: 650; }
+.ph-mem__top small { font-size: 13px; color: var(--text-3); }
+.ph-mem__req { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 600; color: var(--warn); }
+
+/* Development */
+.ph-general { margin: 0; font-size: 14.5px; line-height: 1.55; color: var(--text-2); }
+.ph-rates { display: flex; gap: 10px 18px; flex-wrap: wrap; }
+.ph-rates > span { display: grid; gap: 4px; }
+.ph-rates small { font-size: 11px; font-weight: 650; letter-spacing: .08em; text-transform: uppercase; color: var(--text-3); }
+.ph-rate { display: inline-flex; align-items: center; gap: 6px; height: 24px; padding: 0 10px; border-radius: 999px; font-size: 12.5px; font-weight: 600; color: var(--text);
+  background: color-mix(in oklab, var(--c) 16%, var(--hx-surface-solid)); box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--c) 35%, transparent); }
+.ph-rate::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--c); }
+.ph-targets { margin: 0; padding: 0; list-style: none; display: grid; }
+.ph-targets li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 0; }
+.ph-targets li + li { box-shadow: inset 0 1px 0 var(--line-soft); }
+.ph-targets span { display: grid; gap: 2px; min-width: 0; }
+.ph-targets b { font-size: 14px; font-weight: 600; }
+.ph-targets small { font-size: 12.5px; color: var(--text-3); }
+
+/* Profile: notification choices */
+.ph-prefs { display: grid; }
+.ph-pref { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 8px 16px; align-items: center; padding: 10px 0; }
+.ph-pref + .ph-pref { box-shadow: inset 0 1px 0 var(--line-soft); }
+.ph-pref > span { display: grid; gap: 2px; }
+.ph-pref b { font-size: 14px; font-weight: 600; }
+.ph-pref small { font-size: 12.5px; color: var(--text-3); }
+.ph-unread { color: var(--accent); }
+
+@media (max-width: 899px) {
+  .app[data-area="client"] main > .lx { padding-left: 16px; padding-right: 16px; }
+  .ph .k-grid--2, .ph .k-grid--3, .ph .k-grid--21 { grid-template-columns: minmax(0, 1fr); }
+  .ph-pref { grid-template-columns: minmax(0, 1fr) auto; }
+  .ph-pref > span { grid-column: 1 / -1; }
+  .ph-targets li { align-items: flex-start; }
+}
+
+/* Product facts */
+.ph-facts { margin: 0; padding: 0; list-style: none; display: grid; gap: 6px; }
+.ph-facts li { display: flex; gap: 8px; align-items: flex-start; font-size: 13.5px; color: var(--text-2); }
+.ph-facts .icon { flex: none; margin-top: 2px; color: var(--text-4); }
+.ph-from { font-size: 18px; font-weight: 650; letter-spacing: -.01em; }
+.ph-small { font-size: 12.5px; }
+.ph .tbl .c-main .c-title, .ph .tbl .c-main .c-sub { white-space: normal; }
+
+/* Home hero on phones: keep the hero inside the column */
+@media (max-width: 899px) {
+  .lx-client { grid-template-columns: minmax(0, 1fr) !important; }
+  .lx-client > div { min-width: 0; }
+  .lx-client .lx-next__k, .lx-client .lx-next__pills, .lx-client .lx-next__actions { flex-wrap: wrap; }
+}
+@media (max-width: 480px) { .lx-client .lx-next__facts { grid-template-columns: minmax(0, 1fr); } .lx-client .lx-next__facts > div { box-shadow: inset 0 1px 0 rgba(255, 255, 255, .07) !important; } .lx-client .lx-next__facts > div:first-child { box-shadow: none !important; } }

@@ -230,6 +230,8 @@
     if (r.type === 'Detail change' && r.change) {
       var patch = {}; patch[r.change.field] = r.change.field === 'medical' ? ({ 'Confirmed none': 'none', 'Has details': 'details', 'Not confirmed': 'not_confirmed' }[r.change.after] || r.change.after) : r.change.after;
       if (r.change.field === 'medical') patch.medicalConfirmed = { by: db.getParent(r.by).name, at: at };
+      if (r.change.field === 'medicalDetail') { patch.medical = String(r.change.after || '').trim() ? 'details' : 'none'; patch.medicalConfirmed = { by: db.getParent(r.by).name, at: at }; }
+      if (r.change.field === 'emergencyNote') { var ep = db.getPlayer(r.player), list = (ep.emergency || []).slice(); list[1] = { name: r.change.after, rel: 'Updated by parent', phone: '' }; delete patch.emergencyNote; patch.emergency = list; }
       db.updatePlayer(r.player, patch);
     }
     if (r.type === 'Second parent invite' && r.parent) db.verifyParentLink(r.parent, 'Invite accepted; confirmed by management', who, at);

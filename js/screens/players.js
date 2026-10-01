@@ -456,7 +456,7 @@
   };
 
   /* ================================================================ REQUESTS */
-  var REQ_TYPES = ['Session request', 'Pause', 'Cancellation', 'Detail change', 'Second parent invite'];
+  var REQ_TYPES = ['Session request', 'Pause', 'Cancellation', 'Detail change', 'Second parent invite', 'Add a child', 'Billing query'];
   function reqDisabled(r) { return r.type === 'Session request' && !K.feature('sessionRequests'); }
   function requestTable(list) {
     return tbl({ cols: 'minmax(0,1.6fr) minmax(0,1.2fr) 140px 130px', head: ['Request', { label: 'Requested by', cls: 'wide' }, { label: 'Stage', cls: 'wide' }, { label: 'Status', cls: 'c-end' }],
