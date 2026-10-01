@@ -146,3 +146,5 @@ a.hx-week__day { text-decoration: none; }
 a.hx-sched { text-decoration: none; color: var(--text); }
 .app:not([data-area="management"]) .topbar .k-pubact .btn--tertiary { color: var(--spine-text); }
 .app:not([data-area="management"]) .topbar .k-pubact .btn--tertiary:hover { background: rgba(255, 255, 255, .08); }
+/* Tile values wrap their label instead of running under the arrow */
+.lx-area__value { flex-wrap: wrap; row-gap: 0; min-width: 0; }

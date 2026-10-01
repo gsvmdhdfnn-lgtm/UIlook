@@ -5,7 +5,8 @@ one example organisation using it). It is a static, mock-data front end for
 trying out the look and feel. It is not a second Hub.
 
 - **Josh Evans brand = live Hub design:** `docs/JOSH-EVANS-THEME.md`, `docs/screenshots/joshevans/`. Switch Brand to Josh Evans in the prototype bar.
-- **Pass 11, hierarchy and focus (current):** `docs/VISUAL-PASS-11.md`, `docs/screenshots/pass-11/`.
+- **Pass 12, the whole Hub, clickable (current):** `docs/VISUAL-PASS-12.md`, `docs/FEATURE-COVERAGE.md`, `docs/screenshots/pass-12/`. Every Management, Coach, Parent and Public screen, five guided walkthroughs, finance access and feature switches.
+- **Pass 11, hierarchy and focus:** `docs/VISUAL-PASS-11.md`, `docs/screenshots/pass-11/`.
 - **Pass 10, Relvor brand system:** `docs/VISUAL-PASS-10.md`, `docs/screenshots/pass-10/`. Inter, obsidian/porcelain/amber, compact proportions, working-panel Home.
 - **Pass 9, design-pack layout:** `docs/VISUAL-PASS-9.md`, `docs/screenshots/pass-9/`. Home and More navigation, pack page structures, Relvor finish.
 - **Palette experiment:** `docs/PALETTE-EXPERIMENT.md`. Slate (Management), Forest (Coach), Plum (Parent); switch in the prototype bar.
@@ -22,9 +23,10 @@ trying out the look and feel. It is not a second Hub.
   never changes it.
 - All data is invented for UI/UX testing: people, venues, sessions, figures and
   organisations are fictional and do not describe any real records.
-- There is no backend, sign-in service or business logic here. Data is
-  mocked in `js/data.js` using product concepts (Coach, Session, Occurrence,
-  Player, Parent, Attention Case), not storage field names.
+- There is no backend or sign-in service here. Every change stays in memory
+  and resets on reload. Mock data lives in `js/data/*.js` and screens read it
+  only through small `Hub.db` helpers, using product concepts (Coach, Session,
+  Occurrence, Player, Parent, Invoice), not storage field names.
 
 ## Run it
 
@@ -36,7 +38,10 @@ python3 -m http.server 8000
 ```
 
 The dark bar at the top is prototype chrome. Use it to switch:
-- **Role:** Management, Staff or Client (called Coach and Parent under the Josh Evans brand)
+- **Role:** Management, Staff, Client or Public (called Coach and Parent under the Josh Evans brand)
+- **Coach role:** Lead, Coach or Learning coach (when Role is Staff)
+- **Finance access:** None, View (read-only) or Manage
+- **Feature switches** and **Scenario** (guided walkthroughs)
 - **Data state:** data, empty, loading or error
 - **Theme:** light, dark or auto
 - **Brand:** Relvor's generic look (a fictional organisation), or Josh Evans
@@ -65,9 +70,13 @@ css/joshevans.css   Josh Evans brand, following the live Hub's UI (Coach-allocat
 js/brand.js         branding boundary (name, mark, accent, terms; accent clamped for contrast)
 js/icons.js         stroke icon set
 js/ui.js            component helpers (one per pattern)
-js/data.js          mock data
-js/screens/*.js     Management Home, Needs Attention, More; Coach Home;
-                    Parent Home; Visual system reference
+js/kit.js           pass 12 kit: routes, money, dates, audit, layout, forms, states
+css/kit.css         kit styles; css/areas/*.css per-area styles
+js/data/*.js        mock data and Hub.db helpers per area (core, people, schedule,
+                    finance, families, coaching, development, public, parent-hub,
+                    coach-hub) and the Needs Attention engine (attention.js)
+js/screens/*.js     one file per area: management, finance, schedule, players,
+                    coaches, coach, parent, public, settings, scenarios, system
 docs/AUDIT.md       audit of the current Hub
 docs/VISUAL-PASS-2.md  pass-2 visual direction and rules
 docs/VISUAL-PASS-3.md  pass-3 changes: composition, spacing, surfaces, navigation
