@@ -113,7 +113,7 @@
      a reference): white header with a lime rule, the JE logo over a hub
      label, a hub switch, and an Anton pill nav beneath. */
   function jeHeader() {
-    var who = S.area === 'client' ? D.parent.name : D.me.name;
+    var who = Hub.kit.viewer().name;
     var mode = { management: 'Management Hub', staff: 'Coach Hub', client: 'Parent / Player Hub', public: 'Soccer School' }[S.area];
     var sw = S.role === 'management' && S.area !== 'client' ? (S.area === 'management'
       ? '<button type="button" class="je-switch" data-action="area" data-area="staff">' + I('chevron', 'icon-sm flip') + 'Coach Hub</button>'
@@ -131,7 +131,7 @@
   }
   function topbar() {
     if (S.brand === 'joshevans') return jeHeader();
-    var who = S.area === 'client' ? D.parent.name : D.me.name;
+    var who = Hub.kit.viewer().name;
     return '<header class="topbar">' +
       '<a class="org" href="#' + HOME[S.area] + '">' + Hub.orgMark() + '<span class="org__name">' + esc(Hub.brand.orgName) + '<span class="org__sub">' + esc(areaLabel(S.area)) + '</span></span></a>' +
       '<nav class="topbar__tabs glide glide--bar" data-glide="top-' + S.area + '" aria-label="Main">' + tabLinks(S.area, '') + '</nav>' +
@@ -197,7 +197,7 @@
   }
   function placeholder() {
     return '<div class="page page--narrow">' + ui.pageHead({ overline: areaLabel(S.area), title: pageTitle() }) +
-      '<div class="zone-inset">' + ui.empty('grid', 'Not part of this visual pass', 'The shared system is ready to apply here. This screen keeps its place in navigation so the shell reads as complete.') + '</div></div>';
+      '<div class="zone-inset">' + ui.empty('grid', 'Page not found', 'This link doesn’t lead to a page in the hub. Use the navigation to carry on.') + '<p style="text-align:center;margin-top:12px">' + ui.btn('Go to Home', { size: 'sm', attrs: { 'data-action': 'go', 'data-route': HOME[S.area] || 'mgmt-home' } }) + '</p></div></div>';
   }
 
   /* The glide selector: it remembers where it was and glides to where it
@@ -330,7 +330,7 @@
     inp.addEventListener('input', function () { document.getElementById('hub-search-results').innerHTML = searchResults(inp.value); });
   };
   Hub.actions.profile = function () {
-    var who = S.area === 'client' ? { name: D.parent.name, email: D.parent.email, role: terms().client } : { name: D.me.name, email: D.me.email, role: S.role === 'management' ? 'Management' : terms().staff };
+    var who = S.area === 'client' ? { name: D.parent.name, email: D.parent.email, role: terms().client } : { name: Hub.kit.viewer().name, email: S.area === 'staff' && Hub.db.getSignedInCoach ? Hub.db.getSignedInCoach().email : D.me.email, role: S.role === 'management' ? 'Management' : terms().staff };
     Hub.openSheet({
       title: esc(who.name), meta: '<div class="identity__meta"><span>' + esc(who.role) + '</span><span>' + esc(who.email) + '</span></div>',
       body: '<div>' + ui.rows([

@@ -52,7 +52,10 @@
   K.viewer = function () {
     var S = Hub.state;
     var role = S.area === 'client' ? 'parent' : S.area === 'staff' ? 'coach' : S.area === 'public' ? 'public' : 'management';
-    return { role: role, coachRole: S.coachRole || 'lead', name: role === 'parent' ? Hub.data.parent.name : Hub.data.me.name };
+    var v = { role: role, coachRole: S.coachRole || 'lead', name: role === 'parent' ? Hub.data.parent.name : Hub.data.me.name };
+    /* In the Coach hub the signed-in coach depends on the coach role; the guard stops the lookup re-entering here */
+    if (role === 'coach' && Hub.db.getSignedInCoach && !K._inViewer) { K._inViewer = true; try { var c = Hub.db.getSignedInCoach(); if (c) v.name = c.name; } finally { K._inViewer = false; } }
+    return v;
   };
   K.me = function () { return K.viewer().name; };
   K.fin = function () { return Hub.state.finance || 'manage'; };
