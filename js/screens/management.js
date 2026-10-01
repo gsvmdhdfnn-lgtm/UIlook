@@ -121,7 +121,7 @@
       return '<button type="button" class="hx-attn' + (k.severity === 'Urgent' ? ' is-urgent' : '') + '" data-action="case" data-key="' + esc(k.caseKey) + '"><span class="hx-dot hx-tone--' + (k.severity === 'Urgent' ? 'danger' : k.severity === 'Warning' ? 'warn' : 'muted') + '"></span>' +
         '<span class="hx-attn__main"><b>' + esc(k.title) + '</b><small>' + esc(k.when) + ' · ' + esc(k.category) + '</small></span>' + I('chevron', 'icon-sm hx-chev') + '</button>';
     }).join('') + '</div>';
-    return '<section class="hx-card hm-attn">' + head + sev + rows + '</section>';
+    return '<section class="hx-card hm-attn" id="hm-attn">' + head + sev + rows + '</section>';
   }
 
   Hub.screens['mgmt-home'] = function (ctx) {
@@ -143,19 +143,21 @@
       (empty ? ui.empty('calendar', 'Nothing scheduled today', 'Tomorrow has 2 sessions.') : '<div class="hx-list">' + todayOcc().slice().sort(function (a, b) { return a.start < b.start ? -1 : 1; }).map(schedRow).join('') + '</div>') + '</section>';
 
     var week = [['Mon', 28], ['Tue', 29], ['Wed', 30], ['Thu', 1], ['Fri', 2], ['Sat', 3], ['Sun', 4]];
-    var timeline = empty ? '<p class="hx-sub">Nothing scheduled.</p>' : todayOcc().slice().sort(function (a, b) { return a.start < b.start ? -1 : 1; }).map(function (o) {
-      var risk = o.staff.some(function (x) { return x.unavailable; });
-      return '<div class="hx-tl"><span class="hx-tl__time num">' + o.start + '</span><span class="hx-dot hx-tone--' + (risk ? 'warn' : 'ok') + '"></span><span class="hx-tl__main"><b>' + esc(o.session) + '</b><small>' + esc(venue(o)) + '</small></span></div>';
-    }).join('');
-    var todayCard = '<section class="hx-card hx-card--rail"><div class="hx-card__head"><div><h2>Today</h2><small class="hx-sub">Thu 1 Oct 2026</small></div></div>' +
-      '<div class="hx-week">' + week.map(function (d, i) { return '<span class="hx-week__day' + (i === 3 ? ' is-today' : '') + '"><small>' + d[0] + '</small><b>' + d[1] + '</b></span>'; }).join('') + '</div><div class="hx-timeline">' + timeline + '</div></section>';
+    var todayCard = '<section class="hx-card hx-card--rail"><div class="hx-card__head"><div><h2>Calendar</h2><small class="hx-sub">Thursday 1 October 2026</small></div><span class="hx-arrows"><button type="button" class="icon-btn" aria-label="Previous week" data-action="soon">' + I('chevron', 'icon-sm flip') + '</button><button type="button" class="icon-btn" aria-label="Next week" data-action="soon">' + I('chevron', 'icon-sm') + '</button></span></div>' +
+      '<div class="hx-week" role="group" aria-label="Choose a day">' + week.map(function (d, i) { return '<button type="button" class="hx-week__day' + (i === 3 ? ' is-today' : '') + '"' + (i === 3 ? ' aria-pressed="true"' : ' data-action="soon"') + '><small>' + d[0] + '</small><b>' + d[1] + '</b></button>'; }).join('') + '</div>' +
+      '<p class="hm-cal__sum num">' + (empty ? 'No sessions today' : todayOcc().length + ' sessions · first 15:30 · last ends 20:30') + '</p></section>';
     var activity = '<section class="hx-card hx-card--rail"><div class="hx-card__head"><h2>Recent activity</h2></div><div class="hx-activity">' +
       D.changes.map(function (ch, i) {
         var tone = ['warn', 'ok', 'blue'][i % 3], icon = ['calendar', 'shield', 'inbox'][i % 3];
         return '<div class="hx-act"><span class="hx-act__icon hx-tone--' + tone + '">' + I(icon, 'icon-sm') + '</span><span><b>' + esc(ch.text) + '</b><small>' + esc(ch.time) + '</small></span></div>';
       }).join('') + '</div></section>';
 
-    return shell(areas + '<div class="hm__pair">' + sched + attentionPanel(ctx.state) + '</div>', todayCard + activity);
+    /* Phones: urgent items stay visible above the schedule, without a banner. */
+    var urgent = D.attention.cases.filter(function (k) { return k.severity === 'Urgent'; });
+    var c = D.attention.summary.counts;
+    var urgentSum = empty || !urgent.length ? '' : '<section class="hm-urgent" aria-label="Urgent actions"><a class="hm-urgent__head" href="#hm-attn"><span class="hm-urgent__k">' + ui.sev('Urgent') + '<b class="num">' + urgent.length + ' urgent</b><span class="num">· ' + c.Warning + ' warning · ' + c.Normal + ' to do</span></span><span class="hm-urgent__go">Review' + I('arrowRight', 'icon-sm') + '</span></a>' +
+      urgent.map(function (k) { return '<button type="button" class="hm-urgent__row" data-action="case" data-key="' + esc(k.caseKey) + '"><b>' + esc(k.title) + '</b><small>' + esc(k.when) + '</small></button>'; }).join('') + '</section>';
+    return shell(areas + urgentSum + '<div class="hm__pair">' + sched + attentionPanel(ctx.state) + '</div>', todayCard + activity);
   };
   Hub.actions['scroll-today'] = function () { var t = document.getElementById('hx-today'); if (t) t.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' }); };
 

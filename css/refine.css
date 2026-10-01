@@ -1,0 +1,87 @@
+/* =====================================================================
+   Pass 11: hierarchy and focus refinements on top of pass 10.
+   Type scale (desktop / phone):
+     page title 28 / 24 · section heading 19 / 17 · card title 15 / 15
+     supporting 13–14.5. Section headings sit 12px above their content and
+     28px below the previous block.
+   ===================================================================== */
+:root { --fs-section: 19px; --fs-card: 15px; }
+@media (max-width: 899px) { :root { --fs-section: 17px; } }
+
+/* Section headings: one size, weight and spacing everywhere */
+.lx-section__head h2, .section-title, .queue-group__title, .chapter__title, .lx-group__title,
+.hx-card:not(.hx-card--rail) > .hx-card__head h2 {
+  font-size: var(--fs-section) !important; font-weight: 600 !important; letter-spacing: -.018em !important; line-height: 1.25; color: var(--text) !important;
+}
+.lx-section { gap: 12px; }
+.lx-body > .lx-section + .lx-section, .lx-body > * + .lx-section { margin-top: 4px; }
+.lx-section__head p { margin-top: 3px; }
+.lx-group { gap: 12px; }
+.lx-group__title { margin-left: 2px; }
+/* Card titles stay a clear step down */
+.hx-card--rail .hx-card__head h2, .lx-card__head h2 { font-size: var(--fs-card) !important; font-weight: 600 !important; }
+.hx-card:not(.hx-card--rail) > .hx-card__head { margin-bottom: 10px; }
+
+/* ---------- Issue titles wrap to two lines rather than truncating ---------- */
+.hx-attn__main b { white-space: normal !important; display: -webkit-box !important; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.35; text-overflow: clip; }
+.hx-attn { align-items: flex-start; }
+.hx-attn .hx-dot { margin-top: 6px; }
+.hx-attn .hx-chev { align-self: center; }
+.lx-hero__main b, .lx-issue h3 { white-space: normal; }
+
+/* ---------- Calendar panel: date selector only ---------- */
+.hm__rail .hx-week__day { border: 0; font: inherit; cursor: pointer; color: var(--text-3); background: transparent; transition: background var(--dur-1); }
+.hm__rail .hx-week__day:not(.is-today):hover { background: var(--hover); }
+.hm__rail .hx-week__day.is-today { cursor: default; }
+.hm-cal__sum { margin: 0 0 8px; padding-top: 10px; border-top: 1px solid var(--hx-edge); font-size: 12.5px; color: var(--text-3); }
+.hx-arrows .icon-btn { width: 30px; height: 30px; border-radius: 9px; }
+
+/* ---------- Phones: compact urgent summary above the schedule ---------- */
+.hm-urgent { display: none; }
+@media (max-width: 899px) {
+  .hm-urgent {
+    display: grid; border-radius: 14px; overflow: hidden; background: var(--hx-surface-solid);
+    box-shadow: var(--hx-shadow), inset 3px 0 0 var(--danger);
+  }
+  .hm-urgent__head { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 44px; padding: 10px 14px 6px 16px; text-decoration: none; color: var(--text); }
+  .hm-urgent__k { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text-3); flex-wrap: wrap; }
+  .hm-urgent__k .sev { width: 10px; height: 14px; }
+  .hm-urgent__k b { font-size: 14px; font-weight: 600; color: var(--danger); }
+  .hm-urgent__go { display: inline-flex; align-items: center; gap: 4px; font-size: 13px; font-weight: 600; flex: none; }
+  .hm-urgent__row { display: grid; gap: 2px; width: 100%; min-height: 44px; padding: 8px 14px 10px 16px; text-align: left; color: var(--text); border-top: 1px solid var(--hx-edge); }
+  .hm-urgent__row b { font-size: 14px; font-weight: 600; line-height: 1.35; }
+  .hm-urgent__row small { font-size: 12.5px; color: color-mix(in oklab, var(--danger) 75%, var(--text-3)); }
+  .hm-urgent__row:active { background: var(--hx-row-hover); }
+  #hm-attn { scroll-margin-top: 80px; }
+  .hm__rail .hm-cal__sum { display: none; }
+}
+
+/* ---------- Parent Home: lighter navigation tiles ---------- */
+.lx-tile, .lx-tile--shell, .lx-tile--accent, .lx-tile--light, .lx-tile--soft, .app[data-palette] .lx-tile--accent {
+  background: var(--hx-surface-solid) !important; color: var(--text) !important; box-shadow: var(--hx-shadow) !important; min-height: 112px;
+}
+.lx-tile::after { box-shadow: none !important; display: none; }
+.lx-tile:hover { box-shadow: var(--hx-shadow-hover) !important; }
+.lx-tile__icon, .lx-tile--shell .lx-tile__icon, .lx-tile--accent .lx-tile__icon, .lx-tile--light .lx-tile__icon, .lx-tile--soft .lx-tile__icon {
+  background: color-mix(in oklab, #d9a441 14%, #fff) !important; color: #8a6414 !important;
+}
+.lx-tile b { font-size: 15px; }
+.lx-tile small { color: var(--text-3); opacity: 1; font-size: 13px; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .lx-tile__icon { background: rgba(217, 164, 65, .14) !important; color: #e3b866 !important; } }
+:root[data-theme="dark"] .lx-tile__icon { background: rgba(217, 164, 65, .14) !important; color: #e3b866 !important; }
+.lx-client__tiles { align-self: start; }
+.lx-tiles { height: auto; }
+.hm__rail .hx-week__day.is-today { background: var(--shell-solid); color: rgba(255, 255, 255, .62); box-shadow: 0 6px 14px -8px rgba(11, 11, 11, .55); }
+.hm__rail .hx-week__day.is-today b { color: #fff; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .hm__rail .hx-week__day.is-today { color: rgba(11, 11, 11, .65); } :root:not([data-theme="light"]) .hm__rail .hx-week__day.is-today b { color: #0b0b0b; } }
+:root[data-theme="dark"] .hm__rail .hx-week__day.is-today { color: rgba(11, 11, 11, .65); }
+:root[data-theme="dark"] .hm__rail .hx-week__day.is-today b { color: #0b0b0b; }
+.lx-feedback .reading__cols p { font-size: 15px; line-height: 1.55; color: var(--text-2); }
+@media (max-width: 899px) {
+  .lx-page .lx-areas:not(.lx-areas--stat) .lx-area { grid-template-columns: minmax(0, 1fr); grid-template-areas: "icon" "title" "desc"; row-gap: 6px; padding: 14px; align-content: start; }
+  .lx-page .lx-areas:not(.lx-areas--stat) .lx-area__go { display: none; }
+  .lx-page .lx-areas:not(.lx-areas--stat) .lx-area__icon { width: 34px; height: 34px; border-radius: 10px; margin-bottom: 4px; }
+  .lx-page .lx-areas:not(.lx-areas--stat) .lx-area__desc { display: -webkit-box; -webkit-line-clamp: 3; font-size: 13px; }
+  .lx-next__actions { flex-wrap: nowrap; }
+  .lx-next__btn, .lx-next__ghost { padding: 0 12px; font-size: 13.5px; white-space: nowrap; min-height: 44px; }
+}
