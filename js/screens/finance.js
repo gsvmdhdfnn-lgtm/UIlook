@@ -220,7 +220,7 @@
   Hub.actions['fin-ovr-remove'] = function (el) { Hub.mutate(function () { db.removeOverride(el.dataset.id, 'Removed from the client page'); }, 'Charge change removed'); };
   Hub.actions['fin-client-edit'] = function (el) {
     var c = db.getClient(el.dataset.id);
-    Hub.openSheet({ title: 'Billing details · ' + esc(c.name), body: K.form([K.field('Billing contact', K.input('c_contact', c.contact)), K.field('Billing email', K.input('c_email', c.email)), K.field('CC emails', K.input('c_cc', c.cc)), K.field('Client-specific payment terms (days)', K.input('c_terms', c.termsOverride ? c.terms : '', { placeholder: 'Organisation default' })), K.field('PO required', K.select('c_po', [['yes', 'Yes'], ['no', 'No']], c.poRequired ? 'yes' : 'no')), K.field('Billing method', K.select('c_method', ['Email PDF', 'Email PDF + Xero', 'Post'], c.method)), K.field('Status', K.select('c_status', ['Active', 'Paused', 'Ended'], c.status))], 2),
+    Hub.openSheet({ title: 'Billing details · ' + esc(c.name), body: K.form([K.field('Billing contact', K.input('c_contact', c.contact)), K.field('Billing email', K.input('c_email', c.email)), K.field('CC emails', K.input('c_cc', c.cc)), K.field('Client-specific payment terms (days)', K.input('c_terms', c.termsOverride ? c.terms : '', { placeholder: 'Organisation default' })), K.field('PO required', K.select('c_po', [['yes', 'Yes'], ['no', 'No']], c.poRequired ? 'yes' : 'no')), K.field('Billing method', K.select('c_method', ['Email PDF', 'Email PDF + accounting app', 'Post'], c.method)), K.field('Status', K.select('c_status', ['Active', 'Paused', 'Ended'], c.status))], 2),
       foot: ui.btn('Cancel', { variant: 'tertiary', attrs: { 'data-action': 'close-sheet' } }) + K.actBtn('Save', 'fin-client-save', { id: c.id }, { variant: 'primary' }) });
   };
   Hub.actions['fin-client-save'] = function (el) {
@@ -444,7 +444,7 @@
   function famName(id) { return (db.getFamily(id) || {}).name || id; }
   function parName(id) { return (db.getParent(id) || {}).name || id; }
   Hub.actions['fin-refund'] = function () {
-    Hub.openSheet({ title: 'Record a refund decision', body: K.form([K.field('Family', K.select('rf_fam', db.getFamilies().map(function (f) { return [f.id, f.name]; }))), K.field('Amount (£)', K.input('rf_amount', '21.75')), K.field('Method', K.select('rf_method', ['Card refund (Stripe)', 'Bank transfer', 'Family credit instead'])), K.field('Reason', K.input('rf_reason', '', { placeholder: 'Required' }), '', true)], 2),
+    Hub.openSheet({ title: 'Record a refund decision', body: K.form([K.field('Family', K.select('rf_fam', db.getFamilies().map(function (f) { return [f.id, f.name]; }))), K.field('Amount (£)', K.input('rf_amount', '21.75')), K.field('Method', K.select('rf_method', ['Card refund', 'Bank transfer', 'Family credit instead'])), K.field('Reason', K.input('rf_reason', '', { placeholder: 'Required' }), '', true)], 2),
       foot: ui.btn('Cancel', { variant: 'tertiary', attrs: { 'data-action': 'close-sheet' } }) + K.actBtn('Record decision', 'fin-refund-save', {}, { variant: 'primary' }) });
   };
   Hub.actions['fin-refund-save'] = function () {
@@ -454,7 +454,7 @@
   };
   Hub.screens['mgmt-fin-parent-money'] = function (ctx) {
     var tabs = [{ id: 'payments', label: 'Family payments' }, { id: 'subs', label: 'Subscriptions' }, { id: 'bookings', label: 'Bookings' }, { id: 'refunds', label: 'Refunds' }, { id: 'credits', label: 'Family credits' }];
-    var h = head('mgmt-fin-parent-money', { title: 'Parent money', sub: 'Card payments taken through Stripe for subscriptions and bookings, refund decisions and family credits. The payer can differ from the person who booked.', tabs: K.tabs('fin-pm', tabs), actions: can() ? K.actBtn('Record refund decision', 'fin-refund', {}, { variant: 'secondary' }) : '' });
+    var h = head('mgmt-fin-parent-money', { title: 'Parent money', sub: 'Card payments for subscriptions and bookings, refund decisions and family credits. The payer can differ from the person who booked.', tabs: K.tabs('fin-pm', tabs), actions: can() ? K.actBtn('Record refund decision', 'fin-refund', {}, { variant: 'secondary' }) : '' });
     var g = gate(ctx, h); if (g) return g;
     var tab = K.tab('fin-pm', tabs), body = '';
     var charges = db.getFamilyCharges();
@@ -511,13 +511,15 @@
     var h = head('mgmt-fin-money-out', { title: 'Money out', sub: 'Coach costs come from pay items (one coach, one session). Coaches are paid on the ' + db.getFinanceSettings().coachPaymentDay + 'th for the previous month.', tabs: K.tabs('fin-mo', tabs) }); var g = gate(ctx, h); if (g) return g;
     var tab = K.tab('fin-mo', tabs), body = '';
     var sepAll = db.getAllocations(function (a) { return a.date.slice(0, 7) === '2026-09'; }), unconf = sepAll.filter(function (a) { return a.state !== 'Confirmed' && a.state !== 'Exported'; }), toRun = sepAll.filter(function (a) { return (a.state === 'Confirmed' || a.state === 'Exported') && !a.run; });
-    var mos = unconf.length ? K.situation({ tone: 'warn', title: unconf.length + ' pay item' + (unconf.length === 1 ? '' : 's') + ' not confirmed', text: 'Confirm them before coaches are paid on ' + K.dm('2026-10-07') + '.', primary: K.goBtn('Review coach pay', 'mgmt-allocations', { variant: 'primary' }) }) :
+    /* Pay is expected until the session is confirmed as delivered, then actual */
+    var waitOcc = []; unconf.forEach(function (a) { if (waitOcc.indexOf(a.occurrence) < 0) waitOcc.push(a.occurrence); });
+    var mos = unconf.length ? K.situation({ tone: 'warn', title: waitOcc.length + ' September session' + (waitOcc.length === 1 ? '' : 's') + ' awaiting confirmation', text: M(K.sum(unconf, 'cost')) + ' of coach pay is still expected, not actual. Confirm what happened so it can be paid on ' + K.dm('2026-10-07') + '.', primary: K.goBtn('Review delivery', 'mgmt-occurrence/' + waitOcc[0], { variant: 'primary' }) }) :
       K.situation({ tone: toRun.length ? 'info' : 'ok', title: (toRun.length ? M(K.sum(toRun, 'cost')) + ' to pay coaches on ' : 'Coach pay is ready for ') + K.dm('2026-10-07'), text: sepAll.length + ' September pay items, all confirmed and matching the work summaries. Venues, other costs and overheads (' + M(K.sum(db.getOverheads(), 'net')) + ' a month) are in the tabs above.', primary: can() && toRun.length ? K.actBtn('Prepare payment run', 'fin-run', {}, { variant: 'primary' }) : '' });
     if (tab === 'coaches') {
-      var sep = db.getAllocations(function (a) { return a.date.slice(0, 7) === '2026-09'; });
+      var sep = db.getAllocations(function (a) { return a.date.slice(0, 7) === '2026-09' && a.state !== 'Draft'; });
       var per = {}; sep.forEach(function (a) { var p = per[a.coach] || (per[a.coach] = { n: 0, units: 0, cost: 0, states: {} }); p.n++; p.units += a.units; p.cost += a.cost; p.states[a.state] = 1; });
       var confirmed = sep.filter(function (a) { return a.state === 'Confirmed' || a.state === 'Exported'; });
-      body = K.stats([{ label: 'September coach cost', value: M(K.sum(sep, 'cost')), sub: sep.length + ' pay items' }, { label: 'Ready to pay', value: M(K.sum(confirmed, 'cost')), sub: confirmed.length + ' confirmed or sent for payment' }, { label: 'Payment day', value: K.dm('2026-10-07'), sub: 'Previous month’s work' }, { label: 'Standard rate', value: M(3125), sub: 'Per evening hour' }]) +
+      body = K.stats([{ label: 'September coach cost (actual)', value: M(K.sum(sep, 'cost')), sub: sep.length + ' pay items' + (unconf.length ? ' · ' + M(K.sum(unconf, 'cost')) + ' more expected' : '') }, { label: 'Ready to pay', value: M(K.sum(confirmed, 'cost')), sub: confirmed.length + ' confirmed or sent for payment' }, { label: 'Payment day', value: K.dm('2026-10-07'), sub: 'Previous month’s work' }, { label: 'Standard rate', value: M(3125), sub: 'Per evening hour' }]) +
         K.table({ cols: 'minmax(0,1.5fr) 100px 90px 160px 110px', head: ['Coach', 'Sessions', 'Hours', 'State', { label: 'Cost', cls: 'c-num' }], rows: Object.keys(per).map(function (k) { var p = per[k]; return { route: 'mgmt-coach/' + k, cells: [K.cell(esc(db.coachName(k)), (db.getRateProfiles(k).filter(function (r) { return !r.to; })[0] || {}).note || ''), { cls: 'c-cell', html: String(p.n) }, { cls: 'c-cell', html: String(p.units) }, { html: Object.keys(p.states).map(K.status).join(' ') }, { cls: 'c-num', html: M(p.cost) }] }; }), foot: '<span>Matches the work summaries for September</span><b class="num">' + M(K.sum(sep, 'cost')) + '</b>' }) +
         K.details('Payment runs', K.table({ cols: '100px minmax(0,1fr) 140px minmax(0,1.4fr) 110px', head: ['Run', 'Work month', 'Paid on', 'Prepared', { label: 'Amount', cls: 'c-num' }], rows: db.getPaymentRuns().map(function (r) { return { cells: [{ cls: 'c-cell', html: esc(r.id) }, { cls: 'c-cell', html: monthName(r.month) }, { cls: 'c-cell', html: K.d(r.paidOn) + ' ' + K.status(r.state) }, { cls: 'c-cell', html: K.stamp('Prepared', r.by, r.at) }, { cls: 'c-num', html: M(r.amount) }] }; }) }), { sub: 'Past coach payments' });
     } else if (tab === 'costs') {
@@ -538,7 +540,7 @@
     var L = F.ledger('2026-09');
     var t = { rev: K.sum(L, 'revenue'), coach: K.sum(L, 'coach'), venue: K.sum(L, 'venue'), c: K.sum(L, 'contribution') };
     return K.page(h, K.stats([{ label: 'Revenue (net)', value: M(t.rev) }, { label: 'Coach cost', value: M(t.coach) }, { label: 'Venue cost', value: M(t.venue) }, { label: 'Before overheads', value: M(t.c), tone: 'feature' }]) +
-      K.table({ cols: '90px minmax(0,1.6fr) 110px 100px 100px 100px 110px', head: ['Date', 'Session', 'Status', { label: 'Revenue', cls: 'c-num' }, { label: 'Coach', cls: 'c-num' }, { label: 'Venue', cls: 'c-num' }, { label: 'Before overheads', cls: 'c-num' }], rows: L.map(function (r) { var o = r.occurrence; return { route: 'mgmt-occurrence/' + o.id, cells: [{ cls: 'c-cell', html: K.dd(o.date) }, K.cell(esc(o.session), esc(o.id)), { html: K.status(o.status) }, { cls: 'c-num', html: M(r.revenue) }, { cls: 'c-num', html: M(r.coach) }, { cls: 'c-num', html: M(r.venue) }, { cls: 'c-num', html: '<b>' + M(r.contribution) + '</b>' }] }; }),
+      K.table({ cols: '90px minmax(0,1.6fr) 110px 100px 100px 100px 110px', head: ['Date', 'Session', 'Status', { label: 'Revenue', cls: 'c-num' }, { label: 'Coach', cls: 'c-num' }, { label: 'Venue', cls: 'c-num' }, { label: 'Before overheads', cls: 'c-num' }], rows: L.map(function (r) { var o = r.occurrence; return { route: 'mgmt-occurrence/' + o.id, cells: [{ cls: 'c-cell', html: K.dd(o.date) }, K.cell(esc(o.session), esc(o.id)), { html: K.status(db.occState(o)) }, { cls: 'c-num', html: M(r.revenue) }, { cls: 'c-num', html: M(r.coach) }, { cls: 'c-num', html: M(r.venue) }, { cls: 'c-num', html: '<b>' + M(r.contribution) + '</b>' }] }; }),
         foot: '<span>' + L.length + ' sessions · other costs and credits sit in the month report</span><span class="num">Before overheads <b class="k-total">' + M(t.c) + '</b></span>' }), 'fin');
   };
 

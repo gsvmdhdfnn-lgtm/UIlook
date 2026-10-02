@@ -101,7 +101,7 @@
       actions: K.actBtn('Add a player or family', 'pp-add', {}, { variant: 'primary', icon: 'plus' }) });
     var g = K.guard(ctx, h, { empty: ['players', 'No players yet', 'Players appear here once families sign up or are moved across.'] }); if (g) return g;
     var F = db.getPlayerFigures();
-    var need = db.getAttentionCases().filter(function (k) { return k.category === 'Players & Families'; }).length;
+    var need = db.getAttentionCases().filter(function (k) { return k.category === 'Players & Parents'; }).length;
     var counts = '<div class="pp-counts">' +
       '<span class="pp-count"><b class="num">' + F.active + '</b> active players' + (F.trial ? ' · ' + F.trial + ' on trial' : '') + '</span>' +
       '<span class="pp-count"><b class="num">' + F.parents + '</b> ' + c.toLowerCase() + 's</span>' +
@@ -613,7 +613,7 @@
         rows: cands.map(function (p) { return { cells: [K.cell(esc(p.name), K.id(p.id) + ' · ' + esc(p.ageGroup) + ' · ' + K.status(p.status)), { cls: 'wide c-cell', html: p.imported ? esc(p.imported.note) : p.status === 'Trial' ? 'On a free trial' : 'No current membership' }, { cls: 'c-end', html: K.actBtn('Choose', 'pp-mig-pick', { id: p.id }, { size: 'sm', variant: 'secondary' }) }] }; }) })
         : emptyNote('checkCircle', 'Nobody left to move', 'Every active player is on a session.');
     } else if (MIG.step === 1) {
-      var p = player(MIG.player), sess = db.getSessions().filter(function (s) { return s.lifecycle === 'Active' && s.commercial === 'Parent subscription'; });
+      var p = player(MIG.player), sess = db.getSessions().filter(function (s) { return s.lifecycle === 'Active' && s.commercial === 'Parent bookable'; });
       var rec = sess.filter(function (s) { return s.ageGroup === p.ageGroup; })[0];
       body = K.card({ title: 'Session for ' + p.name, sub: esc(p.ageGroup) + (rec ? ' · suggested: ' + esc(rec.name) : ''), body: K.form([K.field('Session', K.select('pp-mig-session', sess.map(function (s) { return [s.id, s.name + ' · ' + K.money(s.price) + ' a month']; }), MIG.session || (rec && rec.id))), K.field('Start date', K.input('pp-mig-start', MIG.start, { type: 'date' }))]) +
         '<div class="pp-actions">' + K.actBtn('Back', 'pp-mig-step', { step: 0 }, { variant: 'tertiary' }) + K.actBtn('Next', 'pp-mig-next', {}, { variant: 'primary' }) + '</div>' });

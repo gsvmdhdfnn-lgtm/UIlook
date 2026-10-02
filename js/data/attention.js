@@ -15,19 +15,20 @@
     { id: 'ATT-013', name: 'Session has no coach', category: 'Staffing & Cover', enabled: true, base: 'Warning', warnHours: null, urgentHours: 48, locked: 'Warning' },
     { id: 'ATT-014', name: 'Assigned coach unavailable', category: 'Staffing & Cover', enabled: true, base: 'Warning', warnHours: null, urgentHours: 48, locked: 'Warning' },
     { id: 'ATT-002', name: 'Learning coach only', category: 'Staffing & Cover', enabled: true, base: 'Warning', warnHours: null, urgentHours: 24, locked: null },
+    { id: 'ATT-003', name: 'No Lead Coach', category: 'Staffing & Cover', enabled: true, base: 'Warning', warnHours: null, urgentHours: 48, locked: null },
     { id: 'ATT-041', name: 'Cover open', category: 'Staffing & Cover', enabled: true, base: 'Normal', warnHours: 168, urgentHours: 48, locked: null },
     { id: 'ATT-011', name: 'Compliance document expiring or missing', category: 'Coaches & Compliance', enabled: true, base: 'Normal', warnHours: 720, urgentHours: 168, locked: null },
     { id: 'ATT-031', name: 'Non-compliant coach assigned', category: 'Coaches & Compliance', enabled: true, base: 'Warning', warnHours: null, urgentHours: 48, locked: 'Warning' },
     { id: 'ATT-042', name: 'Document awaiting verification', category: 'Coaches & Compliance', enabled: true, base: 'Normal', warnHours: null, urgentHours: null, locked: null },
-    { id: 'ATT-045', name: 'Work summary ready to finalise', category: 'Coaches & Compliance', enabled: true, base: 'Normal', warnHours: null, urgentHours: null, locked: null },
+    { id: 'ATT-045', name: 'Work summary to read or query to answer', category: 'Coaches & Compliance', enabled: true, base: 'Normal', warnHours: null, urgentHours: null, locked: null },
     { id: 'ATT-018', name: 'Session has no venue', category: 'Sessions & Venues', enabled: true, base: 'Normal', warnHours: 336, urgentHours: 48, locked: null },
     { id: 'ATT-020', name: 'Register incomplete', category: 'Sessions & Venues', enabled: true, base: 'Warning', warnHours: null, urgentHours: null, locked: null },
-    { id: 'ATT-022', name: 'Session not confirmed', category: 'Sessions & Venues', enabled: true, base: 'Normal', warnHours: 48, urgentHours: 6, locked: null },
+    { id: 'ATT-022', name: 'Session awaiting confirmation', category: 'Sessions & Venues', enabled: true, base: 'Normal', warnHours: null, urgentHours: null, locked: null },
     { id: 'ATT-024', name: 'Cancellation outcome not recorded', category: 'Sessions & Venues', enabled: true, base: 'Warning', warnHours: null, urgentHours: null, locked: null },
-    { id: 'ATT-050', name: 'Medical details not confirmed', category: 'Players & Families', enabled: true, base: 'Normal', warnHours: 72, urgentHours: null, locked: null },
-    { id: 'ATT-052', name: 'Parent claim needs review', category: 'Players & Families', enabled: true, base: 'Normal', warnHours: null, urgentHours: null, locked: null },
-    { id: 'ATT-054', name: 'Membership cancellation awaiting decision', category: 'Players & Families', enabled: true, base: 'Normal', warnHours: null, urgentHours: null, locked: null },
-    { id: 'ATT-056', name: 'Family review due', category: 'Players & Families', enabled: true, base: 'Normal', warnHours: null, urgentHours: null, locked: null },
+    { id: 'ATT-050', name: 'Medical details not confirmed', category: 'Players & Parents', enabled: true, base: 'Normal', warnHours: 72, urgentHours: null, locked: null },
+    { id: 'ATT-052', name: 'Parent claim needs review', category: 'Players & Parents', enabled: true, base: 'Normal', warnHours: null, urgentHours: null, locked: null },
+    { id: 'ATT-054', name: 'Membership cancellation awaiting decision', category: 'Players & Parents', enabled: true, base: 'Normal', warnHours: null, urgentHours: null, locked: null },
+    { id: 'ATT-056', name: 'Family review due', category: 'Players & Parents', enabled: true, base: 'Normal', warnHours: null, urgentHours: null, locked: null },
     { id: 'ATT-070', name: 'Feedback awaiting review', category: 'Development', enabled: true, base: 'Normal', warnHours: null, urgentHours: null, locked: null },
     { id: 'ATT-071', name: 'Development plans not started', category: 'Development', enabled: true, base: 'Normal', warnHours: null, urgentHours: null, locked: null },
     { id: 'ATT-060', name: 'Invoice overdue', category: 'Finance', enabled: true, base: 'Warning', warnHours: null, urgentHours: null, locked: null, urgentDaysOverdue: 30 },
@@ -59,12 +60,19 @@
       var h = hoursUntil(o.date, o.start); if (h < 0 && o.date === '2026-10-01') return;
       var staffed = o.staff.filter(function (s) { return !s.unavailable || s.covering; });
       var ses = db.getSession(o.sessionId);
-      if (!o.draft && !o.staff.length && h <= 336) add('ATT-013', 'session_no_coach|occurrence:' + o.id, { hours: h, title: o.session + ' has no coach', detail: occLabel(o) + ' · ' + o.players + ' players', actionLabel: 'Choose a coach', route: 'mgmt-occurrence/' + o.id, related: { occurrence: o.id } });
+      if (!o.draft && !o.staff.length && h <= 336) add('ATT-013', 'session_no_coach|occurrence:' + o.id, { hours: h, title: o.session + ' has no coach', detail: occLabel(o) + ' · ' + o.players + ' players', actionLabel: 'Add a coach', route: 'mgmt-occurrence/' + o.id, related: { occurrence: o.id } });
       o.staff.forEach(function (s) { if (s.unavailable && !s.covering && !coverOcc[o.id]) add('ATT-014', 'assigned_coach_unavailable|occurrence:' + o.id + '|coach:' + s.coach, { hours: h, title: db.coachName(s.coach) + ' is unavailable for ' + o.session, detail: occLabel(o) + ' · marked unavailable', actionLabel: 'Find cover', route: 'mgmt-cover', related: { occurrence: o.id, coach: s.coach } }); });
       if (o.staff.length && staffed.length && staffed.every(function (s) { var c = db.getCoach(s.covering || s.coach); return c && c.type === 'learning'; })) add('ATT-002', 'learning_coach_only|occurrence:' + o.id, { hours: h, title: o.session + ' has only a learning coach', detail: occLabel(o), actionLabel: 'Check coaches', route: 'mgmt-occurrence/' + o.id, related: { occurrence: o.id } });
       if (!o.venue && h <= 336) add('ATT-018', 'venue_missing|occurrence:' + o.id, { hours: h, title: o.session + ' has no venue', detail: K.dd(o.date) + ', ' + o.start + (ses.lifecycle === 'Draft' ? ' · session is a draft' : ''), actionLabel: 'Choose a venue', route: 'mgmt-session/' + o.sessionId, related: { occurrence: o.id } });
-      if (!o.draft && !o.confirmed && h <= 48 && o.staff.length) add('ATT-022', 'not_confirmed|occurrence:' + o.id, { hours: h, title: o.session + ' is not confirmed', detail: occLabel(o), actionLabel: 'Confirm session', route: 'mgmt-occurrence/' + o.id, related: { occurrence: o.id } });
+      var working = db.workingStaff(o).map(function (x) { return x.actualRole || x.role; });
+      if (!o.draft && working.length && working.indexOf('Lead') < 0 && !working.every(function (r) { return r === 'Learning'; }) && h <= 336) add('ATT-003', 'no_lead_coach|occurrence:' + o.id, { hours: h, title: o.session + ' has no Lead Coach', detail: occLabel(o) + ' · ' + working.length + ' coach' + (working.length === 1 ? '' : 'es') + ', none leading', actionLabel: 'Choose a lead', route: 'mgmt-occurrence/' + o.id, related: { occurrence: o.id } });
       if (h <= 72 && !ses.client && !o.draft) db.getExpectedPlayers(o).forEach(function (pid) { var p = db.getPlayer(pid); if (p && p.medical === 'not_confirmed') add('ATT-050', 'medical_unconfirmed|player:' + pid + '|occurrence:' + o.id, { hours: h, title: p.name + '’s medical details are not confirmed', detail: 'Attending ' + o.session + ' · ' + K.dd(o.date), actionLabel: 'Ask the family', route: 'mgmt-player/' + pid, related: { player: pid } }); });
+    });
+    /* Delivery: dates that have ended and nobody has confirmed what happened */
+    db.getAwaitingConfirmation().forEach(function (o) {
+      var ago = -hoursUntil(o.date, o.end), days = Math.floor(ago / 24);
+      add('ATT-022', 'awaiting_confirmation|occurrence:' + o.id, { whenText: days >= 1 ? 'Ended ' + days + ' day' + (days > 1 ? 's' : '') + ' ago' : 'Ended today', forceSev: days >= 5 ? 'Urgent' : days >= 1 ? 'Warning' : null, forceWhy: days >= 1 ? 'Unconfirmed for ' + (days >= 5 ? 'over 5 days' : 'over a day') : '',
+        title: 'Did ' + o.session + ' go as planned?', detail: occLabel(o) + ' · confirm who coached so pay and history are right', actionLabel: 'Review delivery', route: 'mgmt-occurrence/' + o.id, related: { occurrence: o.id } });
     });
     /* Coach compliance (from the Coaches area) */
     var docs = typeof db.getComplianceIssues === 'function' ? db.getComplianceIssues() : [];
@@ -86,7 +94,7 @@
     var cover = typeof db.getOpenCover === 'function' ? db.getOpenCover() : [];
     cover.forEach(function (c) { var o = db.getOccurrence(c.occurrence) || {}; if (!c.absent && o.staff && !o.staff.length) return; var who = c.absent ? db.coachName(c.absent) : 'a coach'; add('ATT-041', 'cover_open|' + c.request + '|' + c.need, { hours: o.date ? hoursUntil(o.date, o.start) : null, title: 'Cover needed: ' + (o.session || 'session') + ' (' + who + ' away)', detail: (o.date ? occLabel(o) : '') + (c.state ? ' · ' + c.state : ''), actionLabel: 'Arrange cover', route: 'mgmt-cover-request/' + c.request, related: c.absent ? { coach: c.absent } : null }); });
     var sums = typeof db.getSummariesReady === 'function' ? db.getSummariesReady() : [];
-    sums.forEach(function (w) { add('ATT-045', 'work_summary_ready|' + w.id, { whenText: 'Period ended 30 Sep', title: db.coachName(w.coach) + '’s ' + (w.monthLabel || 'September') + ' summary is ready to finalise', detail: (w.lines ? w.lines.length + ' sessions · ' : '') + (w.total != null ? K.money(w.total) : ''), actionLabel: 'Finalise summary', route: 'mgmt-work-summary/' + w.id, related: { coach: w.coach } }); });
+    sums.forEach(function (w) { add('ATT-045', 'work_summary_ready|' + w.id, { whenText: 'Period ended 30 Sep', title: w.stale && w.state !== 'Needs review' ? db.coachName(w.coach) + '’s ' + (w.monthLabel || 'September') + ' summary is missing confirmed work' : w.state === 'Queried' ? db.coachName(w.coach) + ' queried their ' + (w.monthLabel || 'September') + ' summary' : db.coachName(w.coach) + '’s ' + (w.monthLabel || 'September') + ' summary needs reading', detail: w.state === 'Queried' && w.query ? w.query.text : (w.lines ? w.lines.length + ' sessions · ' : '') + (w.total != null ? K.money(w.total) : ''), actionLabel: w.stale && w.state !== 'Needs review' ? 'Reopen summary' : w.state === 'Queried' ? 'Answer query' : 'Read and finalise', route: 'mgmt-work-summary/' + w.id, related: { coach: w.coach } }); });
     /* Registers */
     db.getOccurrences(function (o) { return o.status === 'Completed' && o.date < '2026-10-01'; }).forEach(function (o) {
       var r = db.getRegister(o.id);

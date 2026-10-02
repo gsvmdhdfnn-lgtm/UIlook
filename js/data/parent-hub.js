@@ -177,7 +177,7 @@
       payment: q.due > 0 ? { method: card.brand + ' ending ' + card.last4, amount: q.due, at: at, by: who, reference: 'pi_test_' + at.replace(/\D/g, '').slice(-8) } : null,
       history: [{ text: 'Booked and paid in the parent hub', detail: q.due > 0 ? K.money(q.due) + ' by card' : 'Paid in full with family credit', who: who, at: at, tone: 'ok' }] });
     b.total = K.sum(b.lines, 'final');
-    var ch = db.addFamilyCharge({ family: fam, player: q.lines[0].player, membership: null, booking: b.id, type: 'Booking', description: b.product + ' (' + b.id + ')', month: null, date: at.slice(0, 10), gross: q.total, creditApplied: q.creditUsed, paid: q.due, state: 'Paid', via: q.due > 0 ? 'Card (Stripe test)' : 'Family credit', note: q.creditUsed ? 'Family credit applied ' + K.money(q.creditUsed) : '' });
+    var ch = db.addFamilyCharge({ family: fam, player: q.lines[0].player, membership: null, booking: b.id, type: 'Booking', description: b.product + ' (' + b.id + ')', month: null, date: at.slice(0, 10), gross: q.total, creditApplied: q.creditUsed, paid: q.due, state: 'Paid', via: q.due > 0 ? 'Card' : 'Family credit', note: q.creditUsed ? 'Family credit applied ' + K.money(q.creditUsed) : '' });
     b.charge = ch.id;
     q.credit.forEach(function (x) { x.credit.remaining -= x.use; x.credit.applications.push({ charge: ch.id, booking: b.id, amount: x.use, at: at, by: who + ' (checkout, oldest first)' }); });
     db.addTermsAcceptance({ parent: D.parent.id, version: terms.id, at: at, evidence: 'Checkbox at checkout for ' + b.id });

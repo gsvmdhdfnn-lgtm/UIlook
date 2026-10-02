@@ -36,9 +36,10 @@
 .hm-cal__sum { margin: 0 0 8px; padding-top: 10px; border-top: 1px solid var(--hx-edge); font-size: 12.5px; color: var(--text-3); }
 .hx-arrows .icon-btn { width: 30px; height: 30px; border-radius: 9px; }
 
-/* ---------- Phones: compact urgent summary above the schedule ---------- */
-.hm-urgent { display: none; }
-@media (max-width: 899px) {
+/* ---------- Needs attention first: compact urgent summary above the areas ---------- */
+/* Desktop shows the summary line only (the panel below lists the items); phones also list the urgent items */
+@media (min-width: 900px) { .hm-urgent__row { display: none !important; } .hm-urgent { margin-bottom: 4px; } }
+@media all {
   .hm-urgent {
     display: grid; border-radius: 14px; overflow: hidden; background: var(--hx-surface-solid);
     box-shadow: var(--hx-shadow), inset 3px 0 0 var(--danger);

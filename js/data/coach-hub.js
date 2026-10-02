@@ -196,8 +196,8 @@
   };
   function composeSummary(coach, month, label) {
     var lines = (D.coaching && D.coaching.freeze ? D.coaching.freeze(coach, month) : []);
-    var ws = { id: 'WS-' + (951 + H.summaries.length), coach: coach, month: month, label: label, state: 'Awaiting coach', cycle: 1, lines: lines, total: K.sum(lines, 'cost'), frozenAt: '2026-10-01T06:00', frozenBy: 'System', composed: true,
-      cycles: [{ n: 1, frozenAt: '2026-10-01T06:00', total: K.sum(lines, 'cost'), events: [{ text: 'Prepared from ' + lines.length + ' pay items and sent to ' + db.coachName(coach), who: 'System', at: '2026-10-01T06:00' }] }] };
+    var ws = { id: 'WS-' + (951 + H.summaries.length), coach: coach, month: month, label: label, state: 'Needs review', cycle: 1, lines: lines, total: K.sum(lines, 'cost'), frozenAt: '2026-10-01T06:00', frozenBy: 'System', composed: true,
+      cycles: [{ n: 1, frozenAt: '2026-10-01T06:00', total: K.sum(lines, 'cost'), events: [{ text: 'Prepared from ' + lines.length + ' pay items for Management to review', who: 'System', at: '2026-10-01T06:00' }] }] };
     H.summaries.push(ws); return ws;
   }
   db.getMyWorkSummary = function (coach, month) {
@@ -210,11 +210,6 @@
   };
   function findSummary(id) { return db.getWorkSummary(id) || pick(H.summaries, id); }
   function ev(ws, e) { ws.cycles[ws.cycles.length - 1].events.push(e); }
-  db.confirmMySummary = function (id, who, at) {
-    var ws = findSummary(id); if (!ws) return null;
-    if (!ws.composed) return db.coachConfirmSummary(id, at);
-    ws.state = 'Ready to finalise'; ws.query = null; ev(ws, { text: 'Confirmed by coach', who: who, at: at, tone: 'ok' }); return ws;
-  };
   db.queryMySummary = function (id, text, who, at) {
     var ws = findSummary(id); if (!ws) return null;
     if (!ws.composed) return db.querySummary(id, text, who, at);

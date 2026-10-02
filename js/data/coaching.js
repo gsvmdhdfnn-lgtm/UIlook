@@ -29,12 +29,14 @@
     { id: 'comms', label: 'Send communications', hint: 'Message families of players in their sessions' }
   ];
   C.roles = [
-    { id: 'lead', name: 'Lead', sessionRole: 'Lead', desc: 'Runs the session and is accountable for the group.', perms: { viewPlayers: true, namesOnly: false, feedback: true, editPlans: true, attendance: true, comms: true } },
-    { id: 'coach', name: 'Coach', sessionRole: 'Coach', desc: 'Delivers part of the session under the lead.', perms: { viewPlayers: true, namesOnly: false, feedback: true, editPlans: false, attendance: true, comms: false } },
-    { id: 'learning', name: 'Learning Coach', sessionRole: 'Learning', desc: 'On placement. Never left alone with a group.', perms: { viewPlayers: false, namesOnly: true, feedback: false, editPlans: false, attendance: true, comms: false } },
+    { id: 'lead', name: 'Lead Coach', sessionRole: 'Lead', desc: 'Runs the session and is accountable for the group.', perms: { viewPlayers: true, namesOnly: false, feedback: true, editPlans: true, attendance: true, comms: true } },
+    { id: 'coach', name: 'Coach', sessionRole: 'Coach', desc: 'Delivers part of the session under the lead.', perms: { viewPlayers: true, namesOnly: false, feedback: true, editPlans: true, attendance: true, comms: false } },
+    { id: 'learning', name: 'Learning Coach', sessionRole: 'Learning', desc: 'On placement. Never left alone with a group.', perms: { viewPlayers: false, namesOnly: true, feedback: false, editPlans: false, attendance: false, comms: false } },
     { id: 'office', name: 'Office', sessionRole: null, desc: 'Office staff: registers and family contact, no coaching.', perms: { viewPlayers: true, namesOnly: false, feedback: false, editPlans: false, attendance: true, comms: true } }
   ];
   C.roleHistory = [
+    { text: 'Learning Coach: "Record attendance" switched off (lead coach takes the register)', who: 'Josh Evans', at: '2026-09-28T10:05', tone: 'warn' },
+    { text: 'Coach: "Edit development plans" switched on', who: 'Josh Evans', at: '2026-09-28T10:04', tone: 'info' },
     { text: 'Learning Coach: "View names only" switched on', who: 'Josh Evans', at: '2026-07-01T09:10', tone: 'info' },
     { text: 'Coach: "Edit development plans" switched off', who: 'Josh Evans', at: '2026-04-14T15:22', tone: 'warn' }
   ];
@@ -170,21 +172,21 @@
   /* ---------- Work summaries (September 2026) ---------- */
   C.summaries = [];
   function freeze(coach, month) {
-    return F.allocations.filter(function (a) { return a.coach === coach && a.date.slice(0, 7) === month; }).sort(function (a, b) { return a.date < b.date ? -1 : 1; }).map(function (a) {
+    /* Only work confirmed as delivered goes into a summary */
+    return F.allocations.filter(function (a) { return a.coach === coach && a.date.slice(0, 7) === month && a.state !== 'Draft'; }).sort(function (a, b) { return a.date < b.date ? -1 : 1; }).map(function (a) {
       var o = db.getOccurrence(a.occurrence);
       return { allocation: a.id, occurrence: a.occurrence, date: a.date, session: o ? o.session : '', role: a.role, units: a.units, rate: a.rate, cost: a.cost, override: a.override ? a.override.reason : '' };
     });
   }
   C.freeze = freeze;
   var month = '2026-09';
-  [['charlie', 'Ready to finalise'], ['jack', 'Finalised'], ['tom', 'Awaiting coach'], ['priya', 'Queried'], ['marcus', 'Awaiting coach']].forEach(function (s, i) {
+  [['charlie', 'Needs review'], ['jack', 'Finalised'], ['tom', 'Needs review'], ['priya', 'Queried'], ['marcus', 'Needs review']].forEach(function (s, i) {
     var lines = freeze(s[0], month), name = db.coachName(s[0]);
     var ws = { id: 'WS-' + String(901 + i), coach: s[0], month: month, label: 'September 2026', state: s[1], cycle: 1, lines: lines, total: K.sum(lines, 'cost'), frozenAt: '2026-10-01T06:00', frozenBy: 'System',
-      cycles: [{ n: 1, frozenAt: '2026-10-01T06:00', total: K.sum(lines, 'cost'), events: [{ text: 'Prepared from ' + lines.length + ' pay items and sent to ' + name, who: 'System', at: '2026-10-01T06:00' }] }] };
+      cycles: [{ n: 1, frozenAt: '2026-10-01T06:00', total: K.sum(lines, 'cost'), events: [{ text: 'Prepared from ' + lines.length + ' pay items for Management to review', who: 'System', at: '2026-10-01T06:00' }] }] };
     var ev = ws.cycles[0].events;
-    if (s[0] === 'charlie') ev.push({ text: 'Confirmed by coach: matches my September sessions', who: name, at: '2026-10-01T08:12', tone: 'ok' });
     if (s[0] === 'jack') {
-      ev.push({ text: 'Confirmed by coach', who: name, at: '2026-10-01T07:30', tone: 'ok' }, { text: 'Finalised and sent for the 7 Oct coach payment', who: JE, at: '2026-10-01T09:40', tone: 'ok' });
+      ev.push({ text: 'Finalised and sent for the 7 Oct coach payment; ' + name + ' told', who: JE, at: '2026-10-01T09:40', tone: 'ok' });
       ws.finalised = { by: JE, at: '2026-10-01T09:40' };
       F.allocations.forEach(function (a) { if (a.coach === 'jack' && a.date.slice(0, 7) === month) { a.state = 'Exported'; a.exported = { by: JE, at: '2026-10-01T09:40', summary: ws.id }; } });
     }
@@ -192,11 +194,16 @@
       /* Cycle 1 was queried over the 10 Sep override, then reopened. */
       ev.push({ text: 'Queried by coach: 10 Sep should be the agreed £60.00 for three classes', who: name, at: '2026-09-11T08:05', tone: 'warn' },
         { text: 'Reopened after the pay was adjusted', who: JE, at: '2026-09-11T09:32', tone: 'info' });
-      ws.cycles[0].frozenAt = '2026-09-11T06:00'; ws.cycles[0].events[0].at = '2026-09-11T06:00'; ws.cycles[0].events[0].text = 'Prepared early (mid-month check) and sent to ' + name;
+      ws.cycles[0].frozenAt = '2026-09-11T06:00'; ws.cycles[0].events[0].at = '2026-09-11T06:00'; ws.cycles[0].events[0].text = 'Prepared early (mid-month check) and finalised; ' + name + ' told';
       ws.cycles[0].total = ws.total - 6000 + 5000;
-      ws.cycle = 2; ws.cycles.push({ n: 2, frozenAt: '2026-10-01T06:00', total: ws.total, events: [{ text: 'Prepared again from ' + lines.length + ' pay items and sent to ' + name, who: 'System', at: '2026-10-01T06:00' }] });
+      ws.cycle = 2; ws.cycles.push({ n: 2, frozenAt: '2026-10-01T06:00', total: ws.total, events: [{ text: 'Prepared again from ' + lines.length + ' pay items for Management to review', who: 'System', at: '2026-10-01T06:00' }] });
     }
-    if (s[0] === 'priya') { ev.push({ text: 'Queried by coach: Northgate After-School on Fri 18 Sep ran its full hour before the alarm', who: name, at: '2026-10-01T10:20', tone: 'warn' }); ws.query = { text: 'Northgate After-School on Fri 18 Sep ran its full hour before the alarm', by: name, at: '2026-10-01T10:20' }; }
+    if (s[0] === 'priya') {
+      /* Finalised, then queried by the coach from the Coach hub */
+      ev.push({ text: 'Finalised and sent for the 7 Oct coach payment; ' + name + ' told', who: JE, at: '2026-10-01T09:10', tone: 'ok' });
+      ws.finalised = { by: JE, at: '2026-10-01T09:10' };
+      F.allocations.forEach(function (a) { if (a.coach === 'priya' && a.date.slice(0, 7) === month) { a.state = 'Exported'; a.exported = { by: JE, at: '2026-10-01T09:10', summary: ws.id }; } });
+      ev.push({ text: 'Queried by coach: Northgate After-School on Fri 18 Sep ran its full hour before the alarm', who: name, at: '2026-10-01T10:20', tone: 'warn' }); ws.query = { text: 'Northgate After-School on Fri 18 Sep ran its full hour before the alarm', by: name, at: '2026-10-01T10:20' }; }
     C.summaries.push(ws);
   });
 
@@ -317,7 +324,8 @@
   db.getWorkSummaries = function (f) { return f ? C.summaries.filter(f) : C.summaries; };
   db.getWorkSummary = function (id) { return pick(C.summaries, id); };
   /* Needs Attention: summaries a manager can finalise now */
-  db.getSummariesReady = function () { return C.summaries.filter(function (s) { return s.state === 'Ready to finalise'; }); };
+  /* Waiting on Management: new summaries to read and finalise, and coach queries */
+  db.getSummariesReady = function () { return C.summaries.filter(function (s) { return s.state === 'Needs review' || s.state === 'Queried' || s.stale; }); };
   db.getCoachWeekCount = function (coach) {
     return db.getOccurrences(function (o) { return o.date >= '2026-09-28' && o.date <= '2026-10-04' && o.status !== 'Cancelled' && o.staff.some(function (s) { return s.coach === coach && !s.unavailable; }); }).length;
   };
@@ -405,7 +413,6 @@
     var role = absent ? absent.role : 'Lead';
     if (absent) { absent.unavailable = true; absent.covering = f.coach; }
     o.staff.push({ coach: f.coach, lead: role === 'Lead', role: role, actualRole: role, attended: null, cover: true, covers: n.absent || null });
-    if (o.status !== 'Completed') o.confirmed = { by: who, at: at };
     (o.history = o.history || []).push({ text: 'Cover confirmed: ' + db.coachName(f.coach) + (n.absent ? ' for ' + db.coachName(n.absent) : ''), who: who, at: at, tone: 'ok' });
     for (var i = F.allocations.length - 1; i >= 0; i--) { var a = F.allocations[i]; if (n.absent && a.occurrence === o.id && a.coach === n.absent && a.state === 'Draft') F.allocations.splice(i, 1); }
     var rp = F.rateFor(f.coach, o.date), rate = db.coverRate(f.coach, o);
@@ -413,6 +420,67 @@
     n.state = 'Covered'; n.confirmed = { coach: f.coach, by: who, at: at };
     r.history.push({ text: 'Cover confirmed: ' + db.coachName(f.coach) + ' on ' + K.dd(o.date), who: who, at: at, tone: 'ok' });
     return n;
+  };
+
+  /* ---------- Delivery confirmation ----------
+     Turns the planned staff of an ended date into what actually happened.
+     spec: { people: [{ coach, attended: 'Present'|'Absent', role }], extras: [{ coach, role, covering }],
+             partial: { endedAt: 'HH:MM', reason, payFull }, note }
+     Pay items become actual: present coaches are confirmed at the rate in
+     force that day (kept on the item); absent coaches lose their expected item;
+     extra or covering coaches gain one. A confirmed date is not changed again. */
+  function mins(t) { var p = t.split(':'); return +p[0] * 60 + +p[1]; }
+  db.confirmDelivery = function (id, spec, who, at) {
+    var o = db.getOccurrence(id); if (!o || o.delivery) return null;
+    spec = spec || {};
+    var changes = [], first = function (c) { return db.coachName(c).split(' ')[0]; };
+    var people = spec.people || db.workingStaff(o).map(function (x) { return { coach: x.coach, attended: 'Present', role: x.actualRole || x.role }; });
+    people.forEach(function (p) {
+      var x = o.staff.filter(function (st) { return st.coach === p.coach && !st.unavailable; })[0]; if (!x) return;
+      var planned = x.actualRole || x.role;
+      x.attended = p.attended === 'Absent' ? 'Absent' : 'Attended';
+      if (x.attended === 'Absent') changes.push(first(x.coach) + ' was absent');
+      else if (p.role && p.role !== planned) changes.push(first(x.coach) + ' was ' + K.roleName(p.role) + ' on the day');
+      x.actualRole = p.role || planned;
+    });
+    o.staff.forEach(function (x) { if (x.unavailable) x.attended = 'Absent'; });
+    (spec.extras || []).forEach(function (e) {
+      if (!e.coach) return;
+      var cov = e.covering || null;
+      o.staff.push({ coach: e.coach, lead: e.role === 'Lead', role: e.role, actualRole: e.role, attended: 'Attended', extra: !cov, cover: !!cov, covers: cov });
+      if (cov) { var ab = o.staff.filter(function (x) { return x.coach === cov && x !== o.staff[o.staff.length - 1]; })[0]; if (ab) { ab.attended = 'Absent'; ab.covering = e.coach; } }
+      changes.push(cov ? first(e.coach) + ' covered for ' + first(cov) : first(e.coach) + ' joined as an extra ' + K.roleName(e.role));
+    });
+    var full = (mins(o.end) - mins(o.start)) / 60, worked = full;
+    if (spec.partial && spec.partial.endedAt) {
+      worked = Math.max(0, (mins(spec.partial.endedAt) - mins(o.start)) / 60);
+      changes.push('Ended early at ' + spec.partial.endedAt + (spec.partial.reason ? ': ' + spec.partial.reason : '') + (spec.partial.payFull ? ' (coaches paid in full)' : ''));
+    }
+    var units = spec.partial && !spec.partial.payFull ? Math.round(worked * 100) / 100 : full;
+    var workers = o.staff.filter(function (x) { return x.attended === 'Attended'; }).map(function (x) { return x.coach; });
+    for (var i = F.allocations.length - 1; i >= 0; i--) { var a = F.allocations[i]; if (a.occurrence === o.id && a.state === 'Draft' && workers.indexOf(a.coach) < 0) F.allocations.splice(i, 1); }
+    o.staff.filter(function (x) { return x.attended === 'Attended'; }).forEach(function (w) {
+      var a = F.allocations.filter(function (al) { return al.occurrence === o.id && al.coach === w.coach && al.state !== 'Exported'; })[0];
+      if (!a) { var rp = F.rateFor(w.coach, o.date), r = db.coverRate(w.coach, o); a = db.addAllocation({ coach: w.coach, occurrence: o.id, date: o.date, role: w.actualRole, rate: r.rate, rateProfile: rp && rp.id, units: full, override: null, cost: r.cost, state: 'Draft', extra: !!w.extra }); }
+      a.role = w.actualRole; a.units = units; if (!a.override) a.cost = Math.round(a.rate * units);
+      a.state = 'Confirmed'; a.confirmedBy = { by: who, at: at };
+    });
+    o.status = 'Completed';
+    o.delivery = { state: spec.partial ? 'Partial' : changes.length ? 'Changed' : 'As planned', by: who, at: at, changes: changes, partial: spec.partial || null, note: spec.note || '' };
+    (o.history = o.history || []).push({ text: 'Delivery confirmed: ' + (changes.length ? changes.join('; ') : 'went as planned'), who: who, at: at, tone: 'ok' });
+    /* A summary not yet finalised picks the confirmed work up straight away */
+    var touched = workers.concat(o.staff.map(function (x) { return x.coach; }));
+    C.summaries.forEach(function (ws) {
+      if (ws.month !== o.date.slice(0, 7) || touched.indexOf(ws.coach) < 0) return;
+      if (ws.state !== 'Needs review') {
+        /* Already finalised: never changed silently; Management reopens it to include the new work */
+        if (workers.indexOf(ws.coach) >= 0) { ws.stale = { occurrence: o.id, at: at }; ev(ws, { text: o.session + ' on ' + K.dm(o.date) + ' was confirmed after finalising; reopen to include it', who: who, at: at, tone: 'warn' }); }
+        return;
+      }
+      ws.lines = freeze(ws.coach, ws.month); ws.total = K.sum(ws.lines, 'cost'); ws.cycles[ws.cycles.length - 1].total = ws.total;
+      ev(ws, { text: 'Updated: ' + o.session + ' on ' + K.dm(o.date) + ' confirmed as delivered', who: who, at: at, tone: 'info' });
+    });
+    return o;
   };
 
   /* Rates: never edited. A change adds a new profile from a date and ends the previous one. */
@@ -441,12 +509,11 @@
 
   /* Work summaries: Finalise / Query / Reopen, each cycle kept */
   function ev(ws, e) { ws.cycles[ws.cycles.length - 1].events.push(e); }
-  db.coachConfirmSummary = function (id, at) { var ws = pick(C.summaries, id); ws.state = 'Ready to finalise'; ev(ws, { text: 'Confirmed by coach', who: db.coachName(ws.coach), at: at, tone: 'ok' }); return ws; };
   db.finaliseSummary = function (id, who, at) {
-    var ws = pick(C.summaries, id); if (ws.state !== 'Ready to finalise') return null;
+    var ws = pick(C.summaries, id); if (ws.state !== 'Needs review') return null;
     ws.state = 'Finalised'; ws.finalised = { by: who, at: at }; ws.query = null;
     ws.lines.forEach(function (l) { var a = pick(F.allocations, l.allocation); if (a) { a.state = 'Exported'; a.exported = { by: who, at: at, summary: ws.id }; } });
-    ev(ws, { text: 'Finalised and sent for the coach payment', who: who, at: at, tone: 'ok' }); return ws;
+    ev(ws, { text: 'Finalised and sent for the coach payment; ' + db.coachName(ws.coach) + ' told', who: who, at: at, tone: 'ok' }); return ws;
   };
   db.querySummary = function (id, text, who, at) {
     var ws = pick(C.summaries, id); ws.state = 'Queried'; ws.query = { text: text, by: who, at: at };
@@ -456,8 +523,8 @@
     var ws = pick(C.summaries, id);
     ev(ws, { text: 'Reopened', who: who, at: at, tone: 'info' });
     if (ws.state === 'Finalised') ws.lines.forEach(function (l) { var a = pick(F.allocations, l.allocation); if (a) { a.state = 'Confirmed'; a.exported = null; } });
-    ws.lines = freeze(ws.coach, ws.month); ws.total = K.sum(ws.lines, 'cost'); ws.frozenAt = at; ws.frozenBy = who; ws.cycle += 1; ws.state = 'Awaiting coach'; ws.query = null; ws.finalised = null;
-    ws.cycles.push({ n: ws.cycle, frozenAt: at, total: ws.total, events: [{ text: 'Prepared again from ' + ws.lines.length + ' pay items and sent to ' + db.coachName(ws.coach), who: who, at: at }] });
+    ws.lines = freeze(ws.coach, ws.month); ws.total = K.sum(ws.lines, 'cost'); ws.frozenAt = at; ws.frozenBy = who; ws.cycle += 1; ws.state = 'Needs review'; ws.stale = null; ws.query = null; ws.finalised = null;
+    ws.cycles.push({ n: ws.cycle, frozenAt: at, total: ws.total, events: [{ text: 'Prepared again from ' + ws.lines.length + ' pay items for review', who: who, at: at }] });
     return ws;
   };
 })();

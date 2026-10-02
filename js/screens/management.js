@@ -9,9 +9,12 @@
   function today() { return db.getTodayOccurrences().slice().sort(function (a, b) { return a.start < b.start ? -1 : 1; }); }
   function tomorrow() { return db.getOccurrences(function (o) { return o.date === '2026-10-02'; }).sort(function (a, b) { return a.start < b.start ? -1 : 1; }); }
   function staffState(o) {
+    var st = db.occState(o), why = db.staffIssue(o);
+    if (st === 'Awaiting confirmation') return ['Awaiting confirmation', 'warn'];
+    if (st === 'Confirmed' || st === 'Partially delivered') return [st, 'ok'];
     if (!o.staff.length) return ['No coach', 'danger'];
-    if (o.staff.some(function (s) { return s.unavailable && !s.covering; })) return ['Coach unavailable', 'warn'];
-    return [o.confirmed ? 'Confirmed' : 'Staffed', 'ok'];
+    if (why) return [why, 'warn'];
+    return ['Staffed', 'ok'];
   }
   K.route('mgmt-home', { title: 'Home' });
   K.route('mgmt-attention', { title: 'Needs attention', parent: 'home' });
@@ -61,9 +64,9 @@
     var A = db.getAttention().cases;
     function waiting(cats) { var n = A.filter(function (k) { return cats.indexOf(k.category) >= 0; }).length; return n ? n + ' need' + (n === 1 ? 's' : '') + ' you' : ''; }
     var areas = '<div class="lx-areas lx-areas--stat hm-areas" aria-label="Your four areas">' +
-      areaCard({ route: 'mgmt-schedule', icon: 'calendar', title: 'Sessions', value: empty ? 0 : T.length, label: 'today', need: waiting(['Sessions & Venues', 'Staffing & Cover']) }) +
+      areaCard({ route: 'mgmt-schedule', icon: 'calendar', title: 'Schedule & Sessions', value: empty ? 0 : T.length, label: 'today', need: waiting(['Sessions & Venues', 'Staffing & Cover']) }) +
       areaCard({ route: 'mgmt-coaches', icon: 'coaches', title: 'Coaches', value: active, label: 'active', need: waiting(['Coaches & Compliance', 'Staffing & Cover']) }) +
-      areaCard({ route: 'mgmt-players', icon: 'players', title: 'Players & Parents', value: players, label: 'active players', need: waiting(['Players & Families']) }) +
+      areaCard({ route: 'mgmt-players', icon: 'players', title: 'Players & Parents', value: players, label: 'active players', need: waiting(['Players & Parents']) }) +
       areaCard({ route: 'mgmt-finance', icon: 'finance', title: 'Financials', value: fin ? K.money(owed).replace(/\.\d\d$/, '') : '—', label: fin ? 'owed to us' : 'ask for Finance access', need: fin ? waiting(['Finance']) : '' }) + '</div>';
     var urgent = db.getAttention().cases.filter(function (k) { return k.severity === 'Urgent'; }), c = db.getAttention().summary.counts;
     var urgentSum = empty || !urgent.length ? '' : '<section class="hm-urgent" aria-label="Urgent actions"><a class="hm-urgent__head" href="#hm-attn"><span class="hm-urgent__k">' + ui.sev('Urgent') + '<b class="num">' + urgent.length + ' urgent</b><span class="num">· ' + c.Warning + ' warning · ' + c.Normal + ' to do</span></span><span class="hm-urgent__go">Review' + I('arrowRight', 'icon-sm') + '</span></a>' +
@@ -86,7 +89,7 @@
   /* ------------------------------------------------------ NEEDS ATTENTION */
   var attnCategory = 'All';
   /* The four areas are filtered views of this one list (never separate queues) */
-  var AREA_CATS = { 'Sessions': ['Sessions & Venues', 'Staffing & Cover'], 'Coaches': ['Coaches & Compliance', 'Staffing & Cover'], 'Players & Parents': ['Players & Families'], 'Financials': ['Finance'] };
+  var AREA_CATS = { 'Schedule & Sessions': ['Sessions & Venues', 'Staffing & Cover'], 'Coaches': ['Coaches & Compliance', 'Staffing & Cover'], 'Players & Parents': ['Players & Parents'], 'Financials': ['Finance'] };
   function inFilter(k) { return attnCategory === 'All' || (AREA_CATS[attnCategory] || [attnCategory]).indexOf(k.category) >= 0; }
   Hub.actions['attn-area'] = function (el) { attnCategory = el.dataset.area || 'All'; Hub.wsTabs.attention = 'All'; if (location.hash === '#mgmt-attention') Hub.render(); else Hub.go('mgmt-attention'); };
   document.addEventListener('change', function (e) { if (e.target.matches && e.target.matches('[data-change="attn-cat"]')) { attnCategory = e.target.value; Hub.render(); } });
@@ -94,22 +97,22 @@
     var A = db.getAttention(), c = A.summary.counts;
     var tabs = [{ id: 'All', label: 'All', meta: A.summary.total + ' open' }, { id: 'Urgent', label: 'Urgent', meta: c.Urgent, state: 'Urgent' }, { id: 'Warning', label: 'Warning', meta: c.Warning, state: 'Warning' }, { id: 'Normal', label: 'To do', meta: c.Normal, state: 'Normal' }, { id: 'Accepted', label: 'Accepted', meta: A.accepted.length }];
     var sev = K.tab('attention', tabs);
-    var cats = ['Staffing & Cover', 'Coaches & Compliance', 'Sessions & Venues', 'Players & Families', 'Development', 'Finance'];
-    var select = '<label class="lx-select"><span class="visually-hidden">Category</span>' + I('filter', 'icon-sm') + '<select data-change="attn-cat">' + ['All'].concat(Object.keys(AREA_CATS)).concat(cats).map(function (k) { return '<option value="' + esc(k) + '"' + (k === attnCategory ? ' selected' : '') + '>' + (k === 'All' ? 'Everything' : AREA_CATS[k] ? esc(k) + ' (area)' : esc(k)) + '</option>'; }).join('') + '</select>' + I('chevronDown', 'icon-sm') + '</label>';
+    var cats = ['Staffing & Cover', 'Coaches & Compliance', 'Sessions & Venues', 'Players & Parents', 'Development', 'Finance'];
+    var select = '<label class="lx-select"><span class="visually-hidden">Category</span>' + I('filter', 'icon-sm') + '<select data-change="attn-cat">' + ['All'].concat(Object.keys(AREA_CATS)).concat(cats.filter(function (c) { return !AREA_CATS[c]; })).map(function (k) { return '<option value="' + esc(k) + '"' + (k === attnCategory ? ' selected' : '') + '>' + (k === 'All' ? 'Everything' : AREA_CATS[k] ? esc(k) + ' (area)' : esc(k)) + '</option>'; }).join('') + '</select>' + I('chevronDown', 'icon-sm') + '</label>';
     var h = K.head({ back: ['mgmt-home', 'Home'], eyebrow: 'Needs attention', title: 'Needs attention', sub: 'A work queue of things Management needs to decide, fix, approve or support. Each item clears itself once the issue is fixed.',
       actions: K.goBtn('Rules', 'mgmt-attention-rules', { variant: 'tertiary', icon: 'settings' }) + K.actBtn('Refresh', 'attn-refresh', {}, { variant: 'secondary', icon: 'refresh' }), tabs: '<div class="lx-filterbar">' + K.tabs('attention', tabs) + select + '</div>' });
     var g = K.guard(ctx, h, { empty: ['checkCircle', 'All clear', 'No staffing gaps, compliance issues, registers, claims or finance items are waiting.'] }); if (g) return g;
     var list = (sev === 'Accepted' ? A.accepted : A.cases).filter(function (k) { return (sev === 'All' || sev === 'Accepted' || k.severity === sev) && inFilter(k); });
     if (!list.length) return K.page(h, '<div class="zone-inset">' + ui.empty('checkCircle', 'Nothing in this filter', 'Try another priority or category.', 'ok') + '</div>');
-    var body = cats.filter(function (cat) { return list.some(function (k) { return k.category === cat; }); }).map(function (cat) {
-      var items = list.filter(function (k) { return k.category === cat; });
-      return K.section(cat, items.length + ' item' + (items.length > 1 ? 's' : ''), '<div class="lx-stack">' + items.map(function (k) {
-        return '<article class="lx-issue lx-issue--' + (k.severity === 'Normal' ? 'normal' : k.severity.toLowerCase()) + '"><div class="lx-issue__main">' + K.pill(SEVWORD[k.severity], sevTone(k.severity)) +
-          '<h3><button type="button" class="lx-issue__link" data-action="case" data-key="' + esc(k.caseKey) + '">' + esc(k.title) + '</button></h3><p class="lx-issue__meta">' + esc(k.detail) + '</p>' +
-          '<p class="lx-issue__why"><span>' + esc(k.severityReason) + '</span><span class="num when when--' + k.severity.toLowerCase() + '">' + esc(k.when) + '</span>' + (k.exception ? '<span>' + esc(k.exception.type) + ' by ' + esc(k.exception.approver) + '</span>' : '') + '</p></div>' +
-          '<div class="lx-issue__act">' + (sev === 'Accepted' ? K.actBtn('Reopen', 'attn-reopen', { id: k.exception.id }, { variant: 'secondary' }) : K.goBtn(k.actionLabel, k.route, { variant: 'primary', trail: 'arrowRight' , attrs: { 'data-case-key': k.caseKey } })) + '</div></article>';
-      }).join('') + '</div>');
-    }).join('');
+    /* Urgent first, across every category; the category is a label and a filter, not the order */
+    var RANK = { Urgent: 0, Warning: 1, Normal: 2 };
+    list = list.map(function (k, i) { return { k: k, i: i }; }).sort(function (a, b) { return (RANK[a.k.severity] - RANK[b.k.severity]) || (a.i - b.i); }).map(function (x) { return x.k; });
+    var body = '<div class="lx-stack">' + list.map(function (k) {
+      return '<article class="lx-issue lx-issue--' + (k.severity === 'Normal' ? 'normal' : k.severity.toLowerCase()) + '"><div class="lx-issue__main"><span class="lx-issue__tags">' + K.pill(SEVWORD[k.severity], sevTone(k.severity)) + '<span class="lx-issue__cat">' + esc(k.category) + '</span></span>' +
+        '<h3><button type="button" class="lx-issue__link" data-action="case" data-key="' + esc(k.caseKey) + '">' + esc(k.title) + '</button></h3><p class="lx-issue__meta">' + esc(k.detail) + '</p>' +
+        '<p class="lx-issue__why"><span>' + esc(k.severityReason) + '</span><span class="num when when--' + k.severity.toLowerCase() + '">' + esc(k.when) + '</span>' + (k.exception ? '<span>' + esc(k.exception.type) + ' by ' + esc(k.exception.approver) + '</span>' : '') + '</p></div>' +
+        '<div class="lx-issue__act">' + (sev === 'Accepted' ? K.actBtn('Reopen', 'attn-reopen', { id: k.exception.id }, { variant: 'secondary' }) : K.goBtn(k.actionLabel, k.route, { variant: 'primary', trail: 'arrowRight' , attrs: { 'data-case-key': k.caseKey } })) + '</div></article>';
+    }).join('') + '</div>';
     return K.page(h, body + '<p class="lx-note">Items clear on their own once the underlying issue is fixed. Accepting or overriding a case needs a reason and an approver, and stays in history.</p>');
   };
   Hub.actions['attn-refresh'] = function (el) { el.classList.add('is-busy'); setTimeout(function () { el.classList.remove('is-busy'); Hub.render(); Hub.toast('Checks re-run at ' + K.dt(K.now()).split(' ')[2]); }, 500); };
@@ -121,7 +124,7 @@
     if (!c) { Hub.toast('This item has already been resolved'); return; }
     var occ = c.related && c.related.occurrence && db.getOccurrence(c.related.occurrence), occHtml = '';
     if (occ) occHtml = '<section class="section">' + ui.sectionHead(occ.session, { meta: K.dd(occ.date) + ', ' + occ.start + '–' + occ.end }) +
-      (occ.staff.length ? ui.rows(occ.staff.map(function (s) { return ui.row({ lead: ui.avatar(db.coachName(s.coach), 'md'), title: esc(db.coachName(s.coach)), sub: [esc(s.role || (s.lead ? 'Lead' : 'Coach'))], trail: s.unavailable ? ui.status(s.covering ? 'Covered by ' + db.coachName(s.covering) : 'Unavailable', s.covering ? 'ok' : 'danger') : ui.status('Assigned') }); }), 'rows--avatar') : '<p>' + ui.status('No coach assigned yet', 'danger') + '</p>') + '</section>';
+      (occ.staff.length ? ui.rows(occ.staff.map(function (s) { return ui.row({ lead: ui.avatar(db.coachName(s.coach), 'md'), title: esc(db.coachName(s.coach)), sub: [esc(K.roleName(s.role || (s.lead ? 'Lead' : 'Coach')))], trail: s.unavailable ? ui.status(s.covering ? 'Covered by ' + db.coachName(s.covering) : 'Unavailable', s.covering ? 'ok' : 'danger') : ui.status('Assigned') }); }), 'rows--avatar') : '<p>' + ui.status('No coach assigned yet', 'danger') + '</p>') + '</section>';
     Hub.openSheet({
       overline: '<div class="sheet-kicker">' + ui.sev(c.severity) + '<span class="' + (c.severity === 'Urgent' ? 'text-danger' : '') + '">' + SEVWORD[c.severity] + '</span><span class="text-4">/</span><span>' + esc(c.category) + '</span></div>',
       title: esc(c.title),
@@ -161,7 +164,7 @@
   Hub.screens['mgmt-attention-rules'] = function (ctx) {
     var h = K.head({ back: ['mgmt-attention', 'Needs attention'], eyebrow: 'Needs attention', title: 'Rules', sub: 'Each rule can be switched on or off and has a standard priority, the points at which it becomes Warning and Urgent, and an optional lowest allowed priority.' });
     var g = K.guard(ctx, h, { empty: false }); if (g) return g;
-    var cats = ['Staffing & Cover', 'Coaches & Compliance', 'Sessions & Venues', 'Players & Families', 'Development', 'Finance'];
+    var cats = ['Staffing & Cover', 'Coaches & Compliance', 'Sessions & Venues', 'Players & Parents', 'Development', 'Finance'];
     var A = db.getAttention();
     return K.page(h, cats.map(function (cat) {
       var rules = db.getAttentionRules().filter(function (r) { return r.category === cat; });

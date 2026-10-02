@@ -77,7 +77,7 @@
     var glance = K.section('At a glance', '', K.stats([
       { label: 'Active ' + word().toLowerCase(), value: all.filter(function (c) { return c.active; }).length, sub: all.length + ' on file · ' + all.filter(function (c) { return c.type === 'learning'; }).length + ' learning' },
       { label: 'Open cover', value: cover.length, sub: cover.length ? cover.length + ' date' + (cover.length === 1 ? '' : 's') + ' across ' + reqs.length + ' request' + (reqs.length === 1 ? '' : 's') : 'Nothing open', route: 'mgmt-cover', tone: cover.length ? 'warn' : '' },
-      { label: 'Work summaries', value: ready.length, sub: ready.length ? ready.map(function (w) { return first(db.coachName(w.coach)); }).join(', ') + ' ready to finalise' : 'None ready', route: 'mgmt-work-summaries' },
+      { label: 'Work summaries', value: ready.length, sub: ready.length ? ready.map(function (w) { return first(db.coachName(w.coach)); }).join(', ') + ' to read or answer' : 'Nothing waiting', route: 'mgmt-work-summaries' },
       { label: 'Documents', value: issues.length, sub: 'Expiring, missing or awaiting check', route: 'mgmt-documents', tone: issues.length ? 'warn' : '' }
     ]));
     var more = K.moreIn('More in Coaches', [
@@ -193,7 +193,7 @@
       }), empty: 'No temporary role changes.' }) });
     var former = K.card({ title: 'Former access', sub: 'After removal a ' + one().toLowerCase() + ' keeps read-only access to that session’s players for 21 days, so they can finish feedback.', body: rem.length ? ui.rows(rem.map(function (r) {
       var n = db.accessDaysLeft(r);
-      return ui.row({ title: esc(r.sessionName) + ' · was ' + esc(r.role), sub: [esc(r.reason), stamp('Removed', r.by, r.removedAt)], trail: n > 0 ? K.pill('Access ends in ' + n + ' day' + (n === 1 ? '' : 's') + ' (' + K.dm(r.accessUntil) + ')', 'warn') : K.pill('Access ended ' + K.dm(r.accessUntil), '') });
+      return ui.row({ title: esc(r.sessionName) + ' · was ' + esc(K.roleName(r.role)), sub: [esc(r.reason), stamp('Removed', r.by, r.removedAt)], trail: n > 0 ? K.pill('Access ends in ' + n + ' day' + (n === 1 ? '' : 's') + ' (' + K.dm(r.accessUntil) + ')', 'warn') : K.pill('Access ended ' + K.dm(r.accessUntil), '') });
     })) : '<p class="k-note">No removed assignments.</p>' });
     var perms = K.card({ title: 'Default permissions · ' + base.name, sub: 'From the role matrix. ' + K.link('mgmt-coach-roles', 'Edit session roles'), body: permsList(base) });
     return K.grid([reg + tmp + former, perms], '21');
@@ -226,7 +226,7 @@
       var o = db.getOccurrence(a.occurrence);
       return { action: 'co-alloc', data: { id: a.id }, label: 'Open pay item ' + a.id, cells: [
         showCoach ? coachCell(a.coach, esc(o ? o.session : '') + ' · ' + K.dd(a.date)) : K.cell(esc(o ? o.session : a.occurrence), K.dd(a.date) + (o ? ', ' + o.start + '–' + o.end : '')),
-        { cls: 'wide', html: esc(a.role || '') + (a.cover ? ' ' + K.pill('Cover', 'info') : '') },
+        { cls: 'wide', html: esc(K.roleName(a.role)) + (a.cover ? ' ' + K.pill('Cover', 'info') : '') },
         { cls: 'c-num wide', html: a.units + ' h' }, { cls: 'c-num wide', html: K.money(a.rate) },
         { cls: 'c-num', html: '<b>' + K.money(a.cost) + '</b>' + (a.override ? '<small class="co-ovr">Adjusted</small>' : '') },
         { cls: 'c-end wide', html: K.status(a.state) }] };
@@ -646,51 +646,50 @@
   /* ============================================================ WORK SUMMARIES */
   var NOT_INVOICE = 'A work summary is a check of work done: it lists the sessions a coach worked in the month and what the Hub expects to pay. It is not an invoice and creates no bill. Lines are frozen from pay items when the summary is prepared.';
   Hub.screens['mgmt-work-summaries'] = function (ctx) {
-    var h = K.head({ back: ['mgmt-coaches', word()], eyebrow: word(), title: 'Work summaries', sub: 'September 2026 · one per paid ' + one().toLowerCase() + '. Finalise, query or reopen; every cycle is kept.' });
+    var h = K.head({ back: ['mgmt-coaches', word()], eyebrow: word(), title: 'Work summaries', sub: 'September 2026 · one per paid ' + one().toLowerCase() + '. Read each one and finalise it; ' + word().toLowerCase() + ' can query it afterwards.' });
     var g = K.guard(ctx, h, { empty: ['inbox', 'No work summaries yet', 'Summaries are prepared on the first of each month from the previous month’s pay items.'] }); if (g) return g;
     var list = db.getWorkSummaries();
     function n(s) { return list.filter(function (w) { return w.state === s; }).length; }
-    var f = K.tab('co-ws', [{ id: 'all' }, { id: 'Ready to finalise' }, { id: 'Queried' }, { id: 'Awaiting coach' }, { id: 'Finalised' }]);
+    var f = K.tab('co-ws', [{ id: 'all' }, { id: 'Needs review' }, { id: 'Queried' }, { id: 'Finalised' }]);
     var shown = list.filter(function (w) { return f === 'all' || w.state === f; });
     var unpaid = db.getCoaches().filter(function (c) { return !list.some(function (w) { return w.coach === c.id; }); });
     return page(h, ui.notice('info', 'A check of work done, not an invoice', NOT_INVOICE) +
-      K.stats([{ label: 'Ready to finalise', value: n('Ready to finalise'), sub: 'Coach confirmed', tone: n('Ready to finalise') ? 'warn' : '' }, { label: 'Queried', value: n('Queried'), sub: 'Coach or manager raised a question' }, { label: 'Awaiting coach', value: n('Awaiting coach'), sub: 'Sent, not yet confirmed' }, { label: 'Grand total', value: K.fin() === 'none' ? '—' : K.money(K.sum(list, 'total')), sub: n('Finalised') + ' finalised · paid 7 Oct' }]) +
-      K.section('September 2026', 'Open a summary to see its frozen lines and history.', '<div class="k-bar">' + K.seg('co-ws', [{ id: 'all', label: 'All' }, { id: 'Ready to finalise', label: 'Ready' }, { id: 'Queried', label: 'Queried' }, { id: 'Awaiting coach', label: 'Awaiting coach' }, { id: 'Finalised', label: 'Finalised' }]) + '</div>' +
+      K.stats([{ label: 'Needs review', value: n('Needs review'), sub: 'Read, then finalise one at a time', tone: n('Needs review') ? 'warn' : '' }, { label: 'Queried', value: n('Queried'), sub: 'A coach raised a question after finalising', tone: n('Queried') ? 'warn' : '' }, { label: 'Finalised', value: n('Finalised'), sub: 'Sent for the 7 Oct coach payment' }]) +
+      K.section('September 2026', 'Open a summary to see its frozen lines and history.', '<div class="k-bar">' + K.seg('co-ws', [{ id: 'all', label: 'All' }, { id: 'Needs review', label: 'Needs review' }, { id: 'Queried', label: 'Queried' }, { id: 'Finalised', label: 'Finalised' }]) + '</div>' +
         K.table({ cols: WS_COLS, head: wsHead(true), rows: summaryRows(shown, true), empty: 'No summaries in this state.', foot: K.fin() === 'none' ? '' : '<span>' + shown.length + ' summaries</span><span class="k-total">Total ' + K.money(K.sum(shown, 'total')) + '</span>' })) +
       (unpaid.length ? K.section('No summary this month', 'These ' + word().toLowerCase() + ' have no per-session cost.', ui.rows(unpaid.map(function (c) { var r = db.getCurrentRate(c.id); return ui.row({ lead: ui.avatar(c.name, 'sm'), title: esc(c.name), sub: [esc((r && r.note) || 'No paid pay items in September')], href: '#mgmt-coach/' + c.id }); }), 'rows--lead')) : ''));
   };
   Hub.screens['mgmt-work-summary'] = function (ctx) {
     var w = db.getWorkSummary(ctx.param), name = w ? db.coachName(w.coach) : '';
     var acts = '';
-    if (w) {
-      if (w.state === 'Awaiting coach') acts += K.actBtn('Respond as ' + name + ': Confirm', 'co-ws-coach', { id: w.id }, { variant: 'secondary' });
-      if (w.state !== 'Finalised') acts += K.actBtn('Query', 'co-ws-query', { id: w.id }, { variant: 'secondary' });
-      if (w.state === 'Queried' || w.state === 'Finalised') acts += K.actBtn('Reopen', 'co-ws-reopen', { id: w.id }, { variant: 'secondary', icon: 'refresh' });
-      if (w.state === 'Ready to finalise' && K.canFin()) acts += K.actBtn('Finalise', 'co-ws-final', { id: w.id }, { variant: 'primary', icon: 'check' });
-    }
+    if (w && (w.state === 'Queried' || w.state === 'Finalised')) acts += K.actBtn(w.state === 'Queried' ? 'Reopen to correct' : 'Reopen', 'co-ws-reopen', { id: w.id }, { variant: 'secondary', icon: 'refresh' });
     var h = K.head({ back: ['mgmt-work-summaries', 'Work summaries'], eyebrow: w ? w.id + ' · cycle ' + w.cycle : 'Work summary', title: w ? name + ' · ' + w.label : 'Work summary',
       sub: w ? st(w.state) + ' ' + K.frozen('Lines frozen ' + K.dt(w.frozenAt)) : '', actions: acts });
     var g = K.guard(ctx, h, { empty: ['inbox', 'No lines', 'No pay items were found for this month.'] }); if (g) return g;
     if (!w) return notFound(h, 'Work summary');
-    var stateNote = w.state === 'Ready to finalise' ? ui.notice('info', 'Ready to finalise', first(name) + ' confirmed these lines. Finalising sends the pay items to the coach payment on 7 Oct.') :
-      w.state === 'Queried' ? ui.notice('warn', 'Queried', esc(w.query.text) + '<br>' + stamp('Queried', w.query.by, w.query.at) + '. Fix the pay item, then reopen to prepare a new cycle.') :
-      w.state === 'Finalised' ? ui.notice('ok', 'Finalised', stamp('Finalised', w.finalised.by, w.finalised.at) + '. Pay items are sent for payment and frozen. Reopen only to correct a mistake.') :
-      ui.notice('neutral', 'Awaiting coach', 'Sent to ' + first(name) + ' to check. They confirm or query it from the ' + esc(one()) + ' hub.');
+    /* Management reads and finalises each summary; the coach can query it afterwards */
+    var stateNote = w.state === 'Needs review' ? K.situation({ tone: 'warn', title: 'Read, then finalise', text: w.lines.length + ' sessions, ' + (K.fin() === 'none' ? '' : K.money(w.total) + '. ') + 'Finalising tells ' + first(name) + ' and sends the pay items for the 7 Oct payment.', primary: K.canFin() ? K.actBtn('Finalise', 'co-ws-final', { id: w.id }, { variant: 'primary', icon: 'check' }) : '' }) :
+      w.state === 'Queried' ? K.situation({ tone: 'warn', kicker: 'Queried ' + K.dm(w.query.at), title: first(name) + ' queried this summary', text: '“' + esc(w.query.text) + '” Correct the pay item if needed, then reopen and finalise again.', primary: K.actBtn('Reopen to correct', 'co-ws-reopen', { id: w.id }, { variant: 'primary', icon: 'refresh' }) }) :
+      w.stale ? K.situation({ tone: 'warn', title: 'Work confirmed after finalising', text: 'A session ' + first(name) + ' worked was confirmed after this summary was finalised, so it isn’t included. Reopen to add it, then finalise again.', primary: K.actBtn('Reopen summary', 'co-ws-reopen', { id: w.id }, { variant: 'primary', icon: 'refresh' }) }) :
+      K.situation({ tone: 'ok', title: 'Finalised' + (K.fin() === 'none' ? '' : ' · ' + K.money(w.total)), text: stamp('Finalised', w.finalised.by, w.finalised.at) + '. ' + first(name) + ' can see it in the Coach hub and query it if something looks wrong.', secondary: K.actBtn('Prototype: query as ' + first(name), 'co-ws-query', { id: w.id }, { variant: 'tertiary', size: 'sm' }) });
     var lines = K.fin() === 'none' ? finLocked('Work summary lines') : K.table({ cols: 'minmax(0,2fr) minmax(0,.8fr) 70px 90px 110px', head: ['Session', { label: 'Role', cls: 'wide' }, { label: 'Hours', cls: 'c-num wide' }, { label: 'Rate', cls: 'c-num wide' }, { label: 'Amount', cls: 'c-num' }],
       rows: w.lines.map(function (l) { return { action: 'co-alloc', data: { id: l.allocation }, label: 'Open pay item', cells: [K.cell(esc(l.session), K.dd(l.date) + (l.override ? ' · Adjusted: ' + esc(l.override) : '')), { cls: 'wide', html: esc(l.role) }, { cls: 'c-num wide', html: l.units + ' h' }, { cls: 'c-num wide', html: K.money(l.rate) }, { cls: 'c-num', html: K.money(l.cost) }] }; }),
       foot: '<span>' + w.lines.length + ' sessions · ' + K.sum(w.lines, 'units') + ' hours</span><span class="k-total">Grand total ' + K.money(w.total) + '</span>' });
     var cycles = w.cycles.slice().reverse().map(function (cy) { return K.card({ title: 'Cycle ' + cy.n + (cy.n === w.cycle ? ' (current)' : ''), sub: 'Lines frozen ' + K.dt(cy.frozenAt) + (K.fin() === 'none' ? '' : ' · total ' + K.money(cy.total)), body: K.timeline(cy.events.slice().reverse()) }); });
-    return page(h, ui.notice('info', 'A check of work done, not an invoice', NOT_INVOICE) + stateNote + K.section('Lines', 'Frozen copies of the pay items. Changing a pay item does not change these until the summary is reopened.', lines) +
-      K.section('History', 'Each cycle: prepared, confirmed or queried, finalised or reopened.', '<div class="lx-stack">' + cycles.join('') + '</div>'));
+    return page(h, stateNote + ui.notice('info', 'A check of work done, not an invoice', NOT_INVOICE) + K.section('Lines', 'Frozen copies of the pay items. Changing a pay item does not change these until the summary is reopened.', lines) +
+      K.details('History', '<div class="lx-stack">' + cycles.join('') + '</div>', { sub: 'Each cycle: prepared, finalised, queried or reopened' }));
   };
-  Hub.actions['co-ws-coach'] = function (el) { var w = db.getWorkSummary(el.dataset.id), n = db.coachName(w.coach); Hub.mutate(function () { db.coachConfirmSummary(w.id, K.now()); }, n + ' confirmed the summary', log(n + ' confirmed ' + w.label + ' work summary', w.id, { who: n })); };
-  Hub.actions['co-ws-final'] = function (el) { var w = db.getWorkSummary(el.dataset.id); Hub.mutate(function () { db.finaliseSummary(w.id, K.me(), K.now()); }, 'Finalised: ' + K.money(w.total), log(db.coachName(w.coach) + ' ' + w.label + ' work summary finalised', w.id, { after: K.money(w.total), finance: true })); };
+  Hub.actions['co-ws-final'] = function (el) {
+    var w = db.getWorkSummary(el.dataset.id), n = first(db.coachName(w.coach));
+    K.sheet({ overline: '<span class="overline">' + esc(db.coachName(w.coach)) + ' · ' + esc(w.label) + '</span>', title: 'Finalise this summary?', body: '<p class="k-note">Only finalise once you have read it. Once finalised:</p><ul class="k-list-plain"><li>' + esc(n) + ' is told and can see it in the Coach hub</li><li>The pay items are sent for the 7 Oct coach payment and frozen</li><li>' + esc(n) + ' can still query it; you reopen it to correct anything</li></ul>', foot: sheetFoot('Finalise', 'co-ws-final-go', { id: w.id }) });
+  };
+  Hub.actions['co-ws-final-go'] = function (el) { var w = db.getWorkSummary(el.dataset.id); Hub.closeSheet(true); Hub.mutate(function () { db.finaliseSummary(w.id, K.me(), K.now()); }, 'Finalised: ' + K.money(w.total), log(db.coachName(w.coach) + ' ' + w.label + ' work summary finalised', w.id, { after: K.money(w.total), finance: true })); };
   Hub.actions['co-ws-reopen'] = function (el) { var w = db.getWorkSummary(el.dataset.id); Hub.mutate(function () { db.reopenSummary(w.id, K.me(), K.now()); }, 'Reopened as cycle ' + (w.cycle + 1), log(db.coachName(w.coach) + ' ' + w.label + ' work summary reopened', w.id, { finance: true })); };
   Hub.actions['co-ws-query'] = function (el) {
     var w = db.getWorkSummary(el.dataset.id);
-    K.sheet({ overline: '<span class="overline">' + esc(w.id) + '</span>', title: 'Query this summary', body: K.form([K.field('What needs checking', K.textarea('ws-q', '', 'For example: 24 Sep should be 1.5 hours'), null, true)], 1), foot: sheetFoot('Raise query', 'co-ws-query-go', { id: w.id }) });
+    K.sheet({ overline: '<span class="overline">' + esc(w.id) + '</span>', title: 'Query as ' + esc(first(db.coachName(w.coach))) + ' (prototype)', body: K.form([K.field('What needs checking', K.textarea('ws-q', '', 'For example: 24 Sep should be 1.5 hours'), null, true)], 1), foot: sheetFoot('Raise query', 'co-ws-query-go', { id: w.id }) });
   };
-  Hub.actions['co-ws-query-go'] = function (el) { var w = db.getWorkSummary(el.dataset.id), q = K.val('ws-q').trim(); if (!q) { Hub.toast('Say what needs checking'); return; } Hub.closeSheet(true); Hub.mutate(function () { db.querySummary(w.id, q, K.me(), K.now()); }, 'Query raised', log(db.coachName(w.coach) + ' work summary queried: ' + q, w.id)); };
+  Hub.actions['co-ws-query-go'] = function (el) { var w = db.getWorkSummary(el.dataset.id), q = K.val('ws-q').trim(); if (!q) { Hub.toast('Say what needs checking'); return; } Hub.closeSheet(true); Hub.mutate(function () { db.querySummary(w.id, q, db.coachName(w.coach), K.now()); }, 'Query raised', log(db.coachName(w.coach) + ' work summary queried: ' + q, w.id)); };
 
   /* ============================================================ PROFILE ACTIONS */
   Hub.actions['co-tab'] = function (el) { Hub.wsTabs['coach-prof'] = el.dataset.tab; Hub.render(); };

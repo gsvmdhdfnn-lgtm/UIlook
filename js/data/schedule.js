@@ -25,13 +25,13 @@
 
   /* Sessions */
   D.sessions = [
-    { id: 'SES-01', name: 'U8 Development', programme: 'Development Centre', area: 'Evening', ageGroup: 'U8', venue: 'northgate', client: null, commercial: 'Parent subscription', booking: 'Members only', billing: 'Monthly subscription', days: [4], start: '16:30', end: '17:30', capacity: 14, pattern: 'Weekly', startDate: '2026-09-03', endDate: '2026-12-10', lifecycle: 'Active', price: 7200, staff: [{ coach: 'jack', role: 'Lead' }, { coach: 'ellie', role: 'Learning' }] },
-    { id: 'SES-02', name: 'U9/10 Development', programme: 'TDC', area: 'Evening', ageGroup: 'U9/10', venue: 'northgate', client: null, commercial: 'Parent subscription', booking: 'Members only', billing: 'Monthly subscription', days: [4], start: '17:30', end: '18:30', capacity: 16, pattern: 'Weekly', startDate: '2026-09-03', endDate: '2026-12-10', lifecycle: 'Active', price: 8700, staff: [{ coach: 'david', role: 'Lead' }, { coach: 'charlie', role: 'Coach' }] },
-    { id: 'SES-03', name: 'U12 Academy', programme: 'Academy', area: 'Evening', ageGroup: 'U12', venue: 'northgate', client: null, commercial: 'Parent subscription', booking: 'Members only', billing: 'Monthly subscription', days: [4], start: '19:00', end: '20:30', capacity: 16, pattern: 'Weekly', startDate: '2026-09-03', endDate: '2026-12-10', lifecycle: 'Active', price: 9500, staff: [{ coach: 'david', role: 'Lead' }, { coach: 'charlie', role: 'Coach' }] },
-    { id: 'SES-04', name: 'U13/14 Development', programme: 'TDC', area: 'Evening', ageGroup: 'U13/14', venue: 'hollins', client: null, commercial: 'Parent subscription', booking: 'Members only', billing: 'Monthly subscription', days: [5], start: '18:00', end: '19:00', capacity: 16, pattern: 'Weekly', startDate: '2026-09-04', endDate: '2026-12-11', lifecycle: 'Active', price: 8700, staff: [{ coach: 'marcus', role: 'Lead' }] },
-    { id: 'SES-05', name: 'Riverside PPA (Years 5-6)', programme: 'Schools', area: 'Schools', ageGroup: 'Years 5-6', venue: 'riverside', client: 'CLI-02', commercial: 'Client contract', booking: 'Client managed', billing: 'Per class, invoiced monthly', days: [1, 4], start: '13:15', end: '15:15', capacity: 60, pattern: 'Weekly', startDate: '2026-09-03', endDate: '2026-12-10', lifecycle: 'Active', price: 4500, headcount: 56, staff: [{ coach: 'tom', role: 'Lead' }] },
-    { id: 'SES-06', name: 'Northgate After-School', programme: 'Schools', area: 'Schools', ageGroup: 'Years 3-6', venue: 'northgate', client: 'CLI-01', commercial: 'Client contract', booking: 'Client managed', billing: 'Per session, invoiced monthly', days: [2, 5], start: '15:45', end: '16:45', capacity: 24, pattern: 'Weekly', startDate: '2026-09-04', endDate: '2026-12-11', lifecycle: 'Active', price: 5000, headcount: 18, staff: [{ coach: 'priya', role: 'Lead' }] },
-    { id: 'SES-07', name: 'U11 Saturday Development', programme: 'Development Centre', area: 'Weekend', ageGroup: 'U11', venue: null, client: null, commercial: 'Parent subscription', booking: 'Open booking', billing: 'Per session booking', days: [6], start: '09:30', end: '10:30', capacity: 12, pattern: 'Selected dates', dates: ['2026-10-10', '2026-10-17'], startDate: '2026-10-10', endDate: '2026-10-17', lifecycle: 'Draft', price: 1200, staff: [] }
+    { id: 'SES-01', name: 'U8 Development', programme: 'Development Centre', area: 'Evening', ageGroup: 'U8', venue: 'northgate', client: null, commercial: 'Parent bookable', booking: 'Open booking', billing: 'Monthly subscription', days: [4], start: '16:30', end: '17:30', capacity: 14, pattern: 'Weekly', startDate: '2026-09-03', endDate: '2026-12-10', lifecycle: 'Active', price: 7200, staff: [{ coach: 'jack', role: 'Lead' }, { coach: 'ellie', role: 'Learning' }] },
+    { id: 'SES-02', name: 'U9/10 Development', programme: 'TDC', area: 'Evening', ageGroup: 'U9/10', venue: 'northgate', client: null, commercial: 'Parent bookable', booking: 'Open booking', billing: 'Monthly subscription', days: [4], start: '17:30', end: '18:30', capacity: 16, pattern: 'Weekly', startDate: '2026-09-03', endDate: '2026-12-10', lifecycle: 'Active', price: 8700, staff: [{ coach: 'david', role: 'Lead' }, { coach: 'charlie', role: 'Coach' }] },
+    { id: 'SES-03', name: 'U12 Academy', programme: 'Academy', area: 'Evening', ageGroup: 'U12', venue: 'northgate', client: null, commercial: 'Parent bookable', booking: 'Invite only', billing: 'Monthly subscription', days: [4], start: '19:00', end: '20:30', capacity: 16, pattern: 'Weekly', startDate: '2026-09-03', endDate: '2026-12-10', lifecycle: 'Active', price: 9500, staff: [{ coach: 'david', role: 'Lead' }, { coach: 'charlie', role: 'Coach' }] },
+    { id: 'SES-04', name: 'U13/14 Development', programme: 'TDC', area: 'Evening', ageGroup: 'U13/14', venue: 'hollins', client: null, commercial: 'Parent bookable', booking: 'Open booking', billing: 'Monthly subscription', days: [5], start: '18:00', end: '19:00', capacity: 16, pattern: 'Weekly', startDate: '2026-09-04', endDate: '2026-12-11', lifecycle: 'Active', price: 8700, staff: [{ coach: 'marcus', role: 'Lead' }] },
+    { id: 'SES-05', name: 'Riverside PPA (Years 5-6)', programme: 'Schools', area: 'Schools', ageGroup: 'Years 5-6', venue: 'riverside', client: 'CLI-02', commercial: 'School or client contract', booking: 'Not parent bookable', billing: 'Hourly client rate', days: [1, 4], start: '13:15', end: '15:15', capacity: 60, pattern: 'Weekly', startDate: '2026-09-03', endDate: '2026-12-10', lifecycle: 'Active', price: 4500, headcount: 56, staff: [{ coach: 'tom', role: 'Lead' }] },
+    { id: 'SES-06', name: 'Northgate After-School', programme: 'Schools', area: 'Schools', ageGroup: 'Years 3-6', venue: 'northgate', client: 'CLI-01', commercial: 'School or client contract', booking: 'Not parent bookable', billing: 'Per session', days: [2, 5], start: '15:45', end: '16:45', capacity: 24, pattern: 'Weekly', startDate: '2026-09-04', endDate: '2026-12-11', lifecycle: 'Active', price: 5000, headcount: 18, staff: [{ coach: 'priya', role: 'Lead' }] },
+    { id: 'SES-07', name: 'U11 Saturday Development', programme: 'Development Centre', area: 'Weekend', ageGroup: 'U11', venue: null, client: null, commercial: 'Parent bookable', booking: 'Open booking', billing: 'Per session', days: [6], start: '09:30', end: '10:30', capacity: 12, pattern: 'Selected dates', dates: ['2026-10-10', '2026-10-17'], startDate: '2026-10-10', endDate: '2026-10-17', lifecycle: 'Draft', price: 1200, staff: [] }
   ];
   D.session = function (id) { return D.sessions.filter(function (s) { return s.id === id; })[0]; };
   D.scheduleBreaks = [
@@ -77,7 +77,7 @@
   function add(s, date, extra) {
     var o = Object.assign({ id: '', sessionId: s.id, session: s.name, programme: s.programme, ageGroup: s.ageGroup, date: date, start: s.start, end: s.end, venue: s.venue, capacity: s.capacity,
       staff: s.staff.map(function (x) { return { coach: x.coach, lead: x.role === 'Lead', role: x.role, actualRole: x.role, attended: date < '2026-10-01' ? 'Attended' : null }; }),
-      status: date < '2026-10-01' ? 'Completed' : 'Scheduled', change: null, confirmed: date < '2026-10-01' ? { by: 'David Cole', at: K.addDays(date, -1) + 'T18:00' } : (date <= '2026-10-02' ? { by: 'David Cole', at: '2026-09-30T17:45' } : null), notes: '', history: [] }, extra || {});
+      status: date < '2026-10-01' ? 'Completed' : 'Scheduled', change: null, delivery: date < '2026-10-01' ? { state: 'As planned', by: 'David Cole', at: date + 'T21:30' } : null, notes: '', history: [] }, extra || {});
     occ.push(o);
     return o;
   }
@@ -107,14 +107,17 @@
   Object.assign(rs, { status: 'Rescheduled', change: 'Rescheduled', replacement: rep.id, cancelReason: 'Hollins Park double-booked the hall', cancelledBy: 'David Cole', cancelledAt: '2026-09-16T10:20' });
   rs.staff.forEach(function (s) { s.attended = 'Moved'; });
   var vo = find('SES-04', '2026-10-09'); Object.assign(vo, { venue: 'northgate', venueOverride: { from: 'hollins', reason: 'Hollins Park hall resurfacing', by: 'Sam Okafor', at: '2026-09-22T11:10' }, change: 'Venue changed' });
-  var u13 = find('SES-04', '2026-10-02'); u13.staff = []; u13.confirmed = null; u13.notes = 'Marcus Bell moved to a new contract; cover needed.';
-  var u12 = find('SES-03', '2026-10-01'); u12.staff.forEach(function (s) { if (s.coach === 'charlie') { s.unavailable = true; s.covering = null; } }); u12.confirmed = null;
+  var u13 = find('SES-04', '2026-10-02'); u13.staff = []; u13.notes = 'Marcus Bell moved to a new contract; cover needed.';
+  var u12 = find('SES-03', '2026-10-01'); u12.staff.forEach(function (s) { if (s.coach === 'charlie') { s.unavailable = true; s.covering = null; } }); 
+  /* Two past dates nobody has confirmed yet: did they go as planned? */
+  [['SES-03', '2026-09-24'], ['SES-04', '2026-09-25']].forEach(function (k) { var o = find(k[0], k[1]); o.delivery = null; o.staff.forEach(function (x) { x.attended = null; }); });
+  occ.forEach(function (o) { if (o.status !== 'Completed') o.delivery = null; });
   var cap = find('SES-01', '2026-10-15'); cap.capacityOverride = { value: 16, reason: 'Two trial players joining', by: 'David Cole', at: '2026-09-29T09:12' }; cap.capacity = 16;
   occ.sort(function (a, b) { return (a.date + a.start) < (b.date + b.start) ? -1 : 1; });
   occ.forEach(function (o) {
     o.players = o.sessionId === 'SES-05' || o.sessionId === 'SES-06' ? D.session(o.sessionId).headcount : D.expectedPlayers(o).length;
     o.history = [{ text: 'Added from the weekly timetable', who: 'System', at: '2026-08-20T09:00' }];
-    if (o.confirmed) o.history.push({ text: 'Session confirmed', who: o.confirmed.by, at: o.confirmed.at, tone: 'ok' });
+    if (o.delivery) o.history.push({ text: 'Delivery confirmed: went as planned', who: o.delivery.by, at: o.delivery.at, tone: 'ok' });
     if (o.status === 'Cancelled') o.history.push({ text: 'Cancelled: ' + o.cancelReason, who: o.cancelledBy, at: o.cancelledAt, tone: 'danger' }, { text: 'Financial outcome recorded', who: o.outcome.by, at: o.outcome.at, tone: 'info' });
     if (o.status === 'Rescheduled') o.history.push({ text: 'Rescheduled to Sat 19 Sep, 10:00', who: o.cancelledBy, at: o.cancelledAt, tone: 'warn' });
     if (o.venueOverride) o.history.push({ text: 'Venue changed to Northgate Sports Centre', who: o.venueOverride.by, at: o.venueOverride.at, tone: 'warn' });
@@ -178,9 +181,9 @@
     areas: ['Evening', 'Weekend', 'Schools', 'Holiday'],
     ageGroups: ['U7', 'U8', 'U9/10', 'U11', 'U12', 'U13/14', 'Years 1-2', 'Years 3-6', 'Years 5-6'],
     schoolYears: ['Reception', 'Year 1', 'Year 2', 'Year 3', 'Year 4', 'Year 5', 'Year 6', 'Year 7', 'Year 8', 'Year 9'],
-    commercial: ['Parent subscription', 'Client contract', 'Pay as you go', 'Package'],
-    booking: ['Members only', 'Open booking', 'Invite only', 'Client managed'],
-    billing: ['Monthly subscription', 'Per session booking', 'Per class, invoiced monthly', 'Per session, invoiced monthly', 'Package price'],
+    commercial: ['Parent bookable', 'School or client contract', 'Internal (not bookable)'],
+    booking: ['Open booking', 'Management approval required', 'Invite only', 'Not parent bookable'],
+    billing: ['Monthly subscription', 'Term fee', 'Per session', 'One-off payment', 'Hourly client rate', 'Fixed client fee', 'No charge'],
     breakTypes: ['Half term', 'INSET day', 'Venue closure', 'Bank holiday'],
     lifecycle: ['Draft', 'Active', 'Inactive'],
     staffRoles: ['Lead', 'Coach', 'Learning'],
@@ -188,7 +191,7 @@
     marks: ['Present', 'Late', 'Absent', 'Excused'],
     dows: [[1, 'Mon'], [2, 'Tue'], [3, 'Wed'], [4, 'Thu'], [5, 'Fri'], [6, 'Sat'], [0, 'Sun']],
     /* Starting values for a new session in the wizard */
-    newSession: { name: '', programme: 'Development Centre', area: 'Evening', ageGroup: 'U11', client: '', commercial: 'Parent subscription', booking: 'Members only', billing: 'Monthly subscription', price: 7200, lifecycle: 'Draft',
+    newSession: { name: '', programme: 'Development Centre', area: 'Evening', ageGroup: 'U11', client: '', commercial: 'Parent bookable', booking: 'Open booking', billing: 'Monthly subscription', price: 7200, lifecycle: 'Draft',
       pattern: 'Weekly', days: [3], start: '17:00', end: '18:00', startDate: '2026-10-07', endDate: '2026-12-09', dates: [], breaks: ['BRK-03'], venue: 'northgate', capacity: 16, meetingPoint: 'Astro gate', staff: { jack: 'Lead' } }
   };
 
@@ -199,7 +202,7 @@
       : [{ text: 'Session created as Draft', who: 'Josh Evans', at: '2026-07-14T10:00' }, { text: 'Status changed to Active', who: 'Josh Evans', at: '2026-08-20T09:00', tone: 'ok', detail: 'Autumn term published' }];
     s.meetingPoint = s.meetingPoint || (s.venue ? D.venues[s.venue].meetingPoint || '' : '');
   });
-  D.sessions.push({ id: 'SES-08', name: 'Kingsmead After-School', programme: 'Schools', area: 'Schools', ageGroup: 'Years 3-4', venue: 'kingsmead', client: 'CLI-03', commercial: 'Client contract', booking: 'Client managed', billing: 'Per session, invoiced monthly', days: [1], start: '16:00', end: '17:00', capacity: 20, pattern: 'Weekly', startDate: '2026-01-12', endDate: '2026-07-13', lifecycle: 'Inactive', price: 5000, headcount: 18, staff: [{ coach: 'david', role: 'Lead' }], meetingPoint: 'Hall doors',
+  D.sessions.push({ id: 'SES-08', name: 'Kingsmead After-School', programme: 'Schools', area: 'Schools', ageGroup: 'Years 3-4', venue: 'kingsmead', client: 'CLI-03', commercial: 'School or client contract', booking: 'Not parent bookable', billing: 'Per session', days: [1], start: '16:00', end: '17:00', capacity: 20, pattern: 'Weekly', startDate: '2026-01-12', endDate: '2026-07-13', lifecycle: 'Inactive', price: 5000, headcount: 18, staff: [{ coach: 'david', role: 'Lead' }], meetingPoint: 'Hall doors',
     history: [{ text: 'Session created as Draft', who: 'Josh Evans', at: '2025-12-02T09:15' }, { text: 'Status changed to Active', who: 'Josh Evans', at: '2026-01-05T08:30', tone: 'ok' }, { text: 'Status changed to Inactive', who: 'Josh Evans', at: '2026-07-20T16:05', detail: 'Kingsmead Primary paused the service for the autumn term' }] });
 
   /* Eligibility rules per session, and per-player overrides */
@@ -265,7 +268,7 @@
       history: [{ text: 'Session created as ' + (spec.lifecycle || 'Draft'), who: who, at: at, tone: spec.lifecycle === 'Active' ? 'ok' : '' }] };
     if (s.pattern === 'Selected dates' && s.dates.length) { s.startDate = s.dates.slice().sort()[0]; s.endDate = s.dates.slice().sort().pop(); }
     D.sessions.push(s);
-    D.eligibility[s.id] = { ageGroups: [s.ageGroup], schoolYears: [], membership: s.booking === 'Members only', by: who, at: at };
+    D.eligibility[s.id] = { ageGroups: [s.ageGroup], schoolYears: [], membership: s.booking === 'Invite only', by: who, at: at };
     (spec.breaks || []).forEach(function (b) {
       var ex = b.id && D.scheduleBreaks.filter(function (x) { return x.id === b.id; })[0];
       if (ex) { if (ex.sessions.indexOf(s.id) < 0) ex.sessions.push(s.id); }
@@ -303,7 +306,31 @@
   db.addScheduleBreak = function (b) { b.id = 'BRK-' + pad(D.scheduleBreaks.length + 1, 2); D.scheduleBreaks.push(b); return b; };
 
   /* Occurrence changes; every change writes to the occurrence history. */
-  db.confirmOccurrence = function (id, who, at) { var o = D.occ(id); o.confirmed = { by: who, at: at }; hist(o, 'Session confirmed', who, at, 'ok'); return o; };
+  /* ---------- Delivery: what each date actually was ----------
+     Scheduled -> (ended) Awaiting confirmation -> Confirmed / Partially delivered.
+     Before it runs, a date with a staffing problem reads Staffing issue. */
+  var NOW = '14:10';
+  db.hasEnded = function (o) { return o.date < K.today || (o.date === K.today && o.end <= NOW); };
+  db.hasStarted = function (o) { return o.date < K.today || (o.date === K.today && o.start <= NOW); };
+  /* Who is planned to work the date: anyone not marked unavailable (a covering coach has their own entry) */
+  db.workingStaff = function (o) { return o.staff.filter(function (x) { return !x.unavailable; }); };
+  db.staffIssue = function (o) {
+    if (!o.staff.length) return 'No coach yet';
+    if (o.staff.some(function (x) { return x.unavailable && !x.covering; })) return 'Coach can’t make it';
+    var w = db.workingStaff(o), roles = w.map(function (x) { return x.actualRole || x.role; });
+    if (roles.length && roles.every(function (r) { return r === 'Learning'; })) return 'Learning Coach only';
+    if (roles.indexOf('Lead') < 0) return 'No Lead Coach';
+    return '';
+  };
+  db.occState = function (o) {
+    if (o.status === 'Cancelled' || o.status === 'Rescheduled' || o.status === 'Postponed') return o.status;
+    if (o.delivery) return o.delivery.state === 'Partial' ? 'Partially delivered' : 'Confirmed';
+    if (o.draft) return 'Draft';
+    if (db.hasEnded(o)) return 'Awaiting confirmation';
+    if (db.staffIssue(o) || !o.venue) return 'Staffing issue';
+    return 'Scheduled';
+  };
+  db.getAwaitingConfirmation = function () { return D.occurrences.filter(function (o) { return db.occState(o) === 'Awaiting confirmation'; }); };
   db.cancelOccurrence = function (id, reason, who, at) {
     var o = D.occ(id); Object.assign(o, { status: 'Cancelled', change: 'Cancelled', cancelReason: reason, cancelledBy: who, cancelledAt: at });
     o.staff.forEach(function (s) { s.attended = 'Not required'; });
@@ -333,10 +360,29 @@
     hist(o, 'Capacity changed from ' + was + ' to ' + value, who, at, 'info', reason); return o;
   };
   db.setOccurrenceNotes = function (id, notes, who, at) { var o = D.occ(id); o.notes = notes; o.notesBy = who; o.notesAt = at; hist(o, 'Operational notes updated', who, at); return o; };
+  /* Planned staff for one date. Expected pay follows the plan until delivery is confirmed. */
+  function expectPay(o, coach, role) {
+    if (!db.addAllocation || !db.coverRate) return;
+    var r = db.coverRate(coach, o), rp = db.fin && db.fin.rateFor ? db.fin.rateFor(coach, o.date) : null;
+    db.addAllocation({ coach: coach, occurrence: o.id, date: o.date, role: role, rate: r.rate, rateProfile: rp && rp.id, units: r.units, override: null, cost: r.cost, state: 'Draft' });
+  }
+  function dropExpected(o, coach) { var F = db.fin; if (!F || !F.allocations) return; for (var i = F.allocations.length - 1; i >= 0; i--) { var a = F.allocations[i]; if (a.occurrence === o.id && a.coach === coach && a.state === 'Draft') F.allocations.splice(i, 1); } }
+  db.addOccurrenceStaff = function (id, coach, role, who, at) {
+    var o = D.occ(id); if (!o || o.delivery || o.staff.some(function (x) { return x.coach === coach && !x.unavailable; })) return null;
+    var x = { coach: coach, lead: role === 'Lead', role: role, actualRole: role, attended: null, added: true };
+    o.staff.push(x); expectPay(o, coach, role);
+    hist(o, db.coachName(coach) + ' added as ' + K.roleName(role) + ' for this date', who, at, 'ok'); return x;
+  };
   db.updateOccurrenceStaff = function (id, coach, patch, who, at) {
     var o = D.occ(id), s = o.staff.filter(function (x) { return x.coach === coach; })[0]; if (!s) return null;
-    Object.assign(s, patch); if (patch.covering) s.unavailable = true;
-    hist(o, 'Staff updated: ' + db.coachName(coach), who, at, 'info', Object.keys(patch).map(function (k) { return k + ': ' + (k === 'covering' ? db.coachName(patch[k]) : patch[k]); }).join(', '));
+    Object.assign(s, patch);
+    if (patch.covering) {
+      /* The covering coach works the date in their own right */
+      s.unavailable = true; dropExpected(o, coach);
+      if (!o.staff.some(function (x) { return x.coach === patch.covering && !x.unavailable; })) { var role = s.actualRole || s.role; o.staff.push({ coach: patch.covering, lead: role === 'Lead', role: role, actualRole: role, attended: null, cover: true, covers: coach }); expectPay(o, patch.covering, role); }
+    }
+    var words = { actualRole: function (v) { return 'role on the day ' + K.roleName(v); }, covering: function (v) { return 'covered by ' + db.coachName(v); } };
+    hist(o, 'Staff updated: ' + db.coachName(coach), who, at, 'info', Object.keys(patch).map(function (k) { return words[k] ? words[k](patch[k]) : k + ': ' + patch[k]; }).join(', '));
     return s;
   };
   db.getAffectedPlayers = function (id) { var o = D.occ(id); return o ? D.expectedPlayers(o) : []; };
@@ -448,7 +494,6 @@
   db.getUnavailabilityImpact = function (u) { return db.getVenueOccurrences(u.venue, u.from, u.to); };
 
   /* Needs Attention inputs */
-  db.getUnconfirmedOccurrences = function (days) { var to = K.addDays(K.today, days || 2); return D.occurrences.filter(function (o) { return !o.draft && o.status === 'Scheduled' && o.date >= K.today && o.date <= to && !o.confirmed; }); };
   db.getUnstaffedOccurrences = function (days) { var to = K.addDays(K.today, days || 7); return D.occurrences.filter(function (o) { return !o.draft && o.status === 'Scheduled' && o.date >= K.today && o.date <= to && (!o.staff.length || o.staff.some(function (s) { return s.unavailable && !s.covering; })); }); };
   db.getOutcomesMissing = function () { return D.occurrences.filter(function (o) { return (o.status === 'Cancelled' || o.status === 'Rescheduled' || o.status === 'Postponed') && !o.outcome; }); };
 })();

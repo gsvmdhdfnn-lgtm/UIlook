@@ -83,7 +83,7 @@
   /* Any link or button carrying data-case-key starts a launch from this page */
   document.addEventListener('click', function (e) {
     var el = e.target.closest && e.target.closest('[data-case-key]');
-    if (el && Hub.currentPlace) Hub.launch = { key: el.getAttribute('data-case-key'), from: Hub.currentPlace() };
+    if (el && Hub.currentPlace) Hub.launch = { key: el.getAttribute('data-case-key'), from: Hub.currentPlace(), to: (el.getAttribute('href') || '').replace(/^#/, '') || el.getAttribute('data-route') || '' };
   }, true);
   K.log = function (e) {
     var D = Hub.data; D.audit = D.audit || [];
@@ -96,7 +96,7 @@
   K.pill = function (text, tone) { return '<span class="lx-pill' + (tone ? ' lx-pill--' + tone : '') + '">' + esc(text) + '</span>'; };
   var TONES = {
     active: 'ok', confirmed: 'ok', completed: 'ok', paid: 'ok', issued: 'info', verified: 'ok', present: 'ok', accepted: 'ok', matched: 'ok', 'on track': 'ok', approved: 'ok', published: 'ok', current: 'ok', yes: 'ok', connected: 'ok', synced: 'ok', exported: 'info', booked: 'ok', finalised: 'ok', resolved: 'ok', created: 'ok',
-    draft: '', scheduled: '', 'not started': '', new: 'info', pending: 'warn', 'in progress': 'warn', 'ready for issue': 'info', paused: 'warn', late: 'warn', excused: 'info', contacted: 'info', queried: 'warn', 'needs review': 'warn', 'partially credited': 'warn', 'part paid': 'warn', 'cancellation pending': 'warn', 'ending scheduled': 'warn', expiring: 'warn', 'pending verification': 'warn', postponed: 'warn', rescheduled: 'info', inactive: '', ended: '', unknown: 'warn', 'not confirmed': 'warn', open: 'warn', offered: 'info', reopened: 'warn',
+    draft: '', scheduled: '', 'awaiting confirmation': 'warn', 'staffing issue': 'danger', 'partially delivered': 'warn', 'not started': '', new: 'info', pending: 'warn', 'in progress': 'warn', 'ready for issue': 'info', paused: 'warn', late: 'warn', excused: 'info', contacted: 'info', queried: 'warn', 'needs review': 'warn', 'partially credited': 'warn', 'part paid': 'warn', 'cancellation pending': 'warn', 'ending scheduled': 'warn', expiring: 'warn', 'pending verification': 'warn', postponed: 'warn', rescheduled: 'info', inactive: '', ended: '', unknown: 'warn', 'not confirmed': 'warn', open: 'warn', offered: 'info', reopened: 'warn',
     overdue: 'danger', cancelled: 'danger', absent: 'danger', declined: 'danger', expired: 'danger', missing: 'danger', failed: 'danger', void: '', credited: '', reversed: 'danger', denied: 'danger', no: 'danger', disconnected: 'danger', 'at risk': 'warn'
   };
   /* Display wording for stored states whose name is a system term; the stored value is unchanged */
@@ -121,9 +121,17 @@
   };
 
   /* ---------- Layout ---------- */
+  /* A quiet reminder while fixing something opened from a Needs Attention item */
+  function launchNote() {
+    var L = Hub.launch; if (!L || !L.key || !Hub.currentPlace) return '';
+    var here = Hub.currentPlace().full;
+    if (here === L.from.full || (L.to && here !== L.to)) return '';
+    if (!Hub.db.getAttentionCases || !Hub.db.getAttentionCases().some(function (k) { return k.caseKey === L.key; })) return '';
+    return '<p class="k-launch">' + I('arrowRight', 'icon-sm flip') + '<span>Opened from ' + esc(L.from.title || 'Needs attention') + '. Once this is fixed you’ll go straight back.</span></p>';
+  }
   K.head = function (o) {
     if (o.back && Hub.backFor) o.back = Hub.backFor(o.back);
-    return '<header class="lx-head">' +
+    return '<header class="lx-head">' + launchNote() +
       (o.back ? '<a class="lx-back" href="#' + o.back[0] + '">' + I('chevron', 'icon-sm flip') + esc(o.back[1]) + '</a>' : '') +
       '<div class="lx-head__row"><div class="lx-head__text">' + (o.eyebrow ? '<div class="lx-eyebrow">' + esc(o.eyebrow) + '</div>' : '') + '<h1 class="lx-title">' + esc(o.title) + '</h1>' +
       (o.sub ? '<p class="lx-sub">' + o.sub + '</p>' : '') + '</div>' + (o.actions ? '<div class="lx-head__actions">' + o.actions + '</div>' : '') + '</div>' +
@@ -189,6 +197,8 @@
   /* An opened "Details" stays open when the page re-renders (after a save or a filter change) */
   Hub.openDetails = {};
   document.addEventListener('toggle', function (e) { var d = e.target; if (d && d.dataset && d.dataset.dkey) Hub.openDetails[d.dataset.dkey] = d.open; }, true);
+  /* Session roles are stored as Lead / Coach / Learning; people read them in full */
+  K.roleName = function (r) { return { Lead: 'Lead Coach', Learning: 'Learning Coach' }[r] || r || ''; };
   /* Level 4: details, history and system information, only when asked for */
   K.details = function (title, html, o) {
     o = o || {};

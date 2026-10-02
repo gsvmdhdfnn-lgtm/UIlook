@@ -37,7 +37,7 @@
      so the breadcrumb and sidebar always say "Home › Sessions › …" and the
      office never has to know how the Hub is structured underneath. */
   var MGMT_AREAS = [
-    { id: 'mgmt-schedule', label: 'Sessions', routes: ['mgmt-sessions', 'mgmt-session', 'mgmt-session-new', 'mgmt-session-edit', 'mgmt-calendar', 'mgmt-occurrences', 'mgmt-occurrence', 'mgmt-occurrence-outcome', 'mgmt-eligibility', 'mgmt-venues', 'mgmt-venue', 'mgmt-register', 'mgmt-registers', 'mgmt-attendance'] },
+    { id: 'mgmt-schedule', label: 'Schedule & Sessions', routes: ['mgmt-sessions', 'mgmt-session', 'mgmt-session-new', 'mgmt-session-edit', 'mgmt-calendar', 'mgmt-occurrences', 'mgmt-occurrence', 'mgmt-occurrence-outcome', 'mgmt-eligibility', 'mgmt-venues', 'mgmt-venue', 'mgmt-register', 'mgmt-registers', 'mgmt-attendance'] },
     { id: 'mgmt-coaches', label: 'Coaches', routes: ['mgmt-coach', 'mgmt-coach-roles', 'mgmt-allocations', 'mgmt-availability', 'mgmt-documents', 'mgmt-document', 'mgmt-cover', 'mgmt-cover-request', 'mgmt-work-summaries', 'mgmt-work-summary', 'mgmt-coach-signups', 'mgmt-trial-coaches'] },
     { id: 'mgmt-players', label: 'Players & Parents', routes: ['mgmt-players-list', 'mgmt-player', 'mgmt-parents', 'mgmt-parent', 'mgmt-families', 'mgmt-family', 'mgmt-memberships', 'mgmt-membership', 'mgmt-requests', 'mgmt-session-requests', 'mgmt-player-migration', 'mgmt-bookings', 'mgmt-booking', 'mgmt-commercial', 'mgmt-adjustments', 'mgmt-parent-claims', 'mgmt-trial-leads'] },
     { id: 'mgmt-finance', label: 'Financials', routes: [] }

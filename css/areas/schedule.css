@@ -130,3 +130,6 @@
 .sch-unav__head { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
 .sch-unav__head b { font-size: 14px; font-weight: 600; }
 .sch-aff { margin: 4px 0 0; padding: 0 0 0 16px; display: grid; gap: 6px; font-size: 13px; }
+/* Reason next to a status pill, and the exception folds in "What actually happened?" */
+.sch-why { font-size: 12px; color: var(--text-3); margin-left: 4px; }
+.sch-dv { margin-top: 12px; }

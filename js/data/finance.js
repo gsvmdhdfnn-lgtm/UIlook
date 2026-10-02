@@ -26,7 +26,7 @@
   /* ---------- Clients, services, terms ---------- */
   F.clients = [
     { id: 'CLI-01', name: 'Northgate School', contact: 'Ms R. Akers (Business Manager)', email: 'finance@northgate-school.example', cc: 'office@northgate-school.example', terms: 30, termsOverride: null, poRequired: true, method: 'Email PDF', status: 'Active' },
-    { id: 'CLI-02', name: 'Riverside Academy', contact: 'Mr J. Okafor (Bursar)', email: 'accounts@riverside-academy.example', cc: '', terms: 14, termsOverride: 'Client pays in 14 days by agreement', poRequired: false, method: 'Email PDF + Xero', status: 'Active' },
+    { id: 'CLI-02', name: 'Riverside Academy', contact: 'Mr J. Okafor (Bursar)', email: 'accounts@riverside-academy.example', cc: '', terms: 14, termsOverride: 'Client pays in 14 days by agreement', poRequired: false, method: 'Email PDF + accounting app', status: 'Active' },
     { id: 'CLI-03', name: 'Kingsmead Primary', contact: 'Mrs L. Hart (Office)', email: 'office@kingsmead-primary.example', cc: '', terms: 30, termsOverride: null, poRequired: false, method: 'Email PDF', status: 'Paused' },
     { id: 'CLI-04', name: 'Harbour Lane School', contact: 'Mr P. Diaz (Finance)', email: 'finance@harbour-lane.example', cc: 'head@harbour-lane.example', terms: 30, termsOverride: null, poRequired: true, method: 'Email PDF', status: 'Active' }
   ];
@@ -144,7 +144,8 @@
     o.staff.forEach(function (s) {
       if (s.unavailable) return;
       var r = F.rateFor(s.coach, o.date), units = hours(o), rate = r ? (o.start < '15:00' ? r.day : r.evening) : 3125;
-      var a = { id: 'ALC-' + String(F.allocations.length + 1001), coach: s.coach, occurrence: o.id, date: o.date, role: s.role, rate: rate, rateProfile: r && r.id, units: units, override: null, cost: Math.round(rate * units), state: o.date < '2026-10-01' ? 'Confirmed' : 'Draft' };
+      var a = { id: 'ALC-' + String(F.allocations.length + 1001), coach: s.coach, occurrence: o.id, date: o.date, role: s.role, rate: rate, rateProfile: r && r.id, units: units, override: null, cost: Math.round(rate * units), state: o.delivery ? 'Confirmed' : 'Draft' };
+      /* Expected until the date is confirmed as delivered; then actual */
       F.allocations.push(a);
     });
   });
@@ -158,9 +159,9 @@
     if (m.state === 'Ended') return;
     var p = db.getPlayer(m.player), s = D.session(m.session);
     var failed = m.player === 'PLY-0020' && m.session === 'SES-03';
-    charge({ family: p.family, player: m.player, membership: m.id, type: 'Subscription', description: s.name + ' · September', month: '2026-09', date: '2026-09-01', gross: m.price, creditApplied: 0, paid: m.price, state: 'Paid', via: 'Card (Stripe)', stripe: 'pi_test_' + m.id.toLowerCase().replace('-', ''), note: failed ? 'First attempt failed (card expired); paid on retry 4 Sep' : '' });
+    charge({ family: p.family, player: m.player, membership: m.id, type: 'Subscription', description: s.name + ' · September', month: '2026-09', date: '2026-09-01', gross: m.price, creditApplied: 0, paid: m.price, state: 'Paid', via: 'Card', stripe: 'pi_test_' + m.id.toLowerCase().replace('-', ''), note: failed ? 'First attempt failed (card expired); paid on retry 4 Sep' : '' });
     if (m.state === 'Paused' && m.pause) { charge({ family: p.family, player: m.player, membership: m.id, type: 'Subscription', description: s.name + ' · October (paused until 19 Oct)', month: '2026-10', date: '2026-10-01', gross: 0, creditApplied: 0, paid: 0, state: 'Not charged', via: '—', note: 'Paused: billing resumes 20 Oct' }); return; }
-    charge({ family: p.family, player: m.player, membership: m.id, type: 'Subscription', description: s.name + ' · October', month: '2026-10', date: '2026-10-01', gross: m.price, creditApplied: 0, paid: 0, state: 'Scheduled', via: 'Card (Stripe)' });
+    charge({ family: p.family, player: m.player, membership: m.id, type: 'Subscription', description: s.name + ' · October', month: '2026-10', date: '2026-10-01', gross: m.price, creditApplied: 0, paid: 0, state: 'Scheduled', via: 'Card' });
   });
   F.bookings = [
     { id: 'BKG-001', family: 'FAM-02', bookedBy: 'PAR-03', payer: 'PAR-04', at: '2026-09-20T19:44', state: 'Paid', terms: 'TRM-P-03', product: 'Autumn half-term camp (26–28 Oct)', lines: [
@@ -186,8 +187,8 @@
   });
   F.familyCredits.push({ id: 'FCR-' + String(F.familyCredits.length + 301), family: 'FAM-01', player: null, amount: 1000, remaining: 1000, source: 'Goodwill credit (adjustment ADJ-02)', at: '2026-09-26T10:30', by: 'Josh Evans', applications: [] });
   F.refunds = [
-    { id: 'RFD-01', family: hunt, amount: 2175, reason: 'Cancelled U9/10 Development, Thu 17 Sep: family asked for a refund instead of credit', decidedBy: 'Josh Evans', at: '2026-09-18T09:10', method: 'Card refund (Stripe)', occurrence: cx.id, state: 'Paid' },
-    { id: 'RFD-02', family: 'FAM-13', amount: 3000, reason: 'Camp day cancelled 35 days ahead (refund policy: full refund up to 7 days)', decidedBy: 'Sam Okafor', at: '2026-09-21T10:30', method: 'Card refund (Stripe)', booking: 'BKG-004', state: 'Paid' }
+    { id: 'RFD-01', family: hunt, amount: 2175, reason: 'Cancelled U9/10 Development, Thu 17 Sep: family asked for a refund instead of credit', decidedBy: 'Josh Evans', at: '2026-09-18T09:10', method: 'Card refund', occurrence: cx.id, state: 'Paid' },
+    { id: 'RFD-02', family: 'FAM-13', amount: 3000, reason: 'Camp day cancelled 35 days ahead (refund policy: full refund up to 7 days)', decidedBy: 'Sam Okafor', at: '2026-09-21T10:30', method: 'Card refund', booking: 'BKG-004', state: 'Paid' }
   ];
   /* Apply credits to the October subscriptions charged today, oldest first. */
   F.applyFamilyCredits = function (fam, chargeId) {
@@ -252,7 +253,8 @@
       var o = D.occ(c.occurrence), p = P(D.session(o.sessionId).programme), net = netOfGross(c.amount);
       p.net -= net; p.vat -= c.amount - net; p.credits += net;
     });
-    F.allocations.filter(function (a) { return a.date.slice(0, 7) === month; }).forEach(function (a) { var o = D.occ(a.occurrence); P(D.session(o.sessionId).programme).coach += a.cost; });
+    /* Actual coach cost = confirmed delivery only; expected (unconfirmed) pay items join when asked for */
+    F.allocations.filter(function (a) { return a.date.slice(0, 7) === month && (includeExpected || a.state !== 'Draft'); }).forEach(function (a) { var o = D.occ(a.occurrence); P(D.session(o.sessionId).programme).coach += a.cost; });
     D.occurrences.filter(function (o) { return o.date.slice(0, 7) === month; }).forEach(function (o) { var c = F.venueCost(o); if (c) P(D.session(o.sessionId).programme).venue += c; });
     var other = F.otherCosts.filter(function (c) { return c.date.slice(0, 7) === month; });
     var rows = Object.keys(progs).map(function (k) { return progs[k]; });
@@ -282,9 +284,9 @@
     F.payments.filter(function (p) { return p.date >= '2026-09-01'; }).forEach(function (p) { var i = pick(F.invoices, p.invoice); e({ date: p.date, kind: 'In', label: 'Payment ' + i.number + ' · ' + pick(F.clients, i.client).name, expected: p.amount, actual: p.amount, state: 'Received', certainty: 'Confirmed', authority: 'Payment ' + p.id }); });
     ['2026-09', '2026-10'].forEach(function (m) {
       var cs = F.familyCharges.filter(function (c) { return c.month === m && c.paid > 0; }), amt = K.sum(cs, 'paid'), past = m === '2026-09';
-      if (cs.length) e({ date: m + '-03', kind: 'In', label: 'Stripe payout · ' + (past ? 'September' : 'October') + ' subscriptions (' + cs.length + ' charges)', expected: amt, actual: past ? amt : null, state: past ? 'Received' : 'Expected', certainty: past ? 'Confirmed' : 'Expected', authority: cs.length + ' subscription charges' });
+      if (cs.length) e({ date: m + '-03', kind: 'In', label: 'Card payout · ' + (past ? 'September' : 'October') + ' subscriptions (' + cs.length + ' charges)', expected: amt, actual: past ? amt : null, state: past ? 'Received' : 'Expected', certainty: past ? 'Confirmed' : 'Expected', authority: cs.length + ' subscription charges' });
     });
-    F.bookings.forEach(function (b) { if (b.state === 'Paid' || b.state === 'Cancelled') e({ date: b.at.slice(0, 10), kind: 'In', label: 'Stripe · ' + b.product, expected: b.state === 'Cancelled' ? 3000 : b.total, actual: b.state === 'Cancelled' ? 3000 : b.total, state: 'Received', certainty: 'Confirmed', authority: 'Booking ' + b.id }); });
+    F.bookings.forEach(function (b) { if (b.state === 'Paid' || b.state === 'Cancelled') e({ date: b.at.slice(0, 10), kind: 'In', label: 'Card payment · ' + b.product, expected: b.state === 'Cancelled' ? 3000 : b.total, actual: b.state === 'Cancelled' ? 3000 : b.total, state: 'Received', certainty: 'Confirmed', authority: 'Booking ' + b.id }); });
     F.refunds.forEach(function (r) { e({ date: r.at.slice(0, 10), kind: 'Out', label: 'Refund · ' + db.getFamily(r.family).name, expected: r.amount, actual: r.amount, state: 'Paid', certainty: 'Confirmed', authority: 'Refund ' + r.id }); });
     F.invoices.forEach(function (i) { var b = F.balance(i); if (b > 0) e({ date: i.due < K.today ? '2026-10-09' : i.due, kind: 'In', label: 'Due · ' + i.number + ' · ' + pick(F.clients, i.client).name, expected: b, actual: null, state: i.due < K.today ? 'Overdue' : 'Expected', certainty: i.due < K.today ? 'At risk' : 'Expected', authority: 'Invoice ' + i.number, remaining: b }); });
     var septCoach = K.sum(F.allocations.filter(function (a) { return a.date.slice(0, 7) === '2026-08'; }), 'cost');

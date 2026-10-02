@@ -11,7 +11,7 @@
   /* ---------- Routes ---------- */
   function sesTitle() { var s = db.getSession(K.param()); return s ? s.name : 'Session'; }
   function occTitle() { var o = db.getOccurrence(K.param()); return o ? o.session + ', ' + K.dm(o.date) : 'Session'; }
-  K.route('mgmt-schedule', { title: 'Sessions', parent: 'home' });
+  K.route('mgmt-schedule', { title: 'Schedule & Sessions', parent: 'home' });
   K.route('mgmt-sessions', { title: 'All sessions', parent: 'home' });
   K.route('mgmt-session', { title: sesTitle, parent: 'home' });
   K.route('mgmt-session-new', { title: 'Create session', parent: 'home' });
@@ -35,16 +35,17 @@
   }
   function when(o) { return K.dd(o.date) + ', ' + o.start + '–' + o.end; }
   function venueOf(o) { return o.venue ? db.venueName(o.venue) : 'No venue yet'; }
+  /* What is wrong before a date runs (empty once it has run or been changed) */
   function risk(o) {
-    if (o.status !== 'Scheduled' || o.draft) return '';
-    if (!o.staff.length) return 'No coach yet';
-    if (o.staff.some(function (s) { return s.unavailable && !s.covering; })) return 'Coach unavailable';
-    if (!o.venue) return 'No venue';
-    return '';
+    var st = db.occState(o);
+    if (st !== 'Staffing issue') return '';
+    return db.staffIssue(o) || (!o.venue ? 'No venue' : '');
   }
+  /* One status per date: Scheduled, Staffing issue, Awaiting confirmation, Confirmed,
+     Partially delivered, Cancelled, Rescheduled (or Postponed), with the reason for a staffing issue */
   function occStatus(o) {
-    var r = risk(o);
-    return (o.draft ? K.pill('Draft') + ' ' : '') + (r ? K.pill(r, 'danger') : K.status(o.status));
+    var st = db.occState(o), r = risk(o);
+    return st === 'Draft' ? K.pill('Draft') : K.status(st) + (r ? ' <small class="sch-why">' + esc(r) + '</small>' : '');
   }
   function regState(o) { return db.getRegister(o.id).state; }
   function sortOcc(list, desc) { return list.slice().sort(function (a, b) { var x = a.date + a.start, y = b.date + b.start; return (x < y ? -1 : x > y ? 1 : 0) * (desc ? -1 : 1); }); }
@@ -61,7 +62,7 @@
 
   /* ===================================================== AREA HUB */
   Hub.screens['mgmt-schedule'] = function (ctx) {
-    var h = K.head({ back: ['mgmt-home', 'Home'], eyebrow: 'Home', title: 'Sessions', sub: 'Everything that is happening, and when.',
+    var h = K.head({ back: ['mgmt-home', 'Home'], eyebrow: 'Home', title: 'Schedule & Sessions', sub: 'Everything that is happening, and when.',
       actions: K.goBtn('Calendar', 'mgmt-calendar', { variant: 'secondary', icon: 'calendar' }) + K.goBtn('Add session', 'mgmt-session-new', { variant: 'primary', icon: 'plus' }) });
     var g = K.guard(ctx, h, { empty: ['calendar', 'No sessions yet', 'Add a session to start building the schedule.'] }); if (g) return g;
     var sessions = db.getSessions(), active = sessions.filter(function (s) { return s.lifecycle === 'Active'; });
@@ -71,7 +72,7 @@
     var week = upcoming.filter(function (o) { return o.date <= K.addDays(K.today, 6); });
     var todayT = K.table({ cols: '64px minmax(0, 1.6fr) minmax(0, 1.1fr) 72px minmax(0, 150px)', head: ['Time', 'Session', { label: 'Coaches', cls: 'wide' }, { label: 'Expected', cls: 'c-num wide' }, { label: '', cls: 'c-end' }],
       rows: today.map(function (o) {
-        return { cells: [timeCell(o), K.cell(esc(o.session), esc(venueOf(o)) + (o.confirmed ? '' : ' · <span class="sch-warn">not confirmed</span>')), { cls: 'wide c-cell', html: staffText(o) }, { cls: 'c-num wide', html: String(o.players) }, { cls: 'c-end', html: occStatus(o) }], route: 'mgmt-occurrence/' + o.id };
+        return { cells: [timeCell(o), K.cell(esc(o.session), esc(venueOf(o))), { cls: 'wide c-cell', html: staffText(o) }, { cls: 'c-num wide', html: String(o.players) }, { cls: 'c-end', html: occStatus(o) }], route: 'mgmt-occurrence/' + o.id };
       }), empty: 'Nothing scheduled today.' });
     var later = sortOcc(week.filter(function (o) { return o.date > K.today; }));
     var weekT = K.table({ cols: '110px minmax(0, 1.6fr) minmax(0, 1.1fr) minmax(0, 150px)', head: ['When', 'Session', { label: 'Coaches', cls: 'wide' }, { label: '', cls: 'c-end' }],
@@ -94,7 +95,7 @@
         { route: 'mgmt-eligibility', icon: 'shield', title: 'Who can join', desc: 'Age, school year and player exceptions', count: db.getEligibilityOverrides().filter(function (x) { return !x.revokedAt; }).length }]]
     ]);
     return K.page(h, K.findBar('Find a session, venue, player or coach') +
-      K.areaNeeds(['Sessions & Venues', 'Staffing & Cover'], { area: 'Sessions', clear: 'Every session in the next two weeks has a coach, a venue and is on track.' }) +
+      K.areaNeeds(['Sessions & Venues', 'Staffing & Cover'], { area: 'Schedule & Sessions', clear: 'Every session in the next two weeks has a coach, a venue and is on track.' }) +
       K.section('Today', K.d(K.today) + ' · ' + today.length + ' sessions · ' + K.sum(today, 'players') + ' expected. Open one to change coaches, cancel, reschedule or take the register.', todayT) +
       K.section('Later this week', later.length + ' sessions in the next six days', weekT, K.goBtn('Calendar', 'mgmt-calendar', { size: 'sm', variant: 'secondary' })) +
       K.section('Your sessions', '', feature + cards) + more);
@@ -104,7 +105,7 @@
   Hub.screens['mgmt-sessions'] = function (ctx) {
     var list = db.getSessions();
     var segs = [{ id: 'all', label: 'All' }, { id: 'Active', label: 'Active' }, { id: 'Draft', label: 'Draft' }, { id: 'Inactive', label: 'Inactive' }];
-    var h = K.head({ back: ['mgmt-schedule', 'Sessions'], eyebrow: 'Sessions', title: 'All sessions', sub: 'Every session with its programme, timetable, venue and status.',
+    var h = K.head({ back: ['mgmt-schedule', 'Schedule & Sessions'], eyebrow: 'Schedule & Sessions', title: 'All sessions', sub: 'Every session with its programme, timetable, venue and status.',
       actions: K.goBtn('Create session', 'mgmt-session-new', { variant: 'primary', icon: 'plus' }), tabs: '<div class="lx-filterbar">' + K.seg('sch-sess', segs) + '</div>' });
     var g = K.guard(ctx, h, { empty: ['calendar', 'No sessions yet', 'Create a session to start building the schedule.'] }); if (g) return g;
     var f = K.tab('sch-sess', segs);
@@ -128,7 +129,7 @@
     var client = s.client && db.getClient ? db.getClient(s.client) : null;
     var details = K.card({ title: 'Details', body: K.kv([
       ['Programme', esc(s.programme)], ['Delivery area', esc(s.area)], ['Age group', esc(s.ageGroup)], ['Venue', s.venue ? K.link('mgmt-venue/' + s.venue, db.venueName(s.venue)) : K.pill('No venue yet', 'warn')],
-      ['Client', client ? K.link('mgmt-fin-client/' + client.id, client.name) : 'None (parent session)'], ['Commercial model', esc(s.commercial)], ['Booking access', esc(s.booking)], ['Billing model', esc(s.billing)],
+      ['Client', client ? K.link('mgmt-fin-client/' + client.id, client.name) : 'None (parent session)'], ['Funded by', esc(s.commercial)], ['Who can book', esc(s.booking)], ['Charged', esc(s.billing)],
       ['Default day', esc(dayNames(s))], ['Default time', s.start + '–' + s.end], ['Default capacity', String(s.capacity)], ['Price', moneyOk() ? K.money(s.price) + (s.billing === 'Monthly subscription' ? ' a month' : '') : '<span class="c-mute">Finance access only</span>'],
       ['Repeats', esc(s.pattern)], ['Start date', K.d(s.startDate)], ['End date', K.d(s.endDate)], ['Meeting point', esc(s.meetingPoint || '—')]
     ], true) });
@@ -146,7 +147,7 @@
       }), empty: 'No registers completed yet.' });
     var attCard = K.card({ title: 'Attendance', sub: s.client ? '' : 'Overall ' + (att.summary.pct == null ? '—' : att.summary.pct + '%') + ' across ' + att.registers + ' completed registers', body: attBody });
     var lc = K.card({ title: 'Status', right: K.status(s.lifecycle), body: K.timeline(s.history.slice().reverse()) });
-    var coaches = K.card({ title: 'Regular coaches', sub: 'They coach every date unless a date is changed on its own.', body: s.staff.length ? K.list(s.staff.map(function (x) { return ui.row({ lead: ui.avatar(db.coachName(x.coach), 'md'), title: esc(db.coachName(x.coach)), sub: [esc(x.role)], href: '#mgmt-coach/' + x.coach }); })) : ui.notice('warn', 'No coaches yet', 'Assign coaches in Edit session.') });
+    var coaches = K.card({ title: 'Regular coaches', sub: 'They coach every date unless a date is changed on its own.', body: s.staff.length ? K.list(s.staff.map(function (x) { return ui.row({ lead: ui.avatar(db.coachName(x.coach), 'md'), title: esc(db.coachName(x.coach)), sub: [esc(K.roleName(x.role))], href: '#mgmt-coach/' + x.coach }); })) : ui.notice('warn', 'No coaches yet', 'Assign coaches in Edit session.') });
     var rule = db.getEligibilityRules(s.id) || { ageGroups: [], schoolYears: [] }, ovs = db.getEligibilityOverrides(s.id).filter(function (x) { return !x.revokedAt; });
     var elig = K.card({ title: 'Eligibility', right: K.link('mgmt-eligibility', 'Manage'), body: K.kv([['Age groups', esc(rule.ageGroups.join(', ') || 'Any')], ['School years', esc(rule.schoolYears.join(', ') || 'Any')], ['Membership required', rule.membership ? 'Yes' : 'No'], ['Exceptions', String(ovs.length)]]) });
     var members = s.client ? '' : K.card({ title: 'Players', body: '<p class="k-big num">' + db.getSessionMembers(s.id).length + ' <small class="k-note">of ' + s.capacity + ' places</small></p>' + K.link('mgmt-memberships', 'Open memberships') });
@@ -208,8 +209,8 @@
         K.field('Session name', K.input('name', v.name, { placeholder: 'For example U11 Saturday Development' }), '', true),
         K.field('Programme', K.select('programme', O.programmes, v.programme)), K.field('Delivery area', K.select('area', O.areas, v.area)),
         K.field('Age group', K.select('ageGroup', O.ageGroups, v.ageGroup)), K.field('Client', K.select('client', clients, v.client), 'Client sessions use a headcount register.'),
-        K.field('Commercial model', K.select('commercial', O.commercial, v.commercial)), K.field('Booking access', K.select('booking', O.booking, v.booking)),
-        K.field('Billing model', K.select('billing', O.billing, v.billing)), K.field('Price (£)', K.input('price', v.price), 'Per month for subscriptions, per session for bookings.'),
+        K.field('How is this session funded?', K.select('commercial', O.commercial, v.commercial)),
+        K.field('How is it charged?', K.select('billing', O.billing, v.billing)), K.field('Price (£)', K.input('price', v.price), 'Per month for subscriptions, per session or per hour otherwise.'),
         K.field('Status', K.select('lifecycle', O.lifecycle, v.lifecycle), 'Draft stays hidden from families until you activate it.')]) });
     }
     if (st === 1) {
@@ -229,11 +230,11 @@
     }
     if (st === 2) {
       var venues = [['', 'No venue yet']].concat(db.getVenues().map(function (x) { return [x.key, x.name + (x.active ? '' : ' (inactive)')]; }));
-      return K.card({ title: 'Venue & capacity', body: K.form([K.field('Venue', K.select('venue', venues, v.venue), 'You can change the venue for a single date later.'), K.field('Capacity', K.input('capacity', v.capacity, { type: 'number' }), 'For client sessions this is the expected headcount.'),
+      return K.card({ title: 'Venue & capacity', body: K.form([K.field('Venue', K.select('venue', venues, v.venue), 'You can change the venue for a single date later.'), K.field('Capacity', K.input('capacity', v.capacity, { type: 'number' }), 'For client sessions this is the expected headcount.'), K.field('Who can book?', K.select('booking', O.booking, v.booking), 'Invite only: families cannot sign up or pay until you offer a place.'),
         K.field('Meeting point', K.input('meetingPoint', v.meetingPoint), '', true)]) });
     }
     if (st === 3) {
-      var roles = [['', 'Not assigned']].concat(O.staffRoles.map(function (r) { return [r, r]; }));
+      var roles = [['', 'Not assigned']].concat(O.staffRoles.map(function (r) { return [r, K.roleName(r)]; }));
       return K.card({ title: 'Regular coaches', sub: 'They coach every date unless a date is changed on its own.', body: K.table({ cols: '40px minmax(0, 1fr) 170px', head: ['', 'Coach', 'Role'], rows: db.getCoaches().map(function (c) {
         return { cells: [ui.avatar(c.name, 'sm'), K.cell(esc(c.name), esc(c.role || '')), '<select class="select" data-change="sch-wiz-role" data-coach="' + c.id + '">' + roles.map(function (r) { return '<option value="' + r[0] + '"' + ((v.staff[c.id] || '') === r[0] ? ' selected' : '') + '>' + r[1] + '</option>'; }).join('') + '</select>'] };
       }) }) });
@@ -242,7 +243,7 @@
     var future = wiz.id ? db.getSessionOccurrences(wiz.id).filter(function (o) { return o.date > K.today && o.status === 'Scheduled'; }).length : 0;
     var summary = K.card({ title: 'Review', body: K.kv([['Session', esc(sp.name)], ['Programme', esc(sp.programme) + ' · ' + esc(sp.ageGroup)], ['Client', sp.client ? esc((db.getClient(sp.client) || {}).name || sp.client) : 'None'], ['Commercial', esc(sp.commercial) + ' · ' + esc(sp.billing)],
       ['Booking access', esc(sp.booking)], ['Price', K.money(sp.price)], ['Repeats', sp.pattern === 'Weekly' ? esc(dayNames(sp)) + ' ' + sp.start + '–' + sp.end : sp.dates.length + ' selected dates, ' + sp.start + '–' + sp.end], ['Runs', K.d(sp.startDate) + ' to ' + K.d(sp.endDate)],
-      ['Venue', esc(db.venueName(sp.venue))], ['Capacity', String(sp.capacity)], ['Coaches', sp.staff.length ? esc(sp.staff.map(function (x) { return db.coachName(x.coach) + ' (' + x.role + ')'; }).join(', ')) : K.pill('None yet', 'warn')], ['Status', K.status(sp.lifecycle)]], true) });
+      ['Venue', esc(db.venueName(sp.venue))], ['Capacity', String(sp.capacity)], ['Coaches', sp.staff.length ? esc(sp.staff.map(function (x) { return db.coachName(x.coach) + ' (' + K.roleName(x.role) + ')'; }).join(', ')) : K.pill('None yet', 'warn')], ['Status', K.status(sp.lifecycle)]], true) });
     var pv = K.card({ title: wiz.id ? 'Dates from this timetable' : 'Create dates', sub: wiz.id ? 'Saving updates time, venue, capacity and coaches on ' + future + ' future scheduled sessions. Past sessions stay as delivered.' : make.length + ' dates will be created · ' + (prev.length - make.length) + ' skipped for breaks',
       body: '<ol class="sch-preview">' + prev.map(function (p) { return '<li class="' + (p.skipped ? 'is-skipped' : '') + '"><b class="num">' + esc(K.dd(p.date)) + '</b><span class="num">' + p.start + '–' + p.end + '</span>' + (p.skipped ? K.pill('Skipped · ' + p.skipped, 'warn') : K.pill(wiz.id ? 'In pattern' : 'Will be created', 'ok')) + '</li>'; }).join('') + '</ol>' + (prev.length ? '' : '<p class="k-note">This pattern produces no dates.</p>') });
     return summary + pv;
@@ -295,10 +296,10 @@
   /* ===================================================== CALENDAR */
   var cal = { date: K.today };
   function weekStart(iso) { var d = K.parse(iso).getDay(); return K.addDays(iso, -((d + 6) % 7)); }
-  function evClass(o) { return o.status === 'Cancelled' || o.status === 'Rescheduled' || o.status === 'Postponed' ? ' is-cancelled' : (risk(o) || (!o.confirmed && o.status === 'Scheduled' && !o.draft && o.date <= K.addDays(K.today, 2))) ? ' is-warn' : ''; }
+  function evClass(o) { var st = db.occState(o); return st === 'Cancelled' || st === 'Rescheduled' || st === 'Postponed' ? ' is-cancelled' : st === 'Staffing issue' || st === 'Awaiting confirmation' ? ' is-warn' : ''; }
   Hub.screens['mgmt-calendar'] = function (ctx) {
     var views = [{ id: 'day', label: 'Day' }, { id: 'week', label: 'Week' }, { id: 'month', label: 'Month' }];
-    var h = K.head({ back: ['mgmt-schedule', 'Sessions'], eyebrow: 'Sessions', title: 'Calendar', sub: 'The full operational schedule by day, week or month.', actions: K.goBtn('Session dates', 'mgmt-occurrences', { variant: 'secondary' }), tabs: K.tabs('sch-cal', views) });
+    var h = K.head({ back: ['mgmt-schedule', 'Schedule & Sessions'], eyebrow: 'Schedule & Sessions', title: 'Calendar', sub: 'The full operational schedule by day, week or month.', actions: K.goBtn('Session dates', 'mgmt-occurrences', { variant: 'secondary' }), tabs: K.tabs('sch-cal', views) });
     var g = K.guard(ctx, h, { empty: ['calendar', 'Nothing scheduled', 'Dates appear here once a session is active.'] }); if (g) return g;
     var v = K.tab('sch-cal', views), d = cal.date, label, body;
     if (v === 'day') {
@@ -343,9 +344,9 @@
   var occFilter = { session: '' };
   Hub.screens['mgmt-occurrences'] = function (ctx) {
     var whenS = [{ id: 'upcoming', label: 'Upcoming' }, { id: 'past', label: 'Past' }, { id: 'all', label: 'All dates' }];
-    var stS = [{ id: 'all', label: 'Any status' }, { id: 'Scheduled', label: 'Scheduled' }, { id: 'Completed', label: 'Completed' }, { id: 'changed', label: 'Changed' }, { id: 'action', label: 'Needs action' }];
+    var stS = [{ id: 'all', label: 'Any status' }, { id: 'action', label: 'Needs action' }, { id: 'Scheduled', label: 'Scheduled' }, { id: 'Awaiting confirmation', label: 'Awaiting confirmation' }, { id: 'Confirmed', label: 'Confirmed' }, { id: 'changed', label: 'Changed' }];
     var sel = '<label class="lx-select"><span class="visually-hidden">Session</span>' + I('filter', 'icon-sm') + '<select data-change="sch-occ-session"><option value="">All sessions</option>' + db.getSessions().map(function (s) { return '<option value="' + s.id + '"' + (occFilter.session === s.id ? ' selected' : '') + '>' + esc(s.name) + '</option>'; }).join('') + '</select>' + I('chevronDown', 'icon-sm') + '</label>';
-    var h = K.head({ back: ['mgmt-schedule', 'Sessions'], eyebrow: 'Sessions', title: 'Session dates', sub: 'Every date of every session.', actions: K.goBtn('Calendar', 'mgmt-calendar', { variant: 'secondary', icon: 'calendar' }),
+    var h = K.head({ back: ['mgmt-schedule', 'Schedule & Sessions'], eyebrow: 'Schedule & Sessions', title: 'Session dates', sub: 'Every date of every session.', actions: K.goBtn('Calendar', 'mgmt-calendar', { variant: 'secondary', icon: 'calendar' }),
       tabs: '<div class="lx-filterbar">' + K.seg('sch-occ-when', whenS) + K.seg('sch-occ-status', stS) + sel + '</div>' });
     var g = K.guard(ctx, h, { empty: ['calendar', 'No sessions', 'Dates are created when a session is created.'] }); if (g) return g;
     var w = K.tab('sch-occ-when', whenS), st = K.tab('sch-occ-status', stS);
@@ -353,9 +354,10 @@
       if (occFilter.session && o.sessionId !== occFilter.session) return false;
       if (w === 'upcoming' && o.date < K.today) return false;
       if (w === 'past' && o.date >= K.today) return false;
-      if (st === 'changed') return !!o.change;
-      if (st === 'action') return !!risk(o) || (o.status === 'Scheduled' && !o.confirmed && !o.draft && o.date <= K.addDays(K.today, 2));
-      return st === 'all' || o.status === st;
+      var os = db.occState(o);
+      if (st === 'changed') return !!o.change || os === 'Partially delivered';
+      if (st === 'action') return os === 'Staffing issue' || os === 'Awaiting confirmation';
+      return st === 'all' || os === st;
     });
     list = sortOcc(list, w === 'past');
     var rows = list.map(function (o) {
@@ -374,10 +376,9 @@
   var CHANGED = ['Cancelled', 'Rescheduled', 'Postponed'];
   Hub.screens['mgmt-occurrence'] = function (ctx) {
     var o = db.getOccurrence(ctx.param);
-    var conf = o && !o.confirmed && o.status === 'Scheduled' && !o.draft;
     var live = o && !(o.status === 'Cancelled' || o.status === 'Rescheduled' || o.status === 'Postponed');
     var h = K.head({ back: o ? ['mgmt-session/' + o.sessionId, o.session] : ['mgmt-sessions', 'All sessions'], eyebrow: o ? K.dd(o.date) : 'Session', title: o ? o.session : 'Session not found', sub: o ? esc(when(o)) + ' · ' + esc(venueOf(o)) : '',
-      actions: o && live ? K.goBtn('Open register', 'mgmt-register/' + o.id, { variant: 'secondary', icon: 'check' }) + (o.status === 'Scheduled' ? K.actBtn('More actions', 'sch-more', { id: o.id }, { variant: 'tertiary', icon: 'more' }) : '') : '' });
+      actions: o && live ? K.goBtn('Open register', 'mgmt-register/' + o.id, { variant: 'secondary', icon: 'check' }) + (!o.delivery && !o.draft && (o.status === 'Scheduled' || o.status === 'Completed') ? K.actBtn('More actions', 'sch-more', { id: o.id }, { variant: 'tertiary', icon: 'more' }) : '') : '' });
     var g = K.guard(ctx, h, { empty: ['calendar', 'No details yet', 'This session has nothing to show yet.'] }); if (g) return g;
     if (!o) return K.page(h, ui.notice('warn', 'This session could not be found', '', { action: K.goBtn('All sessions', 'mgmt-sessions', { size: 'sm' }) }));
     var s = db.getSession(o.sessionId), reg = db.getRegister(o.id), changed = CHANGED.indexOf(o.status) >= 0;
@@ -388,16 +389,23 @@
       ['Capacity', o.capacity + (o.capacityOverride ? ' <small class="k-note">(changed from ' + (o.capacityOverride.from || s.capacity) + ': ' + esc(o.capacityOverride.reason) + ')</small>' : '')],
       ['Expected', s.client ? 'Headcount ' + o.players : o.players + ' players'], ['Register', changed ? '<span class="c-mute">Not needed</span>' : K.link('mgmt-register/' + o.id, reg.state)], ['Age group', esc(o.ageGroup)]
     ], true) });
-    var staffT = K.card({ title: 'Coaches for this date', sub: 'Changes here affect this date only; the regular coaches stay on the session.', right: o.staff.length ? K.actBtn('Change coaches', 'sch-staff', { id: o.id }, { size: 'sm', variant: 'secondary' }) : K.goBtn('Find cover', 'mgmt-cover', { size: 'sm', variant: 'primary' }),
-      body: o.staff.length ? K.table({ cols: '36px minmax(0, 1.3fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 120px)', head: ['', 'Coach', { label: 'Role on the day', cls: 'wide' }, { label: 'Covering', cls: 'wide' }, { label: 'Attendance', cls: 'c-end' }], rows: o.staff.map(function (x) {
-        return { cells: [ui.avatar(db.coachName(x.coach), 'sm', x.unavailable && !x.covering ? 'is-out' : ''), K.cell(esc(db.coachName(x.coach)), 'Planned: ' + esc(x.role || (x.lead ? 'Lead' : 'Coach')) + (x.unavailable ? ' · <span class="text-danger">unavailable</span>' : '')),
-          { cls: 'wide c-cell', html: esc(x.actualRole || x.role || '—') }, { cls: 'wide c-cell', html: x.covering ? esc(db.coachName(x.covering)) + ' covering' : '<span class="c-mute">—</span>' },
-          { cls: 'c-end', html: x.attended ? K.status(x.attended) : (x.unavailable && !x.covering ? K.pill('Cover needed', 'danger') : K.pill('Expected')) }] };
-      }) }) : ui.notice('danger', 'No coach yet', 'Choose a coach or ask for cover before this session starts.') });
+    /* Staff for this Session: planned before it runs, what actually happened once confirmed */
+    var ended = db.hasEnded(o), done = !!o.delivery;
+    function onTheDay(x) {
+      if (x.attended === 'Attended') return K.status('Present');
+      if (x.attended === 'Absent') return K.status('Absent') + (x.covering ? ' <small class="sch-why">' + esc(db.coachName(x.covering).split(' ')[0]) + ' covered</small>' : '');
+      if (x.attended === 'Not required' || x.attended === 'Moved') return '<span class="c-mute">' + esc(x.attended) + '</span>';
+      if (x.unavailable) return x.covering ? K.pill('Covered by ' + db.coachName(x.covering).split(' ')[0], 'info') : K.pill('Cover needed', 'danger');
+      return x.cover ? K.pill('Covering ' + db.coachName(x.covers || '').split(' ')[0], 'info') : '<span class="c-mute">Planned</span>';
+    }
+    var staffT = K.card({ title: 'Staff for this Session', sub: done ? 'What actually happened. Saved for history and coach pay.' : ended ? 'As planned. Confirm what actually happened above.' : 'Planned for this date. Changes here affect this date only.',
+      right: done || changed ? '' : o.staff.length ? K.actBtn('Change coaches', 'sch-staff', { id: o.id }, { size: 'sm', variant: 'secondary' }) : K.actBtn('Add a coach', 'sch-staff', { id: o.id }, { size: 'sm', variant: 'primary' }),
+      body: o.staff.length ? K.table({ cols: '36px minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 150px)', head: ['', 'Coach', { label: 'Role on the day', cls: 'wide' }, { label: done ? 'On the day' : 'Status', cls: 'c-end' }], rows: o.staff.map(function (x) {
+        var planned = K.roleName(x.role || (x.lead ? 'Lead' : 'Coach'));
+        return { cells: [ui.avatar(db.coachName(x.coach), 'sm', x.attended === 'Absent' || (x.unavailable && !x.covering) ? 'is-out' : ''), K.cell(esc(db.coachName(x.coach)), x.cover ? 'Covering ' + esc(db.coachName(x.covers || '').split(' ')[0]) : x.extra ? 'Extra coach on the day' : x.added ? 'Added for this date' : 'Planned: ' + esc(planned)),
+          { cls: 'wide c-cell', html: esc(K.roleName(x.actualRole || x.role) || '—') }, { cls: 'c-end', html: onTheDay(x) }] };
+      }) }) : ui.notice('danger', 'No coach yet', 'Add a coach or ask for cover before this session starts.') });
     var notes = K.card({ title: 'Operational notes', right: K.actBtn(o.notes ? 'Edit notes' : 'Add notes', 'sch-notes', { id: o.id }, { size: 'sm', variant: 'secondary' }), body: o.notes ? '<p class="sch-notes">' + esc(o.notes) + '</p>' + (o.notesBy ? K.stamp('Updated', o.notesBy, o.notesAt) : '') : '<p class="k-note">No notes for this session.</p>' });
-    var confirm = K.card({ title: 'Confirmation', body: o.confirmed ? '<div class="sch-confirm is-ok">' + I('checkCircle') + '<div><b>Confirmed</b>' + K.stamp('Confirmed', o.confirmed.by, o.confirmed.at) + '</div></div>' :
-      changed ? '<p class="k-note">Not needed: this session is ' + esc(o.status.toLowerCase()) + '.</p>' : o.draft ? '<p class="k-note">Activate the session before confirming its dates.</p>' :
-      '<div class="sch-confirm">' + I('info') + '<div><b>Not confirmed</b><p class="k-note">Confirming tells coaches and families that this session is going ahead as planned.</p></div></div>' + K.actBtn('Confirm session', 'sch-confirm', { id: o.id }, { variant: 'primary', icon: 'checkCircle' }) });
     var change = '';
     if (changed || o.replacementOf) {
       var rep = o.replacement && db.getOccurrence(o.replacement), orig = o.replacementOf && db.getOccurrence(o.replacementOf);
@@ -407,30 +415,47 @@
     }
     var actions = '';
     /* Is this session ready to run? One message and the one next step. */
-    var issues = readiness(o, s, reg, conf), handled = [].concat.apply([], issues.map(function (x) { return x.rules || []; }));
+    var issues = readiness(o, s, reg), handled = [].concat.apply([], issues.map(function (x) { return x.rules || []; }));
     var sit = readinessHtml(issues);
-    var history = K.details('History', (o.confirmed ? '<p>' + K.stamp('Confirmed', o.confirmed.by, o.confirmed.at) + '</p>' : '') + K.timeline(o.history.slice().reverse()), { sub: 'Every change to this date, with who and when' });
+    var history = K.details('History', K.timeline(o.history.slice().reverse()), { sub: 'Every change to this date, with who and when' });
     var also = K.needsFor(function (k) { return K.relatesTo(k, 'occurrence', o.id) && handled.indexOf(k.ruleId) < 0; }, { title: 'Also needs you' });
     return K.page(h, sit + also + K.grid(['<div class="lx-stack">' + staffT + details + '</div>', '<div class="lx-stack">' + change + notes + '</div>'], '21') + history);
   };
-  /* Every reason this date isn't ready, most serious first. The first is the banner; the rest sit under it. */
-  function readiness(o, s, reg, conf) {
-    var out = o.staff.filter(function (x) { return x.unavailable && !x.covering; });
-    var due = o.date < K.today || (o.date === K.today && o.start <= '14:10');
-    var list = [];
+  /* What this date needs, most serious first. The first is the banner; the rest sit under it.
+     Before it runs: is it ready? Once it has ended: did it go as planned? Once confirmed: what happened. */
+  function readiness(o, s, reg) {
+    var out = o.staff.filter(function (x) { return x.unavailable && !x.covering; }), list = [];
+    var regDone = reg.state === 'Completed', regIssue = { tone: 'warn', title: 'Register still needed', text: 'The register is ' + reg.state.toLowerCase() + '.', primary: K.goBtn('Open register', 'mgmt-register/' + o.id, { variant: 'primary' }), rules: ['ATT-020'] };
     if (o.status === 'Cancelled' || o.status === 'Postponed' || o.status === 'Rescheduled') {
       if (o.outcome) return [{ tone: 'ok', title: 'This session was ' + o.status.toLowerCase(), text: esc(o.cancelReason || '') + ' Refunds and credits have been decided.' }];
       return [{ tone: 'warn', title: 'This session was ' + o.status.toLowerCase(), text: 'Families, the venue and coaches are waiting to hear what happens next.', primary: K.goBtn('Decide refunds and credits', 'mgmt-occurrence-outcome/' + o.id, { variant: 'primary' }), rules: ['ATT-024'] }];
     }
-    if (o.status === 'Completed') return [reg.state === 'Completed' ? { tone: 'ok', title: 'This session has run', text: 'The register is complete.' }
-      : { tone: 'warn', title: 'Register still needed', text: 'The session has run but the register is ' + reg.state.toLowerCase() + '.', primary: K.goBtn('Open register', 'mgmt-register/' + o.id, { variant: 'primary' }), rules: ['ATT-020'] }];
-    var cb = coverBtn(o);
-    if (!o.staff.length) list.push({ tone: 'danger', title: 'No coach yet', text: 'This session can’t run without a coach.', primary: cb || K.actBtn('Choose a coach', 'sch-staff', { id: o.id }, { variant: 'primary' }), secondary: cb ? K.actBtn('Choose a coach', 'sch-staff', { id: o.id }, { variant: 'secondary' }) : '', rules: ['ATT-013', 'ATT-041'] });
+    if (o.delivery) {
+      var d = o.delivery;
+      list.push({ tone: 'ok', kicker: 'Confirmed ' + K.dm(d.at.slice(0, 10)), title: d.state === 'Partial' ? 'Partially delivered' : d.state === 'Changed' ? 'Delivered, with changes' : 'Delivered as planned',
+        text: (d.changes && d.changes.length ? esc(d.changes.join('. ')) + '. ' : '') + 'Who coached, and their pay, are saved for history. ' + K.stamp('Confirmed', d.by, d.at) });
+      if (!regDone) list.push(regIssue);
+      return list;
+    }
+    if (db.hasEnded(o) && !o.draft) {
+      var names = db.workingStaff(o).map(function (x) { return esc(db.coachName(x.coach).split(' ')[0]) + ' (' + esc(K.roleName(x.actualRole || x.role)) + ')'; }).join(', ');
+      var gap = out.length || !o.staff.length;
+      list.push({ tone: 'warn', kicker: 'Ended ' + (o.date === K.today ? 'today' : K.dm(o.date)), title: 'Did this session go as planned?',
+        text: gap ? (out.length ? esc(out.map(function (x) { return db.coachName(x.coach).split(' ')[0]; }).join(' and ')) + ' couldn’t make it and no cover was confirmed. Record what actually happened.' : 'No coach was planned. Record who actually coached.')
+          : 'Planned: ' + (names || 'nobody') + '. Confirming saves who actually coached, for history and coach pay.',
+        primary: gap ? K.actBtn('Record what happened', 'sch-changed', { id: o.id }, { variant: 'primary' }) : K.actBtn('Went as planned', 'sch-went', { id: o.id }, { variant: 'primary', icon: 'check' }),
+        secondary: gap ? '' : K.actBtn('Something changed', 'sch-changed', { id: o.id }, { variant: 'secondary' }), rules: ['ATT-022', 'ATT-013', 'ATT-014', 'ATT-041'] });
+      if (!regDone) list.push(regIssue);
+      return list;
+    }
+    var cb = coverBtn(o), working = db.workingStaff(o).map(function (x) { return x.actualRole || x.role; });
+    if (!o.staff.length) list.push({ tone: 'danger', title: 'No coach yet', text: 'This session can’t run without a coach.', primary: cb || K.actBtn('Add a coach', 'sch-staff', { id: o.id }, { variant: 'primary' }), secondary: cb ? K.actBtn('Add a coach', 'sch-staff', { id: o.id }, { variant: 'secondary' }) : '', rules: ['ATT-013', 'ATT-041'] });
     if (out.length) list.push({ tone: 'danger', title: esc(out.map(function (x) { return db.coachName(x.coach); }).join(' and ')) + ' can’t coach', text: 'Cover is needed before ' + esc(K.dd(o.date)) + ', ' + o.start + '.', primary: cb, secondary: K.actBtn('Change coach', 'sch-staff', { id: o.id }, { variant: 'secondary' }), rules: ['ATT-014', 'ATT-041'] });
+    if (working.length && working.every(function (r) { return r === 'Learning'; })) list.push({ tone: 'warn', title: 'Learning Coach only', text: 'A Learning Coach can’t run a session alone. Add a Lead Coach.', primary: K.actBtn('Add a coach', 'sch-staff', { id: o.id }, { variant: 'primary' }), rules: ['ATT-002'] });
+    else if (working.length && working.indexOf('Lead') < 0) list.push({ tone: 'warn', title: 'No Lead Coach', text: 'Someone needs to lead this session. Make one of the coaches the Lead Coach for this date, or add one.', primary: K.actBtn('Choose a lead', 'sch-staff', { id: o.id }, { variant: 'primary' }), rules: ['ATT-003'] });
     if (!o.venue) list.push({ tone: 'danger', title: 'No venue yet', text: 'Choose a venue, or move the session to a date when one is free.', primary: K.actBtn('Change venue', 'sch-venue', { id: o.id }, { variant: 'primary' }), secondary: K.actBtn('Reschedule', 'sch-resched', { id: o.id }, { variant: 'secondary' }), rules: ['ATT-018'] });
-    if (conf) list.push({ tone: 'warn', title: 'Not confirmed yet', text: 'Confirming tells coaches and families this session is going ahead.', primary: K.actBtn('Confirm session', 'sch-confirm', { id: o.id }, { variant: 'primary', icon: 'checkCircle' }), rules: ['ATT-022'] });
-    if (due && reg.state !== 'Completed') list.push({ tone: 'warn', title: 'Register still needed', text: 'The session has started. The register is ' + reg.state.toLowerCase() + '.', primary: K.goBtn('Open register', 'mgmt-register/' + o.id, { variant: 'primary' }), rules: ['ATT-020'] });
-    return list.length ? list : [{ tone: 'ok', title: 'Ready to run', text: 'Coaches, venue and confirmation are all in place.' }];
+    if (db.hasStarted(o) && !regDone) list.push({ tone: 'warn', title: 'Register still needed', text: 'The session has started. The register is ' + reg.state.toLowerCase() + '.', primary: K.goBtn('Open register', 'mgmt-register/' + o.id, { variant: 'primary' }), rules: ['ATT-020'] });
+    return list.length ? list : [{ tone: 'ok', title: 'Ready to run', text: 'Coaches, a Lead Coach and the venue are in place. After it runs, confirm what happened here.' }];
   }
   function readinessHtml(list) {
     var first = list[0], rest = list.slice(1);
@@ -455,7 +480,41 @@
       r('x', 'Cancel this session', 'Then decide refunds and credits', 'sch-cancel')]) });
   };
   function occLog(o, summary, at, extra) { return Object.assign({ area: 'Schedule', summary: summary + ': ' + o.session + ', ' + K.dd(o.date), entity: o.id, at: at }, extra || {}); }
-  Hub.actions['sch-confirm'] = function (el) { var o = db.getOccurrence(el.dataset.id), at = K.now(); Hub.mutate(function () { db.confirmOccurrence(o.id, who(), at); }, 'Session confirmed', occLog(o, 'Session confirmed', at)); };
+  /* Delivery: one tap when it went as planned; one short sheet for exceptions */
+  Hub.actions['sch-went'] = function (el) {
+    var o = db.getOccurrence(el.dataset.id), at = K.now();
+    Hub.mutate(function () { db.confirmDelivery(o.id, null, who(), at); }, 'Confirmed as delivered', occLog(o, 'Delivery confirmed: went as planned', at, { finance: true }));
+  };
+  Hub.actions['sch-changed'] = function (el) {
+    var o = db.getOccurrence(el.dataset.id), O = OPT(), roles = O.staffRoles.map(function (r) { return [r, K.roleName(r)]; });
+    var rows = o.staff.filter(function (x) { return !(x.unavailable && x.covering); });
+    var onStaff = o.staff.map(function (x) { return x.coach; });
+    var others = [['', 'Choose a coach']].concat(db.getCoaches().filter(function (c) { return c.active !== false && onStaff.indexOf(c.id) < 0; }).map(function (c) { return [c.id, c.name]; }));
+    var forWho = [['', 'Nobody: an extra coach']].concat(rows.map(function (x) { return [x.coach, db.coachName(x.coach)]; }));
+    var people = rows.length ? '<div class="lx-stack">' + rows.map(function (x) {
+      return '<div class="sch-staffedit"><div class="sch-staffedit__who">' + ui.avatar(db.coachName(x.coach), 'sm') + '<b>' + esc(db.coachName(x.coach)) + '</b><small class="k-note">Planned: ' + esc(K.roleName(x.actualRole || x.role)) + (x.unavailable ? ' · marked unavailable' : '') + '</small></div>' +
+        K.form([K.field('On the day', K.select('dv-at-' + x.coach, [['Present', 'Was there'], ['Absent', 'Wasn’t there']], x.unavailable ? 'Absent' : 'Present')), K.field('Role on the day', K.select('dv-role-' + x.coach, roles, x.actualRole || x.role))], 2) + '</div>';
+    }).join('') + '</div>' : '<p class="k-note">No coach was planned for this date.</p>';
+    var extra = '<details class="k-details sch-dv"' + (rows.length ? '' : ' open') + '><summary><span><b>Someone else coached</b><small>Cover, or an extra coach</small></span>' + I('chevron', 'icon-sm k-details__chev') + '</summary><div class="k-details__body">' +
+      K.form([K.field('Coach', K.select('dv-extra', others, '')), K.field('Role', K.select('dv-extra-role', roles, 'Coach')), K.field('Covering for', K.select('dv-extra-for', forWho, ''))], 1) + '</div></details>';
+    var short = '<details class="k-details sch-dv"><summary><span><b>It ended early</b><small>Record when it stopped and how coaches are paid</small></span>' + I('chevron', 'icon-sm k-details__chev') + '</summary><div class="k-details__body">' +
+      K.form([K.field('Ended at', K.input('dv-end', '', { type: 'time' })), K.field('Coach pay', K.select('dv-pay', [['worked', 'Pay for the time worked'], ['full', 'Pay in full']], 'worked')), K.field('What happened', K.input('dv-why', '', { placeholder: 'For example: fire alarm, pitch flooded' }))], 1) + '</div></details>';
+    K.sheet({ overline: '<span class="overline">' + esc(o.session) + ' · ' + esc(K.dd(o.date)) + '</span>', title: 'What actually happened?', meta: '<p class="k-note">Only record what changed. Everything else stays as planned.</p>',
+      body: people + extra + short + '<div class="k-bar sch-gap">' + K.actBtn('It was cancelled', 'sch-cancel', { id: o.id }, { variant: 'tertiary', size: 'sm' }) + K.actBtn('It moved to another date', 'sch-resched', { id: o.id }, { variant: 'tertiary', size: 'sm' }) + '</div>',
+      foot: sheetFoot('Confirm session', 'sch-changed-go', { id: o.id }) });
+  };
+  Hub.actions['sch-changed-go'] = function (el) {
+    var o = db.getOccurrence(el.dataset.id), at = K.now();
+    var people = o.staff.filter(function (x) { return !(x.unavailable && x.covering); }).map(function (x) { return { coach: x.coach, attended: K.val('dv-at-' + x.coach), role: K.val('dv-role-' + x.coach) }; });
+    var ex = K.val('dv-extra'), extras = ex ? [{ coach: ex, role: K.val('dv-extra-role') || 'Coach', covering: K.val('dv-extra-for') || null }] : [];
+    var end = K.val('dv-end'), partial = null;
+    if (end) {
+      if (end <= o.start || end >= o.end) { Hub.toast('Ended at must be between ' + o.start + ' and ' + o.end); return; }
+      partial = { endedAt: end, payFull: K.val('dv-pay') === 'full', reason: K.val('dv-why').trim() };
+    }
+    if (!people.some(function (p) { return p.attended === 'Present'; }) && !extras.length) { Hub.toast('Nobody coached? Record it as cancelled instead'); return; }
+    closeThen(function () { db.confirmDelivery(o.id, { people: people, extras: extras, partial: partial }, who(), at); }, partial ? 'Confirmed as partially delivered' : 'Confirmed with changes', occLog(o, 'Delivery confirmed with changes', at, { finance: true }));
+  };
   Hub.actions['sch-cancel'] = function (el) {
     var o = db.getOccurrence(el.dataset.id);
     K.sheet({ title: 'Cancel this session', meta: '<p class="k-note">' + esc(o.session) + ' · ' + esc(when(o)) + '</p>', body: ui.notice('warn', o.players + ' expected players are affected', 'After cancelling, decide what families get back and whether the venue and coaches are paid.') + K.form([K.field('Reason', K.textarea('reason', '', 'For example: waterlogged pitch'), 'Shown to families and coaches.', true)], 1), foot: sheetFoot('Cancel session', 'sch-cancel-go', { id: o.id }, { danger: true }) });
@@ -513,21 +572,24 @@
   Hub.actions['sch-staff'] = function (el) {
     var o = db.getOccurrence(el.dataset.id), O = OPT();
     var coaches = [['', 'Nobody']].concat(db.getCoaches().map(function (c) { return [c.id, c.name]; }));
-    var att = [['', 'Not recorded'], ['Attended', 'Attended'], ['Absent', 'Absent'], ['Late', 'Late'], ['Not required', 'Not required']];
+    var roles = O.staffRoles.map(function (r) { return [r, K.roleName(r)]; }), onStaff = o.staff.map(function (x) { return x.coach; });
+    var addable = [['', 'Nobody']].concat(db.getCoaches().filter(function (c) { return c.active !== false && onStaff.indexOf(c.id) < 0; }).map(function (c) { return [c.id, c.name]; }));
+    var addRow = '<div class="sch-staffedit"><div class="sch-staffedit__who">' + I('plus', 'icon-sm') + '<b>Add a coach for this date</b></div>' + K.form([K.field('Coach', K.select('sf-add', addable, '')), K.field('Role on the day', K.select('sf-add-role', roles, o.staff.length ? 'Coach' : 'Lead'))], 2) + '</div>';
     K.sheet({ title: 'Change coaches for this date', meta: '<p class="k-note">' + esc(o.session) + ' · ' + esc(when(o)) + '</p>', body: '<div class="lx-stack">' + o.staff.map(function (x) {
       return '<div class="sch-staffedit"><div class="sch-staffedit__who">' + ui.avatar(db.coachName(x.coach), 'sm') + '<b>' + esc(db.coachName(x.coach)) + '</b><small class="k-note">Planned: ' + esc(x.role || '') + '</small></div>' + K.form([
-        K.field('Role on the day', K.select('ar-' + x.coach, O.staffRoles, x.actualRole || x.role)), K.field('Attendance', K.select('at-' + x.coach, att, x.attended || '')), K.field('Covered by', K.select('cv-' + x.coach, coaches, x.covering || ''), 'Choose a coach if this person is unavailable.', true)]) + '</div>';
-    }).join('') + '</div>', foot: sheetFoot('Save coaches', 'sch-staff-go', { id: o.id }) });
+        K.field('Role on the day', K.select('ar-' + x.coach, O.staffRoles.map(function (r) { return [r, K.roleName(r)]; }), x.actualRole || x.role)), K.field('Covered by', K.select('cv-' + x.coach, coaches, x.covering || ''), 'Choose a coach if this person is unavailable.', true)]) + '</div>';
+    }).join('') + addRow + '</div>', foot: sheetFoot('Save coaches', 'sch-staff-go', { id: o.id }) });
   };
   Hub.actions['sch-staff-go'] = function (el) {
     var o = db.getOccurrence(el.dataset.id), at = K.now(), changes = [];
     o.staff.forEach(function (x) {
-      var p = {}, ar = K.val('ar-' + x.coach), a = K.val('at-' + x.coach), c = K.val('cv-' + x.coach);
-      if (ar && ar !== (x.actualRole || x.role)) p.actualRole = ar; if (a !== (x.attended || '')) p.attended = a || null; if (c !== (x.covering || '')) p.covering = c || null;
+      var p = {}, ar = K.val('ar-' + x.coach), c = K.val('cv-' + x.coach);
+      if (ar && ar !== (x.actualRole || x.role)) p.actualRole = ar; if (c && c !== (x.covering || '')) p.covering = c;
       if (Object.keys(p).length) changes.push([x.coach, p]);
     });
-    if (!changes.length) { Hub.closeSheet(true); Hub.toast('Nothing changed'); return; }
-    closeThen(function () { changes.forEach(function (c) { db.updateOccurrenceStaff(o.id, c[0], c[1], who(), at); }); }, 'Coaches updated', occLog(o, 'Staff updated', at));
+    var add = K.val('sf-add'), addRole = K.val('sf-add-role');
+    if (!changes.length && !add) { Hub.closeSheet(true); Hub.toast('Nothing changed'); return; }
+    closeThen(function () { changes.forEach(function (c) { db.updateOccurrenceStaff(o.id, c[0], c[1], who(), at); }); if (add) db.addOccurrenceStaff(o.id, add, addRole, who(), at); }, 'Coaches updated', occLog(o, 'Staff updated', at));
   };
 
   /* ===================================================== CANCELLATION OUTCOME */
@@ -576,7 +638,7 @@
   /* ===================================================== ELIGIBILITY */
   var eligSession = '';
   Hub.screens['mgmt-eligibility'] = function (ctx) {
-    var h = K.head({ back: ['mgmt-schedule', 'Sessions'], eyebrow: 'Sessions', title: 'Eligibility', sub: 'Who can join or book each session, and the per-player exceptions.', actions: K.actBtn('Add exception', 'sch-elig-add', {}, { variant: 'primary', icon: 'plus' }) });
+    var h = K.head({ back: ['mgmt-schedule', 'Schedule & Sessions'], eyebrow: 'Schedule & Sessions', title: 'Eligibility', sub: 'Who can join or book each session, and the per-player exceptions.', actions: K.actBtn('Add exception', 'sch-elig-add', {}, { variant: 'primary', icon: 'plus' }) });
     var g = K.guard(ctx, h, { empty: ['shield', 'No eligibility rules', 'Rules appear here once sessions exist.'] }); if (g) return g;
     var players = db.getPlayers();
     var rules = K.table({ cols: '32px minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 1fr) 90px 60px', head: ['', 'Session', { label: 'School years', cls: 'wide' }, { label: 'Membership', cls: 'wide' }, { label: 'Eligible', cls: 'c-num wide' }, { label: '', cls: 'c-end' }],
@@ -625,7 +687,7 @@
 
   /* ===================================================== VENUES */
   Hub.screens['mgmt-venues'] = function (ctx) {
-    var h = K.head({ back: ['mgmt-schedule', 'Sessions'], eyebrow: 'Sessions', title: 'Venues', sub: 'Venue details, closures and the sessions each one affects.' });
+    var h = K.head({ back: ['mgmt-schedule', 'Schedule & Sessions'], eyebrow: 'Schedule & Sessions', title: 'Venues', sub: 'Venue details, closures and the sessions each one affects.' });
     var g = K.guard(ctx, h, { empty: ['pin', 'No venues yet', 'Venues appear here once they are added.'] }); if (g) return g;
     var tiles = '<div class="lx-links lx-links--3">' + db.getVenues().map(function (v) {
       var n = db.getVenueOccurrences(v.key, K.today).filter(function (o) { return o.venue === v.key && o.status === 'Scheduled'; }).length;
@@ -804,7 +866,7 @@
 
   /* ===================================================== REGISTERS OVERVIEW */
   Hub.screens['mgmt-registers'] = function (ctx) {
-    var h = K.head({ back: ['mgmt-schedule', 'Sessions'], eyebrow: 'Sessions', title: 'Registers', sub: 'Registers outstanding across every session, oldest first, and those recently completed.', actions: K.goBtn('Attendance', 'mgmt-attendance', { variant: 'secondary', icon: 'users' }) });
+    var h = K.head({ back: ['mgmt-schedule', 'Schedule & Sessions'], eyebrow: 'Schedule & Sessions', title: 'Registers', sub: 'Registers outstanding across every session, oldest first, and those recently completed.', actions: K.goBtn('Attendance', 'mgmt-attendance', { variant: 'secondary', icon: 'users' }) });
     var g = K.guard(ctx, h, { empty: ['check', 'No registers yet', 'Registers appear once sessions start.'] }); if (g) return g;
     var off = featureGate(h); if (off) return off;
     var out = sortOcc(db.getOutstandingRegisters());
@@ -827,7 +889,7 @@
   Hub.screens['mgmt-attendance'] = function (ctx) {
     if (ctx.param) return playerAttendance(ctx);
     var views = [{ id: 'players', label: 'By player' }, { id: 'sessions', label: 'By session' }];
-    var h = K.head({ back: ['mgmt-schedule', 'Sessions'], eyebrow: 'Sessions', title: 'Attendance', sub: 'Attendance from completed and in-progress registers. Late counts as attended; excused is left out of the percentage.', actions: K.goBtn('Registers', 'mgmt-registers', { variant: 'secondary', icon: 'check' }), tabs: K.tabs('sch-att', views) });
+    var h = K.head({ back: ['mgmt-schedule', 'Schedule & Sessions'], eyebrow: 'Schedule & Sessions', title: 'Attendance', sub: 'Attendance from completed and in-progress registers. Late counts as attended; excused is left out of the percentage.', actions: K.goBtn('Registers', 'mgmt-registers', { variant: 'secondary', icon: 'check' }), tabs: K.tabs('sch-att', views) });
     var g = K.guard(ctx, h, { empty: ['users', 'No attendance yet', 'Attendance appears once registers are taken.'] }); if (g) return g;
     var off = featureGate(h); if (off) return off;
     function pct(v) { return v == null ? '<span class="c-mute">—</span>' : '<span class="sch-pct' + (v < 75 ? ' is-low' : '') + '">' + v + '%</span>'; }
