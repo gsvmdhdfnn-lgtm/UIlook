@@ -137,3 +137,23 @@
 .sch-orig { display: grid; gap: 4px; padding: 10px 12px; margin-bottom: 10px; border-radius: 12px; background: var(--hover); }
 .sch-orig small { font-size: 12px; color: var(--text-3); }
 .sch-orig p { margin: 0; font-size: 13.5px; }
+/* Change venue: current venue, how long it applies, the dates, and the check before saving */
+.sch-vcur { display: grid; gap: 2px; padding: 12px 14px; margin-bottom: 14px; border-radius: 12px; background: var(--hover); }
+.sch-vcur b { font-size: 15px; }
+.sch-vq { margin: 16px 0 8px; font-size: 14px; font-weight: 650; }
+.sch-scope { display: grid; gap: 8px; }
+.sch-scope__opt, .sch-vdate, .sch-vmsg { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--border); cursor: pointer; }
+.sch-scope__opt:has(input:checked) { border-color: var(--accent, var(--text)); background: var(--hover); }
+.sch-scope__opt span, .sch-vdate span, .sch-vmsg span { display: grid; gap: 2px; }
+.sch-scope__opt small, .sch-vdate small, .sch-vmsg small { font-size: 12.5px; color: var(--text-3); }
+.sch-scope__opt input, .sch-vdate input, .sch-vmsg input { margin-top: 3px; }
+.sch-vdates { display: grid; gap: 6px; margin-top: 10px; }
+.sch-vdate { padding: 8px 12px; }
+.sch-vrange { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-end; margin-top: 4px; }
+.sch-vrange .k-field { min-width: 130px; flex: 1; }
+[data-vs-show="onwards"] { margin-top: 10px; }
+.sch-vmsg { margin-top: 12px; }
+.sch-vcheck { margin-top: 16px; padding: 12px 14px; border-radius: 12px; background: color-mix(in oklab, var(--text) 3%, transparent); }
+.sch-vcheck h3 { margin: 0 0 6px; font-size: 13px; font-weight: 650; letter-spacing: .02em; text-transform: uppercase; color: var(--text-3); }
+.sch-vcheck .notice { margin-top: 10px; }
+.sch-vfixed { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; min-height: 40px; }

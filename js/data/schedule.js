@@ -20,7 +20,8 @@
   D.venueList = ['northgate', 'hollins', 'riverside', 'kingsmead'].map(function (k) { V[k].key = k; return V[k]; });
   D.venueUnavailable = [
     { id: 'VUN-01', venue: 'hollins', from: '2026-10-09', to: '2026-10-09', reason: 'Hall floor resurfacing', by: 'Sam Okafor', at: '2026-09-22T11:05' },
-    { id: 'VUN-02', venue: 'northgate', from: '2026-10-26', to: '2026-10-30', reason: 'Half term: centre closed', by: 'Josh Evans', at: '2026-07-14T09:30' }
+    { id: 'VUN-02', venue: 'northgate', from: '2026-10-26', to: '2026-10-30', reason: 'Half term: centre closed', by: 'Josh Evans', at: '2026-07-14T09:30' },
+    { id: 'VUN-03', venue: 'hollins', from: '2026-10-16', to: '2026-10-16', reason: 'Sports hall booked for school exams', by: 'Sam Okafor', at: '2026-09-30T15:20' }
   ];
 
   /* Sessions */
@@ -280,22 +281,48 @@
     s.history.push({ text: made.length + ' dates created', who: who, at: at, tone: 'info' });
     return { session: s, occurrences: made };
   };
-  /* Update a session; time, venue and capacity carry to future scheduled occurrences. */
+  /* Update a session. Only what actually changed is carried to future dates, and only to dates
+     that still follow the regular set-up: a date with its own time, venue, capacity or coach
+     arrangements (cover, a coach added or away, a different role) keeps them. Past dates never change. */
+  function plainStaff(o, regular) {
+    if (o.staff.length !== regular.length) return false;
+    return o.staff.every(function (x, i) { var r = regular[i]; return r && x.coach === r.coach && x.role === r.role && (x.actualRole || x.role) === x.role && !x.unavailable && !x.covering && !x.cover && !x.added && !x.extra; });
+  }
   db.updateSession = function (id, patch, who, at) {
     var s = D.session(id); if (!s) return null;
-    var before = { start: s.start, end: s.end, venue: s.venue, capacity: s.capacity };
+    var before = { start: s.start, end: s.end, venue: s.venue, capacity: s.capacity, staff: JSON.parse(JSON.stringify(s.staff || [])), name: s.name, ageGroup: s.ageGroup, programme: s.programme };
     Object.assign(s, patch);
-    var future = D.occurrences.filter(function (o) { return o.sessionId === id && o.date > K.today && o.status === 'Scheduled'; });
+    var timeChanged = before.start !== s.start || before.end !== s.end, capChanged = before.capacity !== s.capacity, venueChanged = before.venue !== s.venue;
+    var staffChanged = !!patch.staff && JSON.stringify(before.staff.map(function (x) { return [x.coach, x.role]; })) !== JSON.stringify(s.staff.map(function (x) { return [x.coach, x.role]; }));
+    var future = D.occurrences.filter(function (o) { return o.sessionId === id && o.status === 'Scheduled' && !o.delivery && !db.hasStarted(o); });
+    var kept = { time: 0, capacity: 0, venue: 0, staff: 0 }, changed = 0;
     future.forEach(function (o) {
-      o.session = s.name; o.start = s.start; o.end = s.end; o.ageGroup = s.ageGroup; o.programme = s.programme;
-      if (!o.venueOverride) o.venue = s.venue;
-      if (!o.capacityOverride) o.capacity = s.capacity;
-      if (patch.staff) o.staff = s.staff.map(function (x) { return { coach: x.coach, lead: x.role === 'Lead', role: x.role, actualRole: x.role, attended: null }; });
-      hist(o, 'Session details updated', who, at, 'info');
+      var did = [];
+      o.session = s.name; o.ageGroup = s.ageGroup; o.programme = s.programme;
+      if (timeChanged) { if (o.start === before.start && o.end === before.end) { o.start = s.start; o.end = s.end; did.push('time ' + s.start + '–' + s.end); retimePay(o); } else kept.time++; }
+      if (venueChanged) { if (!o.venueOverride) { o.venue = s.venue; did.push('venue'); } else kept.venue++; }
+      if (capChanged) { if (!o.capacityOverride) { o.capacity = s.capacity; did.push('capacity ' + s.capacity); } else kept.capacity++; }
+      if (staffChanged) {
+        if (plainStaff(o, before.staff)) {
+          o.staff.forEach(function (x) { if (!s.staff.some(function (y) { return y.coach === x.coach; })) dropExpected(o, x.coach); });
+          var now = s.staff.map(function (x) { return { coach: x.coach, lead: x.role === 'Lead', role: x.role, actualRole: x.role, attended: null }; });
+          now.forEach(function (x) { var had = o.staff.filter(function (y) { return y.coach === x.coach; })[0]; if (!had) expectPay(o, x.coach, x.role); });
+          o.staff = now; did.push('regular coaches');
+        } else kept.staff++;
+      }
+      if (did.length) { changed++; hist(o, 'Session set-up changed: ' + did.join(', '), who, at, 'info'); }
     });
-    s.history.push({ text: 'Session details updated', who: who, at: at, tone: 'info', detail: future.length + ' future sessions updated' + (before.start !== s.start ? '; time ' + before.start + ' → ' + s.start : '') });
-    return future.length;
+    var keptText = [kept.time ? kept.time + ' kept their own time' : '', kept.venue ? kept.venue + ' kept their own venue' : '', kept.capacity ? kept.capacity + ' kept their own capacity' : '', kept.staff ? kept.staff + ' kept their own coach arrangements' : ''].filter(Boolean).join('; ');
+    s.history.push({ text: 'Session details updated', who: who, at: at, tone: 'info', detail: changed + ' future dates updated' + (timeChanged ? '; time ' + before.start + ' → ' + s.start : '') + (keptText ? '. ' + keptText : '') });
+    return { changed: changed, kept: kept };
   };
+  /* A time change moves expected (not actual) pay for that date */
+  function retimePay(o) {
+    var F = db.fin; if (!F || !F.allocations) return;
+    var a = o.start.split(':'), b = o.end.split(':'), h = ((+b[0] * 60 + +b[1]) - (+a[0] * 60 + +a[1])) / 60;
+    F.allocations.forEach(function (al) { if (al.occurrence === o.id && al.state === 'Draft') { al.units = h; if (!al.override) al.cost = Math.round(al.rate * h); } });
+  }
+
   db.setSessionLifecycle = function (id, state, reason, who, at) {
     var s = D.session(id); if (!s) return null; var was = s.lifecycle; s.lifecycle = state;
     if (state === 'Active') D.occurrences.forEach(function (o) { if (o.sessionId === id) delete o.draft; });
@@ -349,6 +376,51 @@
     o.staff.forEach(function (x) { x.attended = 'Moved'; });
     hist(o, 'Rescheduled to ' + K.dd(rep.date) + ', ' + rep.start, who, at, 'warn', reason);
     return rep;
+  };
+  /* ---------- Change venue: one set of rules for every starting point ----------
+     scope 'one' or 'dates': only those dates; 'onwards': the usual venue from a start date.
+     Dates that have run (or started) are never changed. Dates with their own venue keep it,
+     unless they were deliberately picked. Coaches, players, bookings and pay are untouched. */
+  db.venueClosure = function (venue, date) { return D.venueUnavailable.filter(function (u) { return u.venue === venue && u.from <= date && u.to >= date; })[0] || null; };
+  db.usualVenueOn = function (s, date) {
+    var ps = (s.venuePeriods || []).filter(function (p) { return p.from <= date; });
+    return ps.length ? ps[ps.length - 1].venue : (s.venuePeriods && s.venuePeriods.length ? s.venuePeriods[0].was : s.venue);
+  };
+  db.venueChangeable = function (o) { return o && o.status === 'Scheduled' && !o.delivery && !db.hasStarted(o); };
+  db.venueDates = function (sid) { return D.occurrences.filter(function (o) { return o.sessionId === sid && db.venueChangeable(o); }).sort(function (a, b) { return a.date < b.date ? -1 : 1; }); };
+  db.planVenueChange = function (spec) {
+    var s = D.session(spec.session), dates = db.venueDates(spec.session), targets = [], kept = [], replaced = [];
+    if (spec.scope === 'onwards') dates.filter(function (o) { return o.date >= spec.from; }).forEach(function (o) { if (o.venueOverride) kept.push(o); else targets.push(o); });
+    else dates.filter(function (o) { return (spec.dates || []).indexOf(o.id) >= 0; }).forEach(function (o) { targets.push(o); if (o.venueOverride) replaced.push(o); });
+    var closed = spec.venue ? targets.filter(function (o) { return db.venueClosure(spec.venue, o.date); }) : [];
+    var clash = spec.venue ? targets.map(function (o) { var x = D.occurrences.filter(function (y) { return y.id !== o.id && y.date === o.date && y.venue === spec.venue && y.status === 'Scheduled' && y.start < o.end && y.end > o.start; })[0]; return x ? { o: o, other: x } : null; }).filter(Boolean) : [];
+    var coaches = {}; targets.forEach(function (o) { db.workingStaff(o).forEach(function (x) { (coaches[x.coach] = coaches[x.coach] || []).push(o); }); });
+    return { session: s, targets: targets, kept: kept, replaced: replaced, closed: closed, clash: clash, coaches: coaches, past: D.occurrences.filter(function (o) { return o.sessionId === spec.session && !db.venueChangeable(o); }).length };
+  };
+  db.changeVenue = function (spec, who, at) {
+    var plan = db.planVenueChange(spec), s = plan.session, v = spec.venue, name = db.venueName(v);
+    if (!v || plan.closed.length || (!plan.targets.length && spec.scope !== 'onwards')) return null;
+    plan.targets.forEach(function (o) {
+      var usual = db.usualVenueOn(s, o.date), was = o.venue;
+      if (spec.scope === 'onwards') { o.venue = v; hist(o, 'Venue changed to ' + name + ' (usual venue from ' + K.dm(spec.from) + ')', who, at, 'warn', spec.reason); return; }
+      if (o.venue === v) return;
+      if (v === usual && o.venueOverride) { o.venue = v; o.venueOverride = null; if (o.change === 'Venue changed') o.change = null; hist(o, 'Back to the usual venue, ' + name, who, at, 'info', spec.reason); return; }
+      o.venue = v; o.venueOverride = { from: usual || was, reason: spec.reason, by: who, at: at, replaced: plan.replaced.indexOf(o) >= 0 ? was : null }; o.change = 'Venue changed';
+      hist(o, 'Venue changed to ' + name + ' for this date only' + (plan.replaced.indexOf(o) >= 0 ? ' (replacing ' + db.venueName(was) + ')' : ''), who, at, 'warn', spec.reason);
+    });
+    if (spec.scope === 'onwards') {
+      if (!s.venuePeriods) s.venuePeriods = [];
+      s.venuePeriods.push({ venue: v, was: db.usualVenueOn(s, spec.from), from: spec.from, reason: spec.reason, by: who, at: at });
+      s.venue = v;
+      s.history.push({ text: 'Usual venue changed to ' + name + ' from ' + K.d(spec.from), who: who, at: at, tone: 'warn', detail: spec.reason + '. ' + plan.targets.length + ' dates updated' + (plan.kept.length ? '; ' + plan.kept.length + ' kept their own venue' : '') + '. Earlier dates unchanged.' });
+    }
+    /* Coaches on the changed dates are told; families see the new venue in the Hub */
+    Object.keys(plan.coaches).forEach(function (c) {
+      var list = plan.coaches[c];
+      if (db.notifyCoach) db.notifyCoach(c, 'Venue changed: ' + s.name, list.map(function (o) { return K.dd(o.date); }).join(', ') + ' now at ' + name + '.', list.length === 1 ? 'coach-session/' + list[0].id : 'coach-schedule', at);
+    });
+    if (spec.messageFamilies && db.addNotice) db.addNotice({ title: 'Venue change: ' + s.name, body: plan.targets.map(function (o) { return K.dd(o.date); }).join(', ') + ' will be at ' + name + '.' + (spec.familyNote ? ' ' + spec.familyNote : ''), audience: 'Parents', sessions: [s.id], status: 'Sent', by: who, at: at });
+    return plan;
   };
   db.setOccurrenceVenue = function (id, venue, reason, who, at) {
     var o = D.occ(id), from = o.venueOverride ? o.venueOverride.from : o.venue;

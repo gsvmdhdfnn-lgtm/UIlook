@@ -5,6 +5,7 @@ one example organisation using it). It is a static, mock-data front end for
 trying out the look and feel. It is not a second Hub.
 
 - **Josh Evans brand = live Hub design:** `docs/JOSH-EVANS-THEME.md`, `docs/screenshots/joshevans/`. Switch Brand to Josh Evans in the prototype bar.
+- **Change venue (one flow everywhere) and the session update fix:** `docs/CHANGE-VENUE.md`.
 - **Rule fixes and session confirmation (Phases 1–2):** `docs/RULES-AND-DELIVERY.md`.
 - **Design audit against the Josh Evans packs and 68 designs:** `docs/DESIGN-AUDIT.md`.
 - **Screen priority (one screen, one obvious purpose):** `docs/SCREEN-PRIORITY.md`, `docs/screenshots/pass-12/priority/`.

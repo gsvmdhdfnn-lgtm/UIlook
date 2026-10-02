@@ -122,13 +122,14 @@
   Hub.screens['mgmt-session'] = function (ctx) {
     var s = db.getSession(ctx.param);
     var h = K.head({ back: ['mgmt-sessions', 'All sessions'], eyebrow: 'Session', title: s ? s.name : 'Session not found', sub: s ? esc(s.programme) + ' · ' + esc(s.ageGroup) + ' · ' + esc(dayNames(s)) + ' ' + s.start + '–' + s.end : '',
-      actions: s ? K.actBtn('Change status', 'sch-lifecycle', { id: s.id }, { variant: 'secondary' }) + K.goBtn('Edit session', 'mgmt-session-edit/' + s.id, { variant: 'primary', icon: 'settings' }) : '' });
+      actions: s ? K.actBtn('Change venue', 'sch-venue', { session: s.id }, { variant: 'secondary', icon: 'pin' }) + K.actBtn('Change status', 'sch-lifecycle', { id: s.id }, { variant: 'secondary' }) + K.goBtn('Edit session', 'mgmt-session-edit/' + s.id, { variant: 'primary', icon: 'settings' }) : '' });
     var g = K.guard(ctx, h, { empty: ['calendar', 'No details yet', 'This session has no details to show yet.'] }); if (g) return g;
     if (!s) return K.page(h, ui.notice('warn', 'This session could not be found', 'It may have been removed. Open All sessions to choose another.', { action: K.goBtn('All sessions', 'mgmt-sessions', { size: 'sm' }) }));
     Hub.crumbTail = s.id;
     var client = s.client && db.getClient ? db.getClient(s.client) : null;
     var details = K.card({ title: 'Details', body: K.kv([
-      ['Programme', esc(s.programme)], ['Delivery area', esc(s.area)], ['Age group', esc(s.ageGroup)], ['Venue', s.venue ? K.link('mgmt-venue/' + s.venue, db.venueName(s.venue)) : K.pill('No venue yet', 'warn')],
+      ['Programme', esc(s.programme)], ['Delivery area', esc(s.area)], ['Age group', esc(s.ageGroup)], ['Venue', (function () { var now = db.usualVenueOn(s, K.today), next = (s.venuePeriods || []).filter(function (p) { return p.from > K.today; });
+        return (now ? K.link('mgmt-venue/' + now, db.venueName(now)) : K.pill('No venue yet', 'warn')) + next.map(function (p) { return '<br><small class="k-note">' + esc(db.venueName(p.venue)) + ' from ' + esc(K.dd(p.from)) + '</small>'; }).join(''); })()],
       ['Client', client ? K.link('mgmt-fin-client/' + client.id, client.name) : 'None (parent session)'], ['Funded by', esc(s.commercial)], ['Who can book', esc(s.booking)], ['Charged', esc(s.billing)],
       ['Default day', esc(dayNames(s))], ['Default time', s.start + '–' + s.end], ['Default capacity', String(s.capacity)], ['Price', moneyOk() ? K.money(s.price) + (s.billing === 'Monthly subscription' ? ' a month' : '') : '<span class="c-mute">Finance access only</span>'],
       ['Repeats', esc(s.pattern)], ['Start date', K.d(s.startDate)], ['End date', K.d(s.endDate)], ['Meeting point', esc(s.meetingPoint || '—')]
@@ -230,7 +231,9 @@
     }
     if (st === 2) {
       var venues = [['', 'No venue yet']].concat(db.getVenues().map(function (x) { return [x.key, x.name + (x.active ? '' : ' (inactive)')]; }));
-      return K.card({ title: 'Venue & capacity', body: K.form([K.field('Venue', K.select('venue', venues, v.venue), 'You can change the venue for a single date later.'), K.field('Capacity', K.input('capacity', v.capacity, { type: 'number' }), 'For client sessions this is the expected headcount.'), K.field('Who can book?', K.select('booking', O.booking, v.booking), 'Invite only: families cannot sign up or pay until you offer a place.'),
+      var venueField = wiz.id ? ('<div class="field k-field"><span class="label">Venue</span>' + '<div class="sch-vfixed"><b>' + esc((function () { var cs = db.getSession(wiz.id), u = db.usualVenueOn(cs, K.today); return u ? db.venueName(u) : 'No venue yet'; })()) + '</b>' + K.actBtn('Change venue', 'sch-venue', { session: wiz.id }, { size: 'sm', variant: 'secondary', icon: 'pin' }) + '</div><span class="hint">Opens the venue change: one date, some dates, or from a date onwards.</span></div>')
+        : K.field('Venue', K.select('venue', venues, v.venue), 'You can change the venue for a single date later.');
+      return K.card({ title: 'Venue & capacity', body: K.form([venueField, K.field('Capacity', K.input('capacity', v.capacity, { type: 'number' }), 'For client sessions this is the expected headcount.'), K.field('Who can book?', K.select('booking', O.booking, v.booking), 'Invite only: families cannot sign up or pay until you offer a place.'),
         K.field('Meeting point', K.input('meetingPoint', v.meetingPoint), '', true)]) });
     }
     if (st === 3) {
@@ -244,7 +247,7 @@
     var summary = K.card({ title: 'Review', body: K.kv([['Session', esc(sp.name)], ['Programme', esc(sp.programme) + ' · ' + esc(sp.ageGroup)], ['Client', sp.client ? esc((db.getClient(sp.client) || {}).name || sp.client) : 'None'], ['Commercial', esc(sp.commercial) + ' · ' + esc(sp.billing)],
       ['Booking access', esc(sp.booking)], ['Price', K.money(sp.price)], ['Repeats', sp.pattern === 'Weekly' ? esc(dayNames(sp)) + ' ' + sp.start + '–' + sp.end : sp.dates.length + ' selected dates, ' + sp.start + '–' + sp.end], ['Runs', K.d(sp.startDate) + ' to ' + K.d(sp.endDate)],
       ['Venue', esc(db.venueName(sp.venue))], ['Capacity', String(sp.capacity)], ['Coaches', sp.staff.length ? esc(sp.staff.map(function (x) { return db.coachName(x.coach) + ' (' + K.roleName(x.role) + ')'; }).join(', ')) : K.pill('None yet', 'warn')], ['Status', K.status(sp.lifecycle)]], true) });
-    var pv = K.card({ title: wiz.id ? 'Dates from this timetable' : 'Create dates', sub: wiz.id ? 'Saving updates time, venue, capacity and coaches on ' + future + ' future scheduled sessions. Past sessions stay as delivered.' : make.length + ' dates will be created · ' + (prev.length - make.length) + ' skipped for breaks',
+    var pv = K.card({ title: wiz.id ? 'Dates from this timetable' : 'Create dates', sub: wiz.id ? 'Saving applies only what you changed to the ' + future + ' upcoming dates that still follow the usual set-up. Dates with their own time, venue, capacity or coach arrangements keep them; past dates never change.' : make.length + ' dates will be created · ' + (prev.length - make.length) + ' skipped for breaks',
       body: '<ol class="sch-preview">' + prev.map(function (p) { return '<li class="' + (p.skipped ? 'is-skipped' : '') + '"><b class="num">' + esc(K.dd(p.date)) + '</b><span class="num">' + p.start + '–' + p.end + '</span>' + (p.skipped ? K.pill('Skipped · ' + p.skipped, 'warn') : K.pill(wiz.id ? 'In pattern' : 'Will be created', 'ok')) + '</li>'; }).join('') + '</ol>' + (prev.length ? '' : '<p class="k-note">This pattern produces no dates.</p>') });
     return summary + pv;
   }
@@ -281,7 +284,7 @@
     var sp = spec(), at = K.now();
     if (wiz.id) {
       var id = wiz.id, s = db.getSession(id);
-      var patch = { name: sp.name, programme: sp.programme, area: sp.area, ageGroup: sp.ageGroup, client: sp.client, commercial: sp.commercial, booking: sp.booking, billing: sp.billing, price: sp.price, pattern: sp.pattern, days: sp.days, dates: sp.pattern === 'Selected dates' ? sp.dates : s.dates, start: sp.start, end: sp.end, startDate: sp.startDate, endDate: sp.endDate, venue: sp.venue, capacity: sp.capacity, meetingPoint: sp.meetingPoint, staff: sp.staff };
+      var patch = { name: sp.name, programme: sp.programme, area: sp.area, ageGroup: sp.ageGroup, client: sp.client, commercial: sp.commercial, booking: sp.booking, billing: sp.billing, price: sp.price, pattern: sp.pattern, days: sp.days, dates: sp.pattern === 'Selected dates' ? sp.dates : s.dates, start: sp.start, end: sp.end, startDate: sp.startDate, endDate: sp.endDate, capacity: sp.capacity, meetingPoint: sp.meetingPoint, staff: sp.staff };
       var lcChange = sp.lifecycle !== s.lifecycle;
       wiz = null;
       Hub.mutate(function () { var n = db.updateSession(id, patch, who(), at); if (lcChange) db.setSessionLifecycle(id, sp.lifecycle, 'Changed in Edit session', who(), at); return n; }, 'Session saved', { area: 'Schedule', summary: 'Session updated: ' + sp.name, entity: id, at: at });
@@ -460,7 +463,10 @@
     if (out.length) list.push({ tone: 'danger', title: esc(out.map(function (x) { return db.coachName(x.coach); }).join(' and ')) + ' can’t coach', text: 'Cover is needed before ' + esc(K.dd(o.date)) + ', ' + o.start + '.', primary: cb, secondary: K.actBtn('Change coach', 'sch-staff', { id: o.id }, { variant: 'secondary' }), rules: ['ATT-014', 'ATT-041'] });
     if (working.length && working.every(function (r) { return r === 'Learning'; })) list.push({ tone: 'warn', title: 'Learning Coach only', text: 'A Learning Coach can’t run a session alone. Add a Lead Coach.', primary: K.actBtn('Add a coach', 'sch-staff', { id: o.id }, { variant: 'primary' }), rules: ['ATT-002'] });
     else if (working.length && working.indexOf('Lead') < 0) list.push({ tone: 'warn', title: 'No Lead Coach', text: 'Someone needs to lead this session. Make one of the coaches the Lead Coach for this date, or add one.', primary: K.actBtn('Choose a lead', 'sch-staff', { id: o.id }, { variant: 'primary' }), rules: ['ATT-003'] });
-    if (!o.venue) list.push({ tone: 'danger', title: 'No venue yet', text: 'Choose a venue, or move the session to a date when one is free.', primary: K.actBtn('Change venue', 'sch-venue', { id: o.id }, { variant: 'primary' }), secondary: K.actBtn('Reschedule', 'sch-resched', { id: o.id }, { variant: 'secondary' }), rules: ['ATT-018'] });
+    var vActs = K.actBtn('Reschedule', 'sch-resched', { id: o.id }, { variant: 'secondary' }) + K.actBtn('Cancel session', 'sch-cancel', { id: o.id }, { variant: 'tertiary' });
+    var shut = o.venue ? db.venueClosure(o.venue, o.date) : null;
+    if (!o.venue) list.push({ tone: 'danger', title: 'No venue yet', text: 'Choose a venue, or move the session to a date when one is free.', primary: K.actBtn('Change venue', 'sch-venue', { id: o.id }, { variant: 'primary' }), secondary: vActs, rules: ['ATT-018'] });
+    else if (shut) list.push({ tone: 'danger', title: esc(db.venueName(o.venue)) + ' is closed on ' + esc(K.dd(o.date)), text: esc(shut.reason) + '. Move this date to another venue, reschedule it, or cancel it.', primary: K.actBtn('Change venue', 'sch-venue', { id: o.id }, { variant: 'primary' }), secondary: vActs, rules: ['ATT-019'] });
     if (db.hasStarted(o) && !regDone) list.push({ tone: 'warn', title: 'Register still needed', text: 'The session has started. The register is ' + reg.state.toLowerCase() + '.', primary: K.goBtn('Open register', 'mgmt-register/' + o.id, { variant: 'primary' }), rules: ['ATT-020'] });
     return list.length ? list : [{ tone: 'ok', title: 'Ready to run', text: 'Coaches, a Lead Coach and the venue are in place. After it runs, confirm what happened here.' }];
   }
@@ -482,9 +488,9 @@
     var o = db.getOccurrence(el.dataset.id);
     function r(icon, title, sub, action) { return ui.row({ lead: I(icon, 'row-glyph'), title: esc(title), sub: [esc(sub)], action: action, data: { id: o.id } }); }
     K.sheet({ overline: '<span class="overline">' + esc(o.session) + ' · ' + esc(K.dd(o.date)) + '</span>', title: 'Change this session', body: '<p class="k-note">Changes apply to this date only. Every change is kept in the history.</p>' + K.list([
-      r('pin', 'Change venue', 'Use a different venue for this date', 'sch-venue'), r('users', 'Change capacity', 'More or fewer places for this date', 'sch-capacity'),
+      (db.hasStarted(o) ? null : r('pin', 'Change venue', 'For this date, some dates, or from a date onwards', 'sch-venue')), r('users', 'Change capacity', 'More or fewer places for this date', 'sch-capacity'),
       r('calendar', 'Reschedule', 'Move it to another date or time', 'sch-resched'), r('clock', 'Postpone', 'Put it off until a new date is set', 'sch-postpone'),
-      r('x', 'Cancel this session', 'Then decide refunds and credits', 'sch-cancel')]) });
+      r('x', 'Cancel this session', 'Then decide refunds and credits', 'sch-cancel')].filter(Boolean)) });
   };
   function occLog(o, summary, at, extra) { return Object.assign({ area: 'Schedule', summary: summary + ': ' + o.session + ', ' + K.dd(o.date), entity: o.id, at: at }, extra || {}); }
   /* Delivery: one tap when it went as planned; one short sheet for exceptions */
@@ -587,14 +593,82 @@
     var rep = closeThen(function () { return db.rescheduleOccurrence(o.id, to, r, who(), at); }, 'Rescheduled · replacement created', occLog(o, 'Session rescheduled to ' + K.dd(to.date), at, { before: o.date, after: to.date }));
     location.hash = 'mgmt-occurrence/' + rep.id;
   };
+  /* ===================================================== CHANGE VENUE
+     One flow for every starting point: a dated session, a no-venue or venue-closed banner,
+     Needs attention, the venue page (through the date) and the weekly session page. */
+  var VS = null;
   Hub.actions['sch-venue'] = function (el) {
-    var o = db.getOccurrence(el.dataset.id);
-    K.sheet({ title: 'Change venue for this session', meta: '<p class="k-note">Only this date changes. The session keeps its default venue.</p>', body: K.form([K.field('Venue', K.select('vVenue', db.getVenues().map(function (v) { return [v.key, v.name + (v.active ? '' : ' (inactive)')]; }), o.venue)), K.field('Reason', K.textarea('reason', '', 'For example: hall closed for resurfacing'), '', true)], 1), foot: sheetFoot('Save venue', 'sch-venue-go', { id: o.id }) });
+    var o = el.dataset.id ? db.getOccurrence(el.dataset.id) : null, s = db.getSession(o ? o.sessionId : el.dataset.session);
+    var dates = db.venueDates(s.id);
+    if (!dates.length) { Hub.toast('There are no upcoming dates of ' + s.name + ' to change'); return; }
+    var anchor = o && db.venueChangeable(o) ? o : dates[0];
+    var scope = el.dataset.scope || (o ? 'one' : 'onwards'), current = o ? o.venue : s.venue, usual = db.usualVenueOn(s, anchor.date);
+    VS = { session: s.id, anchor: anchor.id };
+    var cur = '<div class="sch-vcur"><span class="k-note">Current venue</span><b>' + (current ? esc(db.venueName(current)) : 'None yet') + '</b>' +
+      (o && o.venueOverride ? '<small class="k-note">For this date only. Usual venue: ' + esc(db.venueName(usual)) + '</small>' : !o && (s.venuePeriods || []).some(function (p) { return p.from > K.today; }) ? '<small class="k-note">Already changing: ' + (s.venuePeriods || []).filter(function (p) { return p.from > K.today; }).map(function (p) { return esc(db.venueName(p.venue)) + ' from ' + K.dm(p.from); }).join(', ') + '</small>' : '') + '</div>';
+    var opts = [['', 'Choose a venue']].concat(db.getVenues().filter(function (v) { return v.active && v.key !== current; }).map(function (v) { var c = db.venueClosure(v.key, anchor.date); return [v.key, v.name + (c ? ' · closed ' + K.dm(anchor.date) : '')]; }));
+    function radio(val, title, sub) { return '<label class="sch-scope__opt"><input type="radio" name="vScope" value="' + val + '"' + (scope === val ? ' checked' : '') + '><span><b>' + title + '</b><small>' + sub + '</small></span></label>'; }
+    var dateList = '<div class="sch-vdates" data-vs-show="dates">' + dates.map(function (d) {
+      var own = d.venueOverride, shut = db.venueClosure(d.venue, d.date);
+      return '<label class="sch-vdate"><input type="checkbox" name="vDate" value="' + d.id + '"' + (d.id === anchor.id && o && !own ? ' checked' : '') + '><span><b>' + esc(K.dd(d.date)) + ', ' + d.start + '</b>' +
+        (own ? '<small>Currently ' + esc(db.venueName(d.venue)) + ' for this date only.</small>' : shut ? '<small class="text-danger">' + esc(db.venueName(d.venue)) + ' is closed this day</small>' : '<small>' + esc(db.venueName(d.venue)) + '</small>') + '</span></label>';
+    }).join('') + '<div class="sch-vrange">' + K.field('Tick from', K.select('vFrom', dates.map(function (d) { return [d.date, K.dd(d.date)]; }), anchor.date)) + K.field('to', K.select('vTo', dates.map(function (d) { return [d.date, K.dd(d.date)]; }), anchor.date)) + K.actBtn('Tick these dates', 'sch-venue-range', {}, { size: 'sm', variant: 'secondary' }) + '</div></div>';
+    var onwards = '<div data-vs-show="onwards">' + K.field('Starting from', K.select('vStart', dates.map(function (d) { return [d.date, K.dd(d.date)]; }), anchor.date), 'Earlier dates stay as they are.') + '</div>';
+    K.sheet({ overline: '<span class="overline">' + esc(s.name) + (o ? ' · ' + esc(K.dd(o.date)) + ', ' + o.start : '') + '</span>', title: 'Change venue',
+      body: '<div data-vs>' + cur + K.form([K.field('New venue', K.select('vVenue', opts, ''))], 1) +
+        '<p class="sch-vq">How long should this change apply?</p><div class="sch-scope">' +
+        radio('one', 'This session only', 'Changes ' + esc(K.dd(anchor.date)) + ' only. The usual venue stays ' + esc(usual ? db.venueName(usual) : 'as it is') + '.') + radio('dates', 'Selected dates', 'Choose the individual dates or a date range affected.') + radio('onwards', 'From this date onwards', 'Changes the usual venue for future sessions from the date you choose.') + '</div>' +
+        dateList + onwards + K.form([K.field('Why?', K.input('vWhy', '', { placeholder: 'For example: hall floor resurfacing' }), null, true)], 1) +
+        '<label class="sch-vmsg"><input type="checkbox" name="vMsg"><span><b>Send a message to families</b><small>Optional. Families always see the new venue in the Hub; coaches are told automatically.</small></span></label>' +
+        '<section class="sch-vcheck" aria-live="polite"><h3>Check before saving</h3><div id="vSummary"></div></section></div>',
+      foot: sheetFoot('Save change', 'sch-venue-go', {}) });
+    venueSummary();
   };
-  Hub.actions['sch-venue-go'] = function (el) {
-    var o = db.getOccurrence(el.dataset.id), v = K.val('vVenue'), r = K.val('reason').trim(), at = K.now(), was = o.venue;
-    if (v === o.venue) { Hub.toast('That is already the venue'); return; } if (!r) { Hub.toast('Add a reason first'); return; }
-    closeThen(function () { db.setOccurrenceVenue(o.id, v, r, who(), at); }, 'Venue changed', occLog(o, 'Different venue', at, { before: db.venueName(was), after: db.venueName(v) }));
+  function readVenue() {
+    var q = function (sel) { return document.querySelector('#sheet ' + sel); };
+    var scope = (q('[name=vScope]:checked') || {}).value || 'one';
+    var spec = { session: VS.session, venue: K.val('vVenue'), scope: scope, reason: K.val('vWhy').trim(), messageFamilies: !!(q('[name=vMsg]') && q('[name=vMsg]').checked) };
+    if (scope === 'one') spec.dates = [VS.anchor];
+    if (scope === 'dates') spec.dates = Array.prototype.map.call(document.querySelectorAll('#sheet [name=vDate]:checked'), function (x) { return x.value; });
+    if (scope === 'onwards') spec.from = K.val('vStart');
+    return spec;
+  }
+  function venueSummary() {
+    var box = document.getElementById('vSummary'); if (!box || !VS) return;
+    var spec = readVenue(), plan = db.planVenueChange(spec), s = plan.session, name = spec.venue ? db.venueName(spec.venue) : '';
+    Array.prototype.forEach.call(document.querySelectorAll('#sheet [data-vs-show]'), function (x) { x.hidden = x.getAttribute('data-vs-show') !== spec.scope; });
+    var n = plan.targets.length, list = function (a) { return a.map(function (o) { return K.dm(o.date); }).join(', '); };
+    var when = spec.scope === 'one' ? (n ? esc(K.dd(plan.targets[0].date)) + ' only' : 'Nothing to change on this date')
+      : spec.scope === 'dates' ? (n ? n + ' date' + (n === 1 ? '' : 's') + ': ' + esc(list(plan.targets)) : 'Tick at least one date')
+      : 'From ' + esc(K.dd(spec.from)) + ': ' + n + ' upcoming date' + (n === 1 ? '' : 's') + ', and any added later';
+    var keep = plan.kept.map(function (o) { return esc(K.dd(o.date)) + ' already has its own venue (' + esc(db.venueName(o.venue)) + ') and keeps it'; }).concat(['Past dates aren’t changed']);
+    var coaches = Object.keys(plan.coaches);
+    var rows = [['Session', esc(s.name)], ['New venue', name ? '<b>' + esc(name) + '</b>' : '<span class="c-mute">Choose a venue</span>'], ['Dates', when]];
+    if (plan.replaced.length) rows.push(['Replacing', plan.replaced.map(function (o) { return 'This will replace the existing venue change for ' + esc(K.dd(o.date)) + '.'; }).join('<br>')]);
+    rows.push(['Staying as they are', keep.join('<br>')], ['Coaches', 'Unchanged' + (coaches.length ? '. ' + esc(coaches.map(function (c) { return db.coachName(c).split(' ')[0]; }).join(', ')) + (coaches.length === 1 ? ' is' : ' are') + ' told automatically' : '')],
+      ['Players & bookings', 'Unchanged. Families see the new venue in the Hub' + (spec.messageFamilies ? ' and get a message' : '')]);
+    if (K.fin() !== 'none' && spec.venue && n) { var from = db.getVenue(plan.targets[0].venue), to = db.getVenue(spec.venue); if (from && to && from.costPerHour !== to.costPerHour) rows.push(['Venue hire', K.money(from.costPerHour || 0) + ' → ' + K.money(to.costPerHour || 0) + ' an hour for these dates']); }
+    var warn = (plan.closed.length ? ui.notice('danger', esc(name) + ' is closed on ' + esc(list(plan.closed)), 'Choose another venue, or leave ' + (plan.closed.length === 1 ? 'that date' : 'those dates') + ' out.') : '') +
+      plan.clash.map(function (c) { return ui.notice('info', esc(c.other.session) + ' is also at ' + esc(name) + ' on ' + esc(K.dm(c.o.date)), c.other.start + '–' + c.other.end + '. Check there is room for both.'); }).join('');
+    box.innerHTML = K.kv(rows) + warn;
+  }
+  document.addEventListener('change', function (e) { if (e.target.closest && e.target.closest('[data-vs]')) venueSummary(); });
+  document.addEventListener('input', function (e) { if (e.target.closest && e.target.closest('[data-vs]') && e.target.name === 'vWhy') return; });
+  Hub.actions['sch-venue-range'] = function () {
+    var f = K.val('vFrom'), t = K.val('vTo'); if (t < f) { var x = f; f = t; t = x; }
+    Array.prototype.forEach.call(document.querySelectorAll('#sheet [name=vDate]'), function (c) { var o = db.getOccurrence(c.value); if (!o.venueOverride) c.checked = o.date >= f && o.date <= t; });
+    venueSummary();
+  };
+  Hub.actions['sch-venue-go'] = function () {
+    var spec = readVenue(), plan = db.planVenueChange(spec), s = plan.session, at = K.now();
+    if (!spec.venue) { Hub.toast('Choose the new venue'); return; }
+    if (!plan.targets.length && spec.scope !== 'onwards') { Hub.toast(spec.scope === 'dates' ? 'Tick at least one date' : 'That date already uses this venue'); return; }
+    if (plan.closed.length) { Hub.toast(db.venueName(spec.venue) + ' is closed on ' + plan.closed.map(function (o) { return K.dm(o.date); }).join(', ')); return; }
+    if (!spec.reason) { Hub.toast('Say why the venue is changing'); return; }
+    var name = db.venueName(spec.venue), n = plan.targets.length;
+    var msg = spec.scope === 'onwards' ? 'Usual venue changed to ' + name + ' from ' + K.dm(spec.from) + ' (' + n + ' date' + (n === 1 ? '' : 's') + ')' : 'Venue changed to ' + name + (n === 1 ? ' for ' + K.dd(plan.targets[0].date) : ' for ' + n + ' dates');
+    Hub.closeSheet(true);
+    Hub.mutate(function () { db.changeVenue(spec, who(), at); }, msg, { area: 'Schedule', summary: 'Venue changed: ' + s.name + ' → ' + name + ' (' + (spec.scope === 'onwards' ? 'from ' + K.dm(spec.from) : plan.targets.map(function (o) { return K.dm(o.date); }).join(', ')) + '): ' + spec.reason, entity: s.id, at: at, after: name });
   };
   Hub.actions['sch-capacity'] = function (el) {
     var o = db.getOccurrence(el.dataset.id);
