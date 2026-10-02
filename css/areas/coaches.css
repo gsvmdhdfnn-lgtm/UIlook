@@ -71,7 +71,7 @@
 /* Cover: who can cover, the decision, and everything else one level deeper */
 .co-need > .k-sit, .co-need > .situation { margin-bottom: 0; }
 .co-can { margin-top: 12px; }
-.co-more { flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
+.co-options { flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
 .co-proto { display: grid; gap: 6px; margin: 14px 0; padding: 10px 12px; border-radius: 12px; border: 1px dashed var(--line); }
 .co-proto .k-row-actions { display: flex; flex-wrap: wrap; gap: 6px; }
 .co-need .k-details { margin-top: 12px; }

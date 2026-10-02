@@ -631,7 +631,7 @@
     if (K.canFin()) more.push(K.actBtn(n.enhanced ? 'Change the higher rate' : 'Offer a higher rate', 'co-rate-up', { req: r.id, need: n.id }, { variant: 'secondary' }));
     if (r.coach) more.push(K.actBtn(out + ' can coach after all', 'co-back', { req: r.id, need: n.id }, { variant: 'tertiary' }));
     if (r.coach) more.push(K.actBtn('Run without cover', 'co-nocover', { req: r.id, need: n.id }, { variant: 'tertiary' }));
-    var deeper = K.details('Replies and other options', '<div class="k-bar co-more">' + more.join('') + '</div>' +
+    var deeper = K.details('Replies and other options', '<div class="k-bar co-options">' + more.join('') + '</div>' +
       (n.enhanced && fin ? '<p class="k-note">Offered at ' + K.money(n.enhanced.rate) + ' an hour: ' + esc(n.enhanced.reason) + '.</p>' : '') +
       (n.phone ? '<p class="k-note">Ring round: ' + esc(n.phone.note) + ' (' + esc(n.phone.by) + ')</p>' : '') +
       (replies.length ? '<h3 class="k-h3">Offered to</h3>' + ui.rows(replies, 'rows--lead') : '') +
