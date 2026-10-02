@@ -44,7 +44,7 @@
     if (empty) return '<section class="hx-card hm-attn" id="hm-attn">' + head + ui.empty('checkCircle', 'All clear', 'Nothing currently needs management action.', 'ok') + '</section>';
     var sev = '<div class="hm-sev num">' + [['Urgent', 'urgent'], ['Warning', 'warning'], ['Normal', 'normal']].map(function (x) { return '<a class="hm-sev__i hm-sev--' + x[1] + '" href="#mgmt-attention"><i></i><b>' + c[x[0]] + '</b>' + SEVWORD[x[0]] + '</a>'; }).join('') + '</div>';
     var rows = '<div class="hx-list">' + A.cases.slice(0, 5).map(function (k) {
-      return '<a class="hx-attn' + (k.severity === 'Urgent' ? ' is-urgent' : '') + '" href="#' + esc(k.route || 'mgmt-attention') + '"><span class="hx-dot hx-tone--' + (k.severity === 'Urgent' ? 'danger' : k.severity === 'Warning' ? 'warn' : 'muted') + '"></span><span class="hx-attn__main"><b>' + esc(k.title) + '</b><small>' + esc(k.when) + ' · ' + esc(k.actionLabel || 'Open') + '</small></span>' + I('chevron', 'icon-sm hx-chev') + '</a>';
+      return '<a class="hx-attn' + (k.severity === 'Urgent' ? ' is-urgent' : '') + '" data-case-key="' + esc(k.caseKey) + '" href="#' + esc(k.route || 'mgmt-attention') + '"><span class="hx-dot hx-tone--' + (k.severity === 'Urgent' ? 'danger' : k.severity === 'Warning' ? 'warn' : 'muted') + '"></span><span class="hx-attn__main"><b>' + esc(k.title) + '</b><small>' + esc(k.when) + ' · ' + esc(k.actionLabel || 'Open') + '</small></span>' + I('chevron', 'icon-sm hx-chev') + '</a>';
     }).join('') + '</div>';
     return '<section class="hx-card hm-attn" id="hm-attn">' + head + sev + rows + '</section>';
   }
@@ -67,7 +67,7 @@
       areaCard({ route: 'mgmt-finance', icon: 'finance', title: 'Financials', value: fin ? K.money(owed).replace(/\.\d\d$/, '') : '—', label: fin ? 'owed to us' : 'ask for Finance access', need: fin ? waiting(['Finance']) : '' }) + '</div>';
     var urgent = db.getAttention().cases.filter(function (k) { return k.severity === 'Urgent'; }), c = db.getAttention().summary.counts;
     var urgentSum = empty || !urgent.length ? '' : '<section class="hm-urgent" aria-label="Urgent actions"><a class="hm-urgent__head" href="#hm-attn"><span class="hm-urgent__k">' + ui.sev('Urgent') + '<b class="num">' + urgent.length + ' urgent</b><span class="num">· ' + c.Warning + ' warning · ' + c.Normal + ' to do</span></span><span class="hm-urgent__go">Review' + I('arrowRight', 'icon-sm') + '</span></a>' +
-      urgent.map(function (k) { return '<a class="hm-urgent__row" href="#' + esc(k.route || 'mgmt-attention') + '"><b>' + esc(k.title) + '</b><small>' + esc(k.when) + ' · ' + esc(k.actionLabel || 'Open') + '</small></a>'; }).join('') + '</section>';
+      urgent.map(function (k) { return '<a class="hm-urgent__row" data-case-key="' + esc(k.caseKey) + '" href="#' + esc(k.route || 'mgmt-attention') + '"><b>' + esc(k.title) + '</b><small>' + esc(k.when) + ' · ' + esc(k.actionLabel || 'Open') + '</small></a>'; }).join('') + '</section>';
     var sched = '<section class="hx-card hm-sched" id="hx-today"><div class="hx-card__head"><div><h2>Today’s schedule</h2><small class="hx-sub">' + (empty ? 'No sessions' : T.length + ' sessions · ' + expected + ' players expected') + '</small></div><a class="hx-link" href="#mgmt-calendar">View full day' + I('arrowRight', 'icon-sm') + '</a></div>' +
       (empty ? ui.empty('calendar', 'Nothing scheduled today', 'Tomorrow has ' + tomorrow().length + ' sessions.') : '<div class="hx-list">' + T.map(schedRow).join('') + '</div>') + '</section>';
     var week = [['Mon', 28, '2026-09-28'], ['Tue', 29, '2026-09-29'], ['Wed', 30, '2026-09-30'], ['Thu', 1, '2026-10-01'], ['Fri', 2, '2026-10-02'], ['Sat', 3, '2026-10-03'], ['Sun', 4, '2026-10-04']];
@@ -85,17 +85,21 @@
 
   /* ------------------------------------------------------ NEEDS ATTENTION */
   var attnCategory = 'All';
+  /* The four areas are filtered views of this one list (never separate queues) */
+  var AREA_CATS = { 'Sessions': ['Sessions & Venues', 'Staffing & Cover'], 'Coaches': ['Coaches & Compliance', 'Staffing & Cover'], 'Players & Parents': ['Players & Families'], 'Financials': ['Finance'] };
+  function inFilter(k) { return attnCategory === 'All' || (AREA_CATS[attnCategory] || [attnCategory]).indexOf(k.category) >= 0; }
+  Hub.actions['attn-area'] = function (el) { attnCategory = el.dataset.area || 'All'; Hub.wsTabs.attention = 'All'; if (location.hash === '#mgmt-attention') Hub.render(); else Hub.go('mgmt-attention'); };
   document.addEventListener('change', function (e) { if (e.target.matches && e.target.matches('[data-change="attn-cat"]')) { attnCategory = e.target.value; Hub.render(); } });
   Hub.screens['mgmt-attention'] = function (ctx) {
     var A = db.getAttention(), c = A.summary.counts;
     var tabs = [{ id: 'All', label: 'All', meta: A.summary.total + ' open' }, { id: 'Urgent', label: 'Urgent', meta: c.Urgent, state: 'Urgent' }, { id: 'Warning', label: 'Warning', meta: c.Warning, state: 'Warning' }, { id: 'Normal', label: 'To do', meta: c.Normal, state: 'Normal' }, { id: 'Accepted', label: 'Accepted', meta: A.accepted.length }];
     var sev = K.tab('attention', tabs);
     var cats = ['Staffing & Cover', 'Coaches & Compliance', 'Sessions & Venues', 'Players & Families', 'Development', 'Finance'];
-    var select = '<label class="lx-select"><span class="visually-hidden">Category</span>' + I('filter', 'icon-sm') + '<select data-change="attn-cat">' + ['All'].concat(cats).map(function (k) { return '<option value="' + esc(k) + '"' + (k === attnCategory ? ' selected' : '') + '>' + (k === 'All' ? 'All categories' : esc(k)) + '</option>'; }).join('') + '</select>' + I('chevronDown', 'icon-sm') + '</label>';
+    var select = '<label class="lx-select"><span class="visually-hidden">Category</span>' + I('filter', 'icon-sm') + '<select data-change="attn-cat">' + ['All'].concat(Object.keys(AREA_CATS)).concat(cats).map(function (k) { return '<option value="' + esc(k) + '"' + (k === attnCategory ? ' selected' : '') + '>' + (k === 'All' ? 'Everything' : AREA_CATS[k] ? esc(k) + ' (area)' : esc(k)) + '</option>'; }).join('') + '</select>' + I('chevronDown', 'icon-sm') + '</label>';
     var h = K.head({ back: ['mgmt-home', 'Home'], eyebrow: 'Needs attention', title: 'Needs attention', sub: 'A work queue of things Management needs to decide, fix, approve or support. Each item clears itself once the issue is fixed.',
       actions: K.goBtn('Rules', 'mgmt-attention-rules', { variant: 'tertiary', icon: 'settings' }) + K.actBtn('Refresh', 'attn-refresh', {}, { variant: 'secondary', icon: 'refresh' }), tabs: '<div class="lx-filterbar">' + K.tabs('attention', tabs) + select + '</div>' });
     var g = K.guard(ctx, h, { empty: ['checkCircle', 'All clear', 'No staffing gaps, compliance issues, registers, claims or finance items are waiting.'] }); if (g) return g;
-    var list = (sev === 'Accepted' ? A.accepted : A.cases).filter(function (k) { return (sev === 'All' || sev === 'Accepted' || k.severity === sev) && (attnCategory === 'All' || k.category === attnCategory); });
+    var list = (sev === 'Accepted' ? A.accepted : A.cases).filter(function (k) { return (sev === 'All' || sev === 'Accepted' || k.severity === sev) && inFilter(k); });
     if (!list.length) return K.page(h, '<div class="zone-inset">' + ui.empty('checkCircle', 'Nothing in this filter', 'Try another priority or category.', 'ok') + '</div>');
     var body = cats.filter(function (cat) { return list.some(function (k) { return k.category === cat; }); }).map(function (cat) {
       var items = list.filter(function (k) { return k.category === cat; });
@@ -103,7 +107,7 @@
         return '<article class="lx-issue lx-issue--' + (k.severity === 'Normal' ? 'normal' : k.severity.toLowerCase()) + '"><div class="lx-issue__main">' + K.pill(SEVWORD[k.severity], sevTone(k.severity)) +
           '<h3><button type="button" class="lx-issue__link" data-action="case" data-key="' + esc(k.caseKey) + '">' + esc(k.title) + '</button></h3><p class="lx-issue__meta">' + esc(k.detail) + '</p>' +
           '<p class="lx-issue__why"><span>' + esc(k.severityReason) + '</span><span class="num when when--' + k.severity.toLowerCase() + '">' + esc(k.when) + '</span>' + (k.exception ? '<span>' + esc(k.exception.type) + ' by ' + esc(k.exception.approver) + '</span>' : '') + '</p></div>' +
-          '<div class="lx-issue__act">' + (sev === 'Accepted' ? K.actBtn('Reopen', 'attn-reopen', { id: k.exception.id }, { variant: 'secondary' }) : K.goBtn(k.actionLabel, k.route, { variant: 'primary', trail: 'arrowRight' })) + '</div></article>';
+          '<div class="lx-issue__act">' + (sev === 'Accepted' ? K.actBtn('Reopen', 'attn-reopen', { id: k.exception.id }, { variant: 'secondary' }) : K.goBtn(k.actionLabel, k.route, { variant: 'primary', trail: 'arrowRight' , attrs: { 'data-case-key': k.caseKey } })) + '</div></article>';
       }).join('') + '</div>');
     }).join('');
     return K.page(h, body + '<p class="lx-note">Items clear on their own once the underlying issue is fixed. Accepting or overriding a case needs a reason and an approver, and stays in history.</p>');
@@ -123,7 +127,7 @@
       title: esc(c.title),
       body: K.kv([['When', '<span class="num when when--' + c.severity.toLowerCase() + '">' + esc(c.when) + '</span>'], ['Details', esc(c.detail)], ['Why this priority', esc(c.severityReason)], ['Rule', esc(c.ruleName) + ' <span class="text-3 mono">' + esc(c.ruleId) + '</span>'], c.exception ? ['Exception', esc(c.exception.type) + ': ' + esc(c.exception.reason) + '<br>' + K.stamp('Approved by ' + c.exception.approver + ', recorded', c.exception.by, c.exception.at)] : null]) + occHtml +
         '<p class="text-3 fs-14">This item clears on its own once the underlying issue is fixed.</p>',
-      foot: K.actBtn('Accept or change priority', 'case-except', { key: c.caseKey }, { variant: 'tertiary' }) + K.goBtn(c.actionLabel, c.route, { variant: 'primary', trail: 'arrowRight' })
+      foot: K.actBtn('Accept or change priority', 'case-except', { key: c.caseKey }, { variant: 'tertiary' }) + K.goBtn(c.actionLabel, c.route, { variant: 'primary', trail: 'arrowRight', attrs: { 'data-case-key': c.caseKey } })
     });
   };
   Hub.actions['case-except'] = function (el) {

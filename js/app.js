@@ -17,7 +17,7 @@
         { id: 'coach-home', label: 'Home', icon: 'home' },
         { id: 'coach-schedule', label: 'Schedule', icon: 'calendar' },
         { id: 'coach-library', label: 'Library', icon: 'book' },
-        { id: 'coach-players', label: t.client === 'Parent' ? 'Player Hub' : 'Clients', icon: 'users' }
+        { id: 'coach-players', label: 'Players', icon: 'users' }
       ],
       public: [
         { id: 'pub-home', label: 'Home', icon: 'home' },
@@ -255,23 +255,53 @@
     Hub.crumbTail = null;
     Hub.title = null;
     var content = screen && (BUILT[S.route] || Hub.screens[S.route]) ? screen({ state: S.state, param: S.param }) : placeholder();
-    var animate = Hub.animateSection; Hub.animateSection = false;
+    var kind = Hub.navKind; Hub.navKind = null;
     app.innerHTML = protoBar() + scenarioBar() +
       '<div class="frame">' + (S.area === 'management' && S.brand !== 'joshevans' ? sidebar() : '') +
       '<div class="main">' + topbar() + (S.area === 'management' && S.brand !== 'joshevans' ? canvasBar() : '') + '<main id="main" tabindex="-1">' + content + '</main></div></div>' +
       '<nav class="tabbar" data-glide="bar-' + S.area + '" aria-label="Main">' + tabLinks(S.area, 'tab') + '</nav>';
-    if (animate) { var sec = app.querySelector('.lx-body') || app.querySelector('.ws + .page'); if (sec) sec.classList.add(Hub.sectionDir < 0 ? 'enter-left' : 'enter-right'); }
+    if (kind === 'top') { var mn = app.querySelector('#main'); if (mn) mn.classList.add('nav-enter'); }
+    if (kind === 'tab') { var sec = app.querySelector('.lx-body') || app.querySelector('.ws + .page'); if (sec) sec.classList.add('tab-enter'); }
     placePucks(app);
+    /* Keep keyboard focus on the tab that was chosen */
+    if (kind === 'tab' && Hub.focusTab) { var ft = app.querySelector('[data-ws="' + Hub.focusTab.ws + '"][data-tab="' + Hub.focusTab.tab + '"]'); if (ft) ft.focus({ preventScroll: true }); }
+    Hub.focusTab = null;
     /* Day lines that scroll (phones) open on the first thing still to come */
     app.querySelectorAll('.dayline__scroll').forEach(function (sc) {
       if (sc.scrollWidth <= sc.clientWidth) return;
       var next = sc.querySelector('.blk:not(.blk--past)');
       if (next) sc.scrollLeft = Math.max(0, next.offsetLeft - 96);
     });
-    document.title = (S.route === 'system' ? 'Visual system' : pageTitle()) + ' · ' + Hub.brand.orgName;
+    Hub.lastTitle = S.route === 'system' ? 'Visual system' : pageTitle();
+    document.title = Hub.lastTitle + ' · ' + Hub.brand.orgName;
   };
 
+  /* Where the person came from, so a page's back link and the return after a
+     fix lead to the place they launched it from, not to a generic parent page. */
+  var TRAIL = [], HOMES = ['mgmt-home', 'coach-home', 'parent-home', 'pub-home', 'mgmt-more'];
+  function curFull() { return S.route + (S.param ? '/' + S.param : ''); }
+  function track(full) {
+    var here = curFull(), route = String(full).split('/')[0];
+    if (full === here) return;
+    if (HOMES.indexOf(route) >= 0) { TRAIL = []; return; }
+    if (TRAIL.length && TRAIL[TRAIL.length - 1].full === full) { TRAIL.pop(); return; }
+    if (here) TRAIL.push({ full: here, title: Hub.lastTitle || pageTitle() });
+    if (TRAIL.length > 20) TRAIL.shift();
+  }
+  /* The page to go back to: where they came from, else the page's own parent */
+  Hub.backFor = function (dflt) { var t = TRAIL[TRAIL.length - 1]; return t && t.full !== curFull() ? [t.full, t.title] : dflt; };
+  Hub.currentPlace = function () { return { full: curFull(), title: Hub.lastTitle || pageTitle() }; };
+  /* Navigation kinds: 'top' (a different main area: restrained fade), 'drill'
+     (deeper in the same area: no motion), 'tab' (local tabs: switch in place). */
+  function topOf(route) {
+    var a = areaOf(route) || 'management';
+    if (a === 'management') { var ar = mgmtArea(route); return ar ? ar.id : underHome(route) ? 'mgmt-home' : 'mgmt-more'; }
+    var n = NAV(a) || [], m = meta(route);
+    return n.some(function (x) { return x.id === route; }) ? route : (m.nav || a);
+  }
   function go(full) {
+    track(full);
+    var wasTop = topOf(S.route), wasArea = S.area;
     var parts = String(full).split('/'), route = parts[0];
     S.param = decodeURIComponent(parts.slice(1).join('/'));
     if (route === 'system') S.route = 'system';
@@ -284,6 +314,9 @@
       S.area = a; S.route = route;
     }
     if (!document.getElementById('sheet').hidden) Hub.closeSheet(true);
+    Hub.navKind = (S.area !== wasArea || topOf(S.route) !== wasTop) ? 'top' : 'drill';
+    /* Local tab rails start fresh on a new page, so drilling in never animates them */
+    Object.keys(puckAt).forEach(function (k) { if (k.indexOf('top-') && k.indexOf('bar-')) delete puckAt[k]; });
     Hub.render(); window.scrollTo(0, 0);
   }
 

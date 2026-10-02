@@ -94,7 +94,7 @@
         { route: 'mgmt-eligibility', icon: 'shield', title: 'Who can join', desc: 'Age, school year and player exceptions', count: db.getEligibilityOverrides().filter(function (x) { return !x.revokedAt; }).length }]]
     ]);
     return K.page(h, K.findBar('Find a session, venue, player or coach') +
-      K.areaNeeds(['Sessions & Venues', 'Staffing & Cover'], { clear: 'Every session in the next two weeks has a coach, a venue and is on track.' }) +
+      K.areaNeeds(['Sessions & Venues', 'Staffing & Cover'], { area: 'Sessions', clear: 'Every session in the next two weeks has a coach, a venue and is on track.' }) +
       K.section('Today', K.d(K.today) + ' · ' + today.length + ' sessions · ' + K.sum(today, 'players') + ' expected. Open one to change coaches, cancel, reschedule or take the register.', todayT) +
       K.section('Later this week', later.length + ' sessions in the next six days', weekT, K.goBtn('Calendar', 'mgmt-calendar', { size: 'sm', variant: 'secondary' })) +
       K.section('Your sessions', '', feature + cards) + more);
@@ -377,7 +377,7 @@
     var conf = o && !o.confirmed && o.status === 'Scheduled' && !o.draft;
     var live = o && !(o.status === 'Cancelled' || o.status === 'Rescheduled' || o.status === 'Postponed');
     var h = K.head({ back: o ? ['mgmt-session/' + o.sessionId, o.session] : ['mgmt-sessions', 'All sessions'], eyebrow: o ? K.dd(o.date) : 'Session', title: o ? o.session : 'Session not found', sub: o ? esc(when(o)) + ' · ' + esc(venueOf(o)) : '',
-      actions: o ? (live ? K.actBtn('Change coaches', 'sch-staff', { id: o.id }, { variant: 'secondary', icon: 'coaches' }) + K.goBtn('Open register', 'mgmt-register/' + o.id, { variant: 'secondary', icon: 'check' }) : '') + (conf ? K.actBtn('Confirm session', 'sch-confirm', { id: o.id }, { variant: 'primary', icon: 'checkCircle' }) : '') : '' });
+      actions: o ? (live ? coverBtn(o) + K.actBtn('Change coach', 'sch-staff', { id: o.id }, { variant: 'secondary', icon: 'coaches' }) + K.goBtn('Open register', 'mgmt-register/' + o.id, { variant: 'secondary', icon: 'check' }) + (o.status === 'Scheduled' ? K.actBtn('More actions', 'sch-more', { id: o.id }, { variant: 'tertiary', icon: 'more' }) : '') : '') + (conf ? K.actBtn('Confirm session', 'sch-confirm', { id: o.id }, { variant: 'primary', icon: 'checkCircle' }) : '') : '' });
     var g = K.guard(ctx, h, { empty: ['calendar', 'No details yet', 'This session has nothing to show yet.'] }); if (g) return g;
     if (!o) return K.page(h, ui.notice('warn', 'This session could not be found', '', { action: K.goBtn('All sessions', 'mgmt-sessions', { size: 'sm' }) }));
     Hub.crumbTail = K.dd(o.date);
@@ -407,12 +407,24 @@
         (changed ? '<div class="k-bar sch-gap">' + (o.outcome ? K.goBtn('See refunds and credits', 'mgmt-occurrence-outcome/' + o.id, { variant: 'secondary' }) : K.goBtn('Decide refunds and credits', 'mgmt-occurrence-outcome/' + o.id, { variant: 'primary' })) + (o.status === 'Postponed' ? K.actBtn('Set new date', 'sch-resched', { id: o.id }, { variant: 'secondary' }) : '') + '</div>' : '') });
     }
     var actions = '';
-    if (o.status === 'Scheduled') actions = K.card({ title: 'Change this session', sub: 'Every change is kept in the history below.', body: '<div class="sch-actions">' +
-      K.actBtn('Reschedule', 'sch-resched', { id: o.id }, { variant: 'secondary', icon: 'calendar' }) + K.actBtn('Postpone', 'sch-postpone', { id: o.id }, { variant: 'secondary', icon: 'clock' }) +
-      K.actBtn('Change venue', 'sch-venue', { id: o.id }, { variant: 'secondary', icon: 'pin' }) + K.actBtn('Change capacity', 'sch-capacity', { id: o.id }, { variant: 'secondary', icon: 'users' }) +
-      K.actBtn('Cancel session', 'sch-cancel', { id: o.id }, { variant: 'danger', icon: 'x' }) + '</div>' });
     var history = K.card({ title: 'Change history', body: K.timeline(o.history.slice().reverse()) });
-    return K.page(h, K.grid(['<div class="lx-stack">' + details + staffT + notes + actions + '</div>', '<div class="lx-stack">' + confirm + change + history + '</div>'], '21'));
+    return K.page(h, K.needsFor(function (k) { return K.relatesTo(k, 'occurrence', o.id); }, { title: 'Needs you for this session' }) + K.grid(['<div class="lx-stack">' + details + staffT + notes + actions + '</div>', '<div class="lx-stack">' + confirm + change + history + '</div>'], '21'));
+  };
+  /* Find cover: straight to the open cover request for this date, else the cover page */
+  function coverBtn(o) {
+    var need = !o.staff.length || o.staff.some(function (x) { return x.unavailable && !x.covering; });
+    if (!need) return '';
+    var req = db.getCoverRequests && db.getCoverRequests(function (r) { return r.needs.some(function (n) { return n.occurrence === o.id && n.state !== 'Covered'; }); })[0];
+    return K.goBtn('Find cover', req ? 'mgmt-cover-request/' + req.id : 'mgmt-cover', { variant: 'primary', icon: 'swap' });
+  }
+  /* Less frequent changes, behind one Actions control */
+  Hub.actions['sch-more'] = function (el) {
+    var o = db.getOccurrence(el.dataset.id);
+    function r(icon, title, sub, action) { return ui.row({ lead: I(icon, 'row-glyph'), title: esc(title), sub: [esc(sub)], action: action, data: { id: o.id } }); }
+    K.sheet({ overline: '<span class="overline">' + esc(o.session) + ' · ' + esc(K.dd(o.date)) + '</span>', title: 'Change this session', body: '<p class="k-note">Changes apply to this date only. Every change is kept in the history.</p>' + K.list([
+      r('pin', 'Change venue', 'Use a different venue for this date', 'sch-venue'), r('users', 'Change capacity', 'More or fewer places for this date', 'sch-capacity'),
+      r('calendar', 'Reschedule', 'Move it to another date or time', 'sch-resched'), r('clock', 'Postpone', 'Put it off until a new date is set', 'sch-postpone'),
+      r('x', 'Cancel this session', 'Then decide refunds and credits', 'sch-cancel')]) });
   };
   function occLog(o, summary, at, extra) { return Object.assign({ area: 'Schedule', summary: summary + ': ' + o.session + ', ' + K.dd(o.date), entity: o.id, at: at }, extra || {}); }
   Hub.actions['sch-confirm'] = function (el) { var o = db.getOccurrence(el.dataset.id), at = K.now(); Hub.mutate(function () { db.confirmOccurrence(o.id, who(), at); }, 'Session confirmed', occLog(o, 'Session confirmed', at)); };

@@ -46,3 +46,14 @@
 
 /* Long values inside fields never push the page wider */
 .lx-card .fields dd, .sheet__body .fields dd { min-width: 0; overflow-wrap: anywhere; }
+
+/* Players & Parents landing: compact counts, Players | Parents, search */
+.pp-counts { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 16px; }
+.pp-count { display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 14px; border-radius: 999px; background: var(--hx-surface-solid); box-shadow: var(--hx-shadow); font-size: 13.5px; color: var(--text-2); border: 0; font: inherit; font-size: 13.5px; }
+.pp-count b { color: var(--text); font-weight: 700; }
+.pp-count--act { cursor: pointer; }
+.pp-count--act.is-on { color: var(--warn); }
+.pp-count--act.is-on b { color: var(--warn); }
+.pp-bar { display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: center; margin: 0 0 12px; }
+.pp-search { flex: 1 1 280px; max-width: 520px; }
+@media (max-width: 899px) { .pp-bar { flex-direction: column; align-items: stretch; } .pp-search { max-width: none; } }

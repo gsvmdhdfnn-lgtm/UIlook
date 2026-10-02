@@ -112,7 +112,7 @@
       '<div class="ch-next__head"><h2 id="next-title" class="lx-next__title">' + esc(o.session) + '</h2><span class="lx-next__pills"><span>' + esc(mine.cover ? 'Cover · ' + mine.role : mine.role) + '</span>' + (isClient(o) ? '<span>Client session</span>' : '') + '</span></div>' +
       '<dl class="lx-next__facts"><div><dt>Time</dt><dd class="num">' + esc(when(o)) + '</dd></div><div><dt>Location</dt><dd>' + esc(venueName(o)) + (o.venue && db.getVenue(o.venue).meetingPoint ? '<small>' + esc(db.getVenue(o.venue).meetingPoint) + '</small>' : '') + '</dd></div><div><dt>Expected</dt><dd class="num">' + esc(expected) + '</dd></div><div><dt>Working with</dt><dd>' + (others.length ? esc(others.join(', ')) : 'Just you') + '</dd></div></dl>' +
       (notes ? '<p class="lx-next__note"><span>Note from ' + esc(first(notes.by)) + '</span>' + esc(notes.text) + '</p>' : (o.theme ? '<p class="lx-next__note"><span>Focus this week</span>' + esc(o.theme) + '</p>' : '')) +
-      '<div class="lx-next__actions"><a class="lx-next__btn" href="#coach-session/' + o.id + '">Open session' + I('arrowRight', 'icon-sm') + '</a><a class="lx-next__ghost" href="#coach-register/' + o.id + '">' + I('check', 'icon-sm') + 'Register</a><a class="lx-next__ghost" href="#coach-venues">' + I('pin', 'icon-sm') + 'Location details</a></div></section>';
+      '<div class="lx-next__actions"><a class="lx-next__btn" href="#coach-session/' + o.id + '">Open session' + I('arrowRight', 'icon-sm') + '</a><a class="lx-next__ghost" href="#coach-register/' + o.id + '">' + I('check', 'icon-sm') + 'Start register</a><a class="lx-next__ghost" href="#coach-venues">' + I('pin', 'icon-sm') + 'Location details</a></div></section>';
   }
   function needsYou() {
     var k = meKey(), out = [];
@@ -125,7 +125,9 @@
       if (x.state === 'Verified') return;
       var tone = x.state === 'Expired' || x.state === 'Missing' ? 'danger' : 'warn';
       var sub = x.state === 'Expiring' ? 'Expires ' + K.d(x.doc.expires) : x.state === 'Expired' ? 'Expired ' + K.d(x.doc.expires) : x.state === 'Missing' ? 'Nothing on file' : 'Uploaded ' + K.dt(x.pending.uploaded.at);
-      out.push(ui.row({ lead: icoLead('shield'), title: esc(x.type.name), sub: [esc(sub)], trail: K.pill(x.state, tone), href: '#coach-documents' }));
+      var fix = x.state === 'Expiring' || x.state === 'Expired' || x.state === 'Missing';
+      out.push(fix ? ui.row({ lead: icoLead('shield'), title: 'Update ' + esc(x.type.name), sub: [esc(sub)], trail: K.pill(x.state, tone), action: 'ch-doc-upload', data: { type: x.type.id } })
+        : ui.row({ lead: icoLead('shield'), title: esc(x.type.name) + ': being checked', sub: [esc(sub)], trail: K.pill(x.state, tone), href: '#coach-documents' }));
     });
     var ws = db.getMyWorkSummary(k, '2026-09');
     if (ws && ws.state === 'Awaiting coach') out.push(ui.row({ lead: icoLead('finance'), title: 'Check your ' + esc(ws.label) + ' summary', sub: [ws.lines.length + ' sessions', K.money(ws.total)], trail: K.pill('Confirm', 'info'), href: '#coach-work-summary' }));
@@ -274,7 +276,8 @@
     var o = db.getOccurrence(ctx.param);
     var h = K.head({ back: ['coach-schedule', 'Schedule'], eyebrow: o ? K.d(o.date) + ' · ' + o.programme : 'Session', title: o ? o.session : 'Session',
       sub: o ? esc(o.start + '–' + o.end) + ' · ' + esc(venueName(o)) + ' · ' + esc(o.ageGroup) + ' ' + sessionRolePill(o) : '',
-      actions: o ? K.goBtn('Take register', 'coach-register/' + o.id, { variant: 'primary', icon: 'check' }) + K.goBtn('Players', 'coach-players', { variant: 'secondary', icon: 'users' }) : '' });
+      actions: o ? K.goBtn('Start register', 'coach-register/' + o.id, { variant: 'primary', icon: 'check' }) + K.goBtn('Players', 'coach-players', { variant: 'secondary', icon: 'users' }) +
+        (o.date >= K.today && o.status === 'Scheduled' && K.feature('cover') && myEntry(o) ? K.actBtn('I can’t make this', 'ch-cantmake', { id: o.id }, { variant: 'tertiary', icon: 'x' }) : '') : '' });
     var g = K.guard(ctx, h, { empty: ['calendar', 'Nothing to show for this session', 'Details appear once the office confirms the session.'] }); if (g) return g;
     if (!o) return notFound(h, 'Session', ['coach-schedule', 'Back to schedule']);
     if (!myEntry(o)) return notMine(h, 'You’re not on the staff for this session, so its players and register are hidden.', ['coach-schedule', 'Back to schedule']);
@@ -846,6 +849,18 @@
     } else {
       act(function (at) { return db.addAvailabilityException({ coach: k, type: type, from: from, to: to, start: start || null, end: end || null, reason: reason, by: who(), at: at }); }, type + ' saved', type + ' recorded ' + from + (to !== from ? ' to ' + to : ''), k, { area: 'Coaches' });
     }
+  };
+  /* From the session itself: say you can't make it and ask for cover in one step */
+  A['ch-cantmake'] = function (el) {
+    var o = db.getOccurrence(el.dataset.id);
+    K.sheet({ overline: '<span class="overline">' + esc(o.session) + ' · ' + esc(K.dd(o.date)) + '</span>', title: 'Can’t make this session?', body: '<p class="k-note">We let the office know and ask other coaches to cover. You can see how it is going under Cover.</p>' + K.form([K.field('Reason', K.input('cm-reason', '', { placeholder: 'For example: unwell, work, family' }))], 1),
+      foot: ui.btn('Cancel', { variant: 'tertiary', attrs: { 'data-action': 'close-sheet' } }) + K.actBtn('Ask for cover', 'ch-cantmake-go', { id: o.id }, { variant: 'primary' }) });
+  };
+  A['ch-cantmake-go'] = function (el) {
+    var o = db.getOccurrence(el.dataset.id), reason = (K.val('cm-reason') || '').trim();
+    if (!reason) { Hub.toast('Add a short reason'); return; }
+    Hub.closeSheet(true);
+    act(function (at) { return db.addCoverRequest({ coach: meKey(), kind: 'Unavailable', from: o.date, to: o.date, reason: reason }, who(), at); }, 'Cover requested for ' + o.session + ', ' + K.dm(o.date), 'Cover requested from the session page: ' + o.session + ' ' + o.date, meKey(), { area: 'Coaches' });
   };
   A['ch-av-remove'] = function (el) {
     var id = el.dataset.id, e = db.getAvailabilityExceptions(meKey()).filter(function (x) { return x.id === id; })[0];

@@ -12,6 +12,14 @@
   var MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
   var MED = { not_confirmed: 'Not confirmed', none: 'Confirmed none', details: 'Has details' };
   var PHOTO = { unknown: 'Not answered', yes: 'Yes', no: 'No' };
+  /* Parents see what a membership state means for them, not its system name */
+  function memWords(m) {
+    if (m.state === 'Ending Scheduled' && m.cancel) return 'Your place ends on ' + K.dm(m.cancel.end);
+    if (m.state === 'Cancellation Pending') return 'Cancellation requested';
+    if (m.state === 'Paused' && m.pause) return 'Paused until ' + K.dm(m.pause.to);
+    return m.state;
+  }
+  function memPill(m) { return K.pill(memWords(m), { Active: 'ok', Paused: 'warn', 'Cancellation Pending': 'warn', 'Ending Scheduled': 'info' }[m.state] || ''); }
   var STATE_HELP = [
     ['Active', 'Training every week and billed on the 1st of each month.'],
     ['Paused', 'No sessions and no charges between the pause dates.'],
@@ -23,7 +31,7 @@
   /* ---------- Routes (nav = bottom-nav item to highlight) ---------- */
   [['parent-home', 'Home', 'parent-home'],
     ['parent-sessions', 'Sessions', 'parent-sessions'], ['parent-session', 'Session', 'parent-sessions'], ['parent-attendance', 'Attendance', 'parent-sessions'],
-    ['parent-browse', 'Book camps and events', 'parent-sessions'], ['parent-book', 'Book', 'parent-sessions'], ['parent-basket', 'Basket', 'parent-sessions'], ['parent-checkout', 'Checkout', 'parent-sessions'],
+    ['parent-browse', 'Browse sessions', 'parent-sessions'], ['parent-book', 'Book', 'parent-sessions'], ['parent-basket', 'Basket', 'parent-sessions'], ['parent-checkout', 'Checkout', 'parent-sessions'],
     ['parent-development', 'Development', 'parent-development'],
     ['parent-memberships', 'Memberships', 'parent-more'], ['parent-membership', 'Membership', 'parent-more'], ['parent-billing', 'Billing & payments', 'parent-more'],
     ['parent-child', 'Child profile', 'parent-more'], ['parent-family', 'Family', 'parent-more'], ['parent-requests', 'Requests', 'parent-more'], ['parent-policies', 'Terms & policies', 'parent-more'],
@@ -104,7 +112,7 @@
     if (open.length) out.push({ title: open.length + ' request' + (open.length === 1 ? '' : 's') + ' with the office', meta: open.map(function (r) { return r.type; }).join(' · '), route: 'parent-requests' });
     if (db.getBasket().length) out.push({ title: db.getBasket().length + ' place' + (db.getBasket().length === 1 ? '' : 's') + ' in your basket', meta: 'Not booked until you pay', route: 'parent-basket' });
     var credit = K.sum(db.getFamilyCredits(f.id), 'remaining');
-    if (credit > 0) out.push({ title: K.money(credit) + ' family credit available', meta: 'Used automatically on your next payment or booking, oldest first', route: 'parent-billing' });
+    if (credit > 0) out.push({ title: K.money(credit) + ' family credit available', meta: 'Used automatically on your next payment or booking', route: 'parent-billing' });
     if (K.feature('communications')) db.getNotices('Parents').filter(function (n) { return n.status === 'Sent'; }).slice(0, 1).forEach(function (n) { out.push({ title: n.title, meta: 'From ' + n.by + ' · ' + K.dt(n.at), route: 'parent-notices' }); });
     return out;
   }
@@ -134,7 +142,7 @@
       return '<button type="button" class="lx-action" data-action="go" data-route="' + u.route + '"><span class="lx-action__dot"></span><span class="lx-action__main"><b>' + esc(u.title) + '</b><small>' + esc(u.meta) + '</small></span><span class="lx-action__go">View' + I('arrowRight', 'icon-sm') + '</span></button>';
     }).join('') : '<div class="lx-surface">' + ui.empty('checkCircle', 'Nothing needs you', 'You are all up to date.') + '</div>') + '</div></section>';
     var tiles = '<div class="lx-tiles">' + tile('shell', 'card', 'Billing & Payments', 'Payments, family credit and statements', 'parent-billing') + tile('accent', 'star', 'Memberships', 'Weekly groups, pauses and notice periods', 'parent-memberships') +
-      tile('light', 'user', 'Child profile', 'Details, medical, support and permissions', 'parent-child/' + member.id) + tile('soft', 'plus', 'Book a camp', 'Half-term camp, festival and tours', 'parent-browse') + '</div>';
+      tile('light', 'user', 'Child profile', 'Details, medical, support and permissions', 'parent-child/' + member.id) + tile('soft', 'plus', 'Browse sessions', 'Camps, events, tours and weekly groups', 'parent-browse') + '</div>';
     var upcoming = db.getFamilyOccurrences({ from: K.today }).filter(function (x) { return x.occurrence.status !== 'Completed'; }).slice(0, 4);
     var schedule = '<section class="lx-section"><div class="lx-section__head"><div><h2>Your schedule</h2></div><a class="hx-link" href="#parent-sessions">View all' + I('arrowRight', 'icon-sm') + '</a></div><div class="lx-surface lx-dated">' +
       (upcoming.length ? upcoming.map(function (x) { return datedRow(x.occurrence, x.player.first, 'parent-session/' + x.occurrence.id); }).join('') : ui.empty('calendar', 'No sessions coming up', 'Upcoming sessions for your family appear here.')) + '</div></section>';
@@ -246,7 +254,7 @@
   function fromPrice(p) { var low = p.tiers.reduce(function (a, b) { return b.price < a.price ? b : a; }); return K.money(low.price) + (p.tiers.length > 1 ? ' to ' + K.money(Math.max.apply(null, p.tiers.map(function (t) { return t.price; }))) : ''); }
   function facts(list) { return '<ul class="ph-facts">' + list.map(function (f) { return '<li>' + I(f[0], 'icon-sm') + '<span>' + f[1] + '</span></li>'; }).join('') + '</ul>'; }
   Hub.screens['parent-browse'] = function (ctx) {
-    var h = head({ title: 'Book camps and events', sub: 'Pick a camp, event or tour, choose who is going, then pay in one checkout. Siblings get 10% off.', actions: basketBtn() });
+    var h = head({ title: 'Browse sessions', sub: 'Pick a camp, event or tour, choose who is going, then pay in one checkout. Siblings get 10% off.', actions: basketBtn() });
     var g = guard(ctx, h, ['calendar', 'Nothing to book right now', 'New camps and events appear here when they open.']); if (g) return g;
     var off = bookingOff(h); if (off) return off;
     var cards = db.getBookables().map(function (p) {
@@ -280,6 +288,8 @@
   var draft = {};
   function bookDraft(p) {
     var d = draft[p.id] = draft[p.id] || { terms: false };
+    /* Arriving from the public site: keep the option the visitor already chose */
+    var pre = Hub.phBookPrefill; if (pre && pre.product === p.id) { var m = p.tiers.filter(function (t) { return t.price === pre.price; })[0]; if (m) d.tier = m.id; Hub.phBookPrefill = null; }
     var el = kids().filter(function (c) { return db.isEligibleFor(p.id, c.id).ok; });
     if (!d.child || !el.some(function (c) { return c.id === d.child; })) d.child = el[0] ? el[0].id : null;
     if (!d.tier || !p.tiers.some(function (t) { return t.id === d.tier; })) d.tier = p.tiers[p.tiers.length - 1].id;
@@ -291,7 +301,7 @@
   }
   Hub.screens['parent-book'] = function (ctx) {
     var p = db.getBookable(ctx.param);
-    var h = head({ back: ['parent-browse', 'Book camps and events'], eyebrow: p ? p.kind : 'Book', title: p ? p.title : 'Book', sub: p ? esc(p.when) + ' · ' + esc(p.venue ? db.venueName(p.venue) : p.venueText) : '', actions: basketBtn() });
+    var h = head({ back: ['parent-browse', 'Browse sessions'], eyebrow: p ? p.kind : 'Book', title: p ? p.title : 'Book', sub: p ? esc(p.when) + ' · ' + esc(p.venue ? db.venueName(p.venue) : p.venueText) : '', actions: basketBtn() });
     var g = guard(ctx, h, ['calendar', 'Not open for booking', 'This is not open for booking right now.']); if (g) return g;
     var off = bookingOff(h); if (off) return off;
     if (!p) return K.page(h, emptyBox('calendar', 'Not found', 'This camp or event is no longer on offer.', K.goBtn('Browse', 'parent-browse', { variant: 'secondary', size: 'sm' })), 'ph');
@@ -336,18 +346,18 @@
   }
   function totals(q, done) {
     var pairs = [['Places', K.money(q.subtotal)], q.discount ? ['Discounts', '−' + K.money(q.discount)] : null, ['Total', '<b class="num">' + K.money(q.total) + '</b>']];
-    q.credit.forEach(function (x, i) { pairs.push([(i ? 'Then credit from ' : 'Family credit from ') + K.dm(x.credit.at), '−' + K.money(x.use) + '<br><span class="text-3 ph-small">' + esc(x.credit.source) + (x.use < x.credit.remaining ? ' · ' + K.money(x.credit.remaining - x.use) + ' left after' : '') + '</span>']); });
+    var used = K.sum(q.credit, 'use'); if (used) pairs.push(['Family credit used', '−' + K.money(used)]);
     pairs.push([done ? 'Paid by card' : 'Due now', '<b class="num ph-due">' + K.money(q.due) + '</b>']);
     return K.kv(pairs.filter(Boolean));
   }
   Hub.screens['parent-basket'] = function (ctx) {
-    var h = head({ back: ['parent-browse', 'Book camps and events'], title: 'Basket', sub: 'Places are held when you pay. Discounts and family credit are worked out for you.' });
+    var h = head({ back: ['parent-browse', 'Browse sessions'], title: 'Basket', sub: 'Places are held when you pay. Discounts and family credit are worked out for you.' });
     var g = guard(ctx, h, ['card', 'Your basket is empty', 'Choose a camp or event to add a place.']); if (g) return g;
     var off = bookingOff(h); if (off) return off;
     var q = db.priceBasket();
     if (!q.lines.length) return K.page(h, K.steps(['Choose', 'Basket', 'Pay'], 1) + emptyBox('card', 'Your basket is empty', 'Choose a camp or event and add a place for each child.', K.goBtn('Browse camps and events', 'parent-browse', { variant: 'primary', size: 'sm' })), 'ph');
-    return K.page(h, K.steps(['Choose', 'Basket', 'Pay'], 1) + '<div class="k-grid k-grid--21">' + K.card({ title: q.lines.length + ' place' + (q.lines.length === 1 ? '' : 's'), body: priceTable(q, true) + note('Discounts never stack: each place gets its single best discount. Sibling 10% applies to the second and later child on the same camp.') }) +
-      K.card({ title: 'Summary', body: totals(q) + note('Family credit is used oldest first and can be part-used.') + '<div class="ph-actions">' + K.goBtn('Continue to checkout', 'parent-checkout', { variant: 'primary', trail: 'arrowRight' }) + K.goBtn('Add another place', 'parent-browse', { variant: 'tertiary' }) + '</div>' }) + '</div>', 'ph');
+    return K.page(h, K.steps(['Choose', 'Basket', 'Pay'], 1) + '<div class="k-grid k-grid--21">' + K.card({ title: q.lines.length + ' place' + (q.lines.length === 1 ? '' : 's'), body: priceTable(q, true) }) +
+      K.card({ title: 'Summary', body: totals(q) + '<div class="ph-actions">' + K.goBtn('Continue to checkout', 'parent-checkout', { variant: 'primary', trail: 'arrowRight' }) + K.goBtn('Add another place', 'parent-browse', { variant: 'tertiary' }) + '</div>' }) + '</div>', 'ph');
   };
   Hub.actions['ph-basket-remove'] = function (el) { var l = db.getBasket().filter(function (x) { return x.id === el.dataset.id; })[0], p = db.getPlayer(l.player), at = K.now(); mutate(function () { db.removeBasketLine(l.id); }, p.first + ' removed from your basket', 'Removed ' + p.name + ' from the basket (' + db.getBookable(l.product).title + ')', p.id, { at: at }); };
 
@@ -368,7 +378,7 @@
     var payBtn = q.due > 0 ? K.actBtn('Pay ' + K.money(q.due), 'ph-pay', {}, { variant: 'primary', icon: 'card' }) : K.actBtn('Confirm booking', 'ph-pay-go', { credit: 1 }, { variant: 'primary', icon: 'check' });
     return K.page(h, K.steps(['Choose', 'Basket', 'Pay'], 2) + '<div class="k-grid k-grid--21">' +
       K.card({ title: 'Your places', body: priceTable(q, false) + note('You accepted the ' + esc(terms.kind.toLowerCase()) + ' v' + esc(terms.version) + ' for each place. A copy of your acceptance is kept with the booking.') }) +
-      K.card({ title: 'Amount due', body: totals(q) + '<div class="ph-actions">' + payBtn + '</div>' + (q.creditUsed ? note(K.money(q.creditUsed) + ' of family credit is applied first, oldest credit first.') : '') }) + '</div>', 'ph');
+      K.card({ title: 'Amount due', body: totals(q) + '<div class="ph-actions">' + payBtn + '</div>' + (q.creditUsed ? note(K.money(q.creditUsed) + ' family credit used.') : '') }) + '</div>', 'ph');
   };
   Hub.actions['ph-pay'] = function () {
     var q = db.priceBasket();
@@ -396,16 +406,16 @@
     var ms = db.phMemberships().slice().sort(function (a, b) { return (a.state === 'Ended') - (b.state === 'Ended'); });
     var cards = ms.map(function (m) {
       var s = sess(m.session), r = db.getOpenMembershipRequest(m.id), p = db.getPlayer(m.player);
-      return '<a class="lx-card ph-mem" href="#parent-membership/' + m.id + '"><div class="ph-mem__top">' + ui.avatar(p.name, 'sm') + '<div><b>' + esc(p.first) + '</b><small>' + esc(s.name) + '</small></div>' + K.status(m.state) + '</div>' +
+      return '<a class="lx-card ph-mem" href="#parent-membership/' + m.id + '"><div class="ph-mem__top">' + ui.avatar(p.name, 'sm') + '<div><b>' + esc(p.first) + '</b><small>' + esc(s.name) + '</small></div>' + memPill(m) + '</div>' +
         K.kv([['Price', K.money(m.price) + ' a month'], ['When', esc(DAYS[s.days[0]]) + 's ' + s.start + '–' + s.end], ['Since', K.d(m.start)], m.state === 'Ending Scheduled' ? ['Ends', K.d(m.cancel.end)] : m.state === 'Paused' ? ['Paused until', K.d(m.pause.to)] : ['Next payment', m.state === 'Ended' ? '—' : K.d('2026-11-01')]].filter(Boolean)) +
         (r ? '<span class="ph-mem__req">' + I('inbox', 'icon-sm') + esc(r.type) + ' request ' + esc(r.status.toLowerCase()) + '</span>' : '') + '</a>';
     });
     return K.page(h, (cards.length ? K.grid(cards, 2) : emptyBox('calendar', 'No memberships', 'Browse weekly groups to ask for a place.', K.goBtn('Browse', 'parent-browse', { variant: 'secondary', size: 'sm' }))) +
-      K.section('What each status means', null, '<div class="lx-card">' + K.kv(STATE_HELP.map(function (s) { return [s[0], K.status(s[0]) + ' <span class="text-3">' + esc(s[1]) + '</span>']; })) + '</div>'), 'ph');
+      '', 'ph');
   };
   Hub.screens['parent-membership'] = function (ctx) {
     var m = db.getMembership(ctx.param), ok = m && db.phIsMembership(m.id);
-    var h = head({ back: ['parent-memberships', 'Memberships'], eyebrow: 'Membership', title: ok ? memTitle(m) : 'Membership', sub: ok ? K.status(m.state) + ' ' + K.id(m.id) : '' });
+    var h = head({ back: ['parent-memberships', 'Memberships'], eyebrow: 'Membership', title: ok ? memTitle(m) : 'Membership', sub: ok ? memPill(m) + ' ' + K.id(m.id) : '' });
     var g = guard(ctx, h, ['calendar', 'Membership not available', 'This membership is not available right now.']); if (g) return g;
     if (!ok) return notMine(h, 'Membership');
     var s = sess(m.session), n = db.getMembershipNotice(m), r = db.getOpenMembershipRequest(m.id), pol = db.getRefundPolicies().filter(function (x) { return x.id === 'RFP-02'; })[0];
@@ -414,7 +424,7 @@
     if (m.state === 'Cancellation Pending' && m.cancel) top = ui.notice('warn', 'Cancellation requested', 'Once the office confirms, ' + n.days + ' days notice runs from the request date: the last day would be ' + K.d(K.addDays(m.cancel.requested.slice(0, 10), n.days)) + '.', { meta: 'Requested by ' + m.cancel.by + ', ' + K.dt(m.cancel.requested) });
     if (m.state === 'Ending Scheduled' && m.cancel) top = ui.notice('info', 'Ending on ' + K.d(m.cancel.end), 'Sessions carry on until then. No charges after the end date.', { meta: 'Confirmed by ' + m.cancel.approvedBy + ', ' + K.dt(m.cancel.approvedAt) });
     if (m.state === 'Ended' && m.ended) top = ui.notice('neutral', 'Ended on ' + K.d(m.ended.on), esc(m.ended.reason), { meta: 'Recorded by ' + m.ended.by + ', ' + K.dt(m.ended.at) });
-    var details = K.card({ title: 'Details', body: K.kv([['Status', K.status(m.state)], ['Session', esc(s.name) + '<br><span class="text-3">' + esc(DAYS[s.days[0]]) + 's ' + s.start + '–' + s.end + ' · ' + esc(db.venueName(s.venue)) + '</span>'], ['Price', K.money(m.price) + ' a month, taken on the 1st'], ['Started', K.d(m.start)], ['Notice period', n.days + ' days' + (n.rule ? ' <span class="text-3">(' + esc(n.rule.basis) + ')</span>' : '')]]) });
+    var details = K.card({ title: 'Details', body: K.kv([['Status', memPill(m)], ['Session', esc(s.name) + '<br><span class="text-3">' + esc(DAYS[s.days[0]]) + 's ' + s.start + '–' + s.end + ' · ' + esc(db.venueName(s.venue)) + '</span>'], ['Price', K.money(m.price) + ' a month, taken on the 1st'], ['Started', K.d(m.start)], ['Notice to cancel', n.days + ' days']]) });
     var acts = '';
     if (r) acts = K.card({ title: 'Your ' + r.type.toLowerCase() + ' request', right: K.status(r.status), body: K.kv([['Reason', esc(r.reason)], r.pauseTo ? ['Dates', K.d(r.effective) + ' to ' + K.d(r.pauseTo)] : ['Would end', r.effective ? K.d(r.effective) : '—'], ['Sent', K.stamp('Requested', db.getParent(r.by).name, r.at)]]) + '<div class="ph-actions">' + K.actBtn('Withdraw request', 'ph-req-withdraw', { id: r.id }, { variant: 'secondary', size: 'sm' }) + '</div>' });
     else if (m.state === 'Active') acts = K.card({ title: 'Need a change?', body: '<p class="k-note">A pause is for four weeks or more (injury, exams). Cancelling needs ' + n.days + ' days notice: if you ask today, the last day would be ' + K.d(n.end) + '.</p>' +
@@ -470,21 +480,21 @@
     if (!K.feature('finance')) return K.page(h, K.featureOff('finance'), 'ph');
     var f = fam(), S = db.getFamilyBillingSummary(f.id), tab = K.tab('ph-bill', tabs);
     var nextAmt = K.sum(db.phMemberships().filter(function (m) { return m.state === 'Active' || m.state === 'Cancellation Pending' || (m.state === 'Ending Scheduled' && m.cancel.end >= '2026-11-01'); }), 'price');
-    var stats = K.stats([{ label: 'Owed now', value: K.money(S.owed), sub: S.owed ? 'Due now' : 'Nothing to pay' }, { label: 'Family credit', value: K.money(S.credit), sub: 'Used automatically, oldest first', tone: S.credit ? 'feature' : '' }, { label: 'Paid in October', value: K.money(S.paidThisMonth), sub: 'Card payments' }, { label: 'Next payment', value: K.money(nextAmt), sub: '1 Nov · memberships' }]);
+    var stats = K.stats([{ label: 'Owed now', value: K.money(S.owed), sub: S.owed ? 'Due now' : 'Nothing to pay' }, { label: 'Family credit', value: K.money(S.credit), sub: 'Used automatically on your next payment', tone: S.credit ? 'feature' : '' }, { label: 'Paid in October', value: K.money(S.paidThisMonth), sub: 'Card payments' }, { label: 'Next payment', value: K.money(nextAmt), sub: '1 Nov · memberships' }]);
     var body = '';
     if (tab === 'charges') {
       body = K.table({ cols: '90px minmax(0,1.6fr) 100px 100px 100px 140px', head: ['Date', 'Payment', { label: 'Charged', cls: 'c-num wide' }, { label: 'Credit used', cls: 'c-num wide' }, { label: 'Paid', cls: 'c-num' }, { label: 'State', cls: 'wide' }],
         rows: S.charges.slice().reverse().map(function (c) { var p = db.getPlayer(c.player); return { action: 'ph-charge', data: { id: c.id }, label: 'Open payment', cells: [{ cls: 'c-cell', html: K.dm(c.date) }, K.cell(esc(c.description), esc(p ? p.first : '') + (c.note ? ' · ' + esc(c.note) : '')), { cls: 'c-num wide', html: K.money(c.gross) }, { cls: 'c-num wide', html: c.creditApplied ? '−' + K.money(c.creditApplied) : '—' }, { cls: 'c-num', html: '<b>' + K.money(c.paid) + '</b>' }, { cls: 'wide', html: c.state === 'Paid' ? K.frozen('Paid') : K.status(c.state) }] }; }), empty: 'No payments yet.' });
     } else if (tab === 'credits') {
       var cr = db.getFamilyCredits(f.id).slice().sort(function (a, b) { return a.at < b.at ? 1 : -1; });
-      body = note('Credit comes off your next payment or booking automatically, oldest credit first, and can be part-used.') + (cr.length ? '<div class="lx-stack">' + cr.map(function (c) {
+      body = note('Credit comes off your next payment or booking automatically.') + (cr.length ? '<div class="lx-stack">' + cr.map(function (c) {
         return K.card({ title: esc(c.source), sub: K.stamp('Given', c.by, c.at), right: K.frozen('Issued'), body: K.kv([['Amount', K.money(c.amount)], ['Left to use', '<b class="num">' + K.money(c.remaining) + '</b>'], ['For', c.player ? esc(db.getPlayer(c.player).first) : 'The whole family'], ['Used on', c.applications.length ? c.applications.map(function (a) { var ch = db.getFamilyCharges(function (x) { return x.id === a.charge; })[0]; return esc((ch ? ch.description : a.charge) + ' · ' + K.money(a.amount)) + ' <span class="text-3">' + esc(K.dt(a.at)) + '</span>'; }).join('<br>') : 'Not used yet']]) });
       }).join('') + '</div>' : emptyBox('card', 'No family credit', 'Credit for cancelled sessions and goodwill appears here.'));
     } else if (tab === 'bookings') {
       var bk = db.getFamilyBookings(f.id);
       body = bk.length ? '<div class="lx-stack">' + bk.map(function (b) {
         return K.card({ title: esc(b.product), sub: K.stamp('Booked', db.getParent(b.bookedBy).name, b.at), right: K.frozen('Paid'), body: K.table({ cols: 'minmax(0,1.6fr) 110px 110px', head: ['Place', { label: 'Discount', cls: 'c-num wide' }, { label: 'Paid', cls: 'c-num' }], rows: b.lines.map(function (l) { return { cells: [K.cell(esc(db.getPlayer(l.player).first) + ' · ' + esc(l.tier), esc(l.dates.map(K.dm).join(', ')) + ' · ' + esc(l.refundPolicy)), { cls: 'c-num wide', html: l.discount ? '−' + K.money(l.discount) : '—' }, { cls: 'c-num', html: K.money(l.final) }] }; }) }) + (b.payment ? '<p class="k-note">' + esc(b.payment.method) + ' · ' + K.money(b.payment.amount) + ' · ' + esc(b.payment.reference) + '</p>' : '') });
-      }).join('') + '</div>' : emptyBox('calendar', 'No bookings yet', 'Camps, events and tours you book appear here.', K.goBtn('Book camps and events', 'parent-browse', { variant: 'secondary', size: 'sm' }));
+      }).join('') + '</div>' : emptyBox('calendar', 'No bookings yet', 'Camps, events and tours you book appear here.', K.goBtn('Browse sessions', 'parent-browse', { variant: 'secondary', size: 'sm' }));
     } else if (tab === 'refunds') {
       var rf = db.getRefunds(f.id);
       body = (rf.length ? K.table({ cols: '90px minmax(0,2fr) 110px 120px', head: ['Date', 'Refund', { label: 'Amount', cls: 'c-num' }, { label: 'State', cls: 'wide' }], rows: rf.map(function (r) { return { cells: [{ cls: 'c-cell', html: K.dm(r.at) }, K.cell(esc(r.reason), K.stamp('Decided', r.decidedBy, r.at)), { cls: 'c-num', html: K.money(r.amount) }, { cls: 'wide', html: K.status(r.state) }] }; }) }) : emptyBox('refresh', 'No refunds', 'Refunds go back to the card you paid with. You have not had one this year.')) +
@@ -682,7 +692,7 @@
     return K.page(h, list.length ? '<div class="lx-stack">' + list.map(function (n) { return K.card({ title: n.title, sub: K.stamp('Sent', n.by, n.at), body: '<p class="ph-body">' + esc(n.body) + '</p>' + (n.sessions.length ? '<p class="k-note">For ' + esc(n.sessions.map(function (s) { return sess(s).name; }).join(', ')) + '</p>' : '') }); }).join('') + '</div>' : emptyBox('megaphone', 'No notices', 'Messages from the club appear here.'), 'ph');
   };
   Hub.screens['parent-offers'] = function (ctx) {
-    var h = head({ back: ['parent-more', 'More'], title: 'Offers & discounts', sub: 'What the club runs, the prices, and the discounts your family can use.', actions: K.goBtn('Book camps and events', 'parent-browse', { variant: 'primary' }) });
+    var h = head({ back: ['parent-more', 'More'], title: 'Offers & discounts', sub: 'What the club runs, the prices, and the discounts your family can use.', actions: K.goBtn('Browse sessions', 'parent-browse', { variant: 'primary' }) });
     var g = guard(ctx, h, ['star', 'No offers right now', 'Offers appear here when the club publishes them.']); if (g) return g;
     var offers = db.getOfferContent(true).map(function (o) {
       var member = kids().filter(function (c) { return db.getPlayerMemberships(c.id).some(function (m) { return sess(m.session).name === o.title && m.state !== 'Ended'; }); });
@@ -702,7 +712,7 @@
     var childTiles = kids().map(function (c) { return { route: 'parent-child/' + c.id, icon: 'user', title: c.first, desc: 'Profile and medical' }; });
     return K.page(h,
       K.section('Your family', null, K.tiles(childTiles.concat([{ route: 'parent-family', icon: 'family', title: 'Family', value: db.getFamilyParents(f.id).filter(function (x) { return x.link.invite === 'Invite sent' && !x.link.ended; }).length, label: 'invite pending', desc: 'Guardians and invites' }, { route: 'parent-requests', icon: 'inbox', title: 'Requests', value: open, label: 'open', desc: 'Pauses, cancellations and changes' }]), 4)) +
-      K.section('Sessions and booking', null, K.tiles([{ route: 'parent-sessions', icon: 'calendar', title: 'Sessions', desc: 'Upcoming, changes and past' }, { route: 'parent-attendance', icon: 'checkCircle', title: 'Attendance', desc: 'From the coach’s registers' }, { route: 'parent-browse', icon: 'plus', title: 'Book camps and events', desc: 'Half-term camp, festival, tour' }, { route: 'parent-offers', icon: 'star', title: 'Offers & discounts', desc: 'Prices and discounts' }], 4)) +
+      K.section('Sessions and booking', null, K.tiles([{ route: 'parent-sessions', icon: 'calendar', title: 'Sessions', desc: 'Upcoming, changes and past' }, { route: 'parent-attendance', icon: 'checkCircle', title: 'Attendance', desc: 'From the coach’s registers' }, { route: 'parent-browse', icon: 'plus', title: 'Browse sessions', desc: 'Half-term camp, festival, tour' }, { route: 'parent-offers', icon: 'star', title: 'Offers & discounts', desc: 'Prices and discounts' }], 4)) +
       K.section('Money', null, K.tiles([{ route: 'parent-billing', icon: 'card', title: 'Billing & payments', value: K.money(S.credit), label: 'credit', desc: 'Payments, credit, refunds, statement' }, { route: 'parent-memberships', icon: 'calendar', title: 'Memberships', value: db.phMemberships().filter(function (m) { return m.state !== 'Ended'; }).length, label: 'running', desc: 'Pause or cancel' }, { route: 'parent-basket', icon: 'card', title: 'Basket', value: db.getBasket().length, label: 'places', desc: 'Not booked until you pay' }, { route: 'parent-policies', icon: 'shield', title: 'Terms & policies', desc: 'Accepted versions and refunds' }], 4)) +
       K.section('Development and news', null, K.tiles([{ route: 'parent-development', icon: 'development', title: term() === 'Parent' ? 'Development' : 'Progress', desc: 'Published feedback and ' + K.label('IDPs') }, { route: 'parent-resources', icon: 'book', title: 'Resources', desc: 'Guides and videos' }, { route: 'parent-notices', icon: 'megaphone', title: 'Notices', desc: K.feature('communications') ? 'Messages from the club' : 'Switched off for now' }, { route: 'parent-notifications', icon: 'bell', title: 'Notifications', value: unread, label: 'unread', desc: 'Updates for your family' }], 4)) +
       K.section('Account', null, K.tiles([{ route: 'parent-profile', icon: 'user', title: 'Profile', desc: 'Contact, password, alerts' }], 4)), 'ph');

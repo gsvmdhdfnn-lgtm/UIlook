@@ -175,3 +175,29 @@ a.hx-sched { text-decoration: none; color: var(--text); }
 a.hx-attn, a.hm-urgent__row { text-decoration: none; color: inherit; }
 .hm-areas__need { flex-basis: 100%; display: inline-flex; align-items: center; gap: 6px; margin-top: 2px; font-size: 12.5px; font-weight: 600; color: var(--warn); }
 .hm-areas__need::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+/* Needs you, for one coach / player / family / session date */
+.k-needsfor { display: grid; gap: 6px; margin: 0 0 18px; padding: 14px 16px; border-radius: 16px; background: var(--hx-surface-solid); box-shadow: var(--hx-shadow); border-left: 3px solid var(--warn); }
+.k-needsfor h2 { margin: 0 0 4px; font-size: 15px; font-weight: 650; }
+.k-needsfor__row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 8px 6px; margin: 0 -6px; border-radius: 10px; text-decoration: none; color: inherit; }
+.k-needsfor__row:hover { background: var(--hover); }
+.k-needsfor__row b { display: block; font-size: 14px; font-weight: 600; }
+.k-needsfor__row small { font-size: 12.5px; color: var(--text-3); }
+.k-needsfor__row .k-needs__act { display: inline-flex; align-items: center; gap: 4px; }
+.k-snap { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 0 0 18px; }
+.k-snap > div { padding: 14px 16px; border-radius: 16px; background: var(--hx-surface-solid); box-shadow: var(--hx-shadow); display: grid; gap: 4px; align-content: start; min-width: 0; }
+.k-snap span { font-size: 11.5px; font-weight: 650; letter-spacing: .06em; text-transform: uppercase; color: var(--text-3); }
+.k-snap b { font-size: 15px; font-weight: 650; }
+.k-snap small { font-size: 13px; color: var(--text-2); line-height: 1.45; }
+@media (max-width: 899px) { .k-snap { grid-template-columns: minmax(0, 1fr); } }
+
+/* Navigation motion: three kinds, kept distinct.
+   Local tabs switch content in place: the highlight moves quickly, the panel
+   gets a brief fade with no slide. A different main area gets a restrained
+   fade. Drilling deeper has no motion at all. */
+.glide__puck { transition-duration: 180ms, 180ms; }
+.tab-enter { animation: k-tab-in 140ms ease-out; }
+.nav-enter { animation: k-nav-in 180ms ease-out; }
+.enter-left, .enter-right { animation: none; }
+@keyframes k-tab-in { from { opacity: .55; } }
+@keyframes k-nav-in { from { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .tab-enter, .nav-enter { animation: none; } .glide__puck { transition: none; } }

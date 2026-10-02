@@ -53,7 +53,7 @@
       '<div class="pub-intent__act">' + K.link('pub-offer/' + t.offer, 'Change') + K.actBtn('Remove', 'pub-intent-clear', {}, { variant: 'tertiary', size: 'sm' }) + '</div></div>';
   }
   /* Where the visitor goes once signed in or signed up */
-  function intentNext(t) { return t.booking === 'book' ? 'parent-book/' + t.product : 'pub-request'; }
+  function intentNext(t) { if (t.booking === 'book') { Hub.phBookPrefill = { product: t.product, price: t.price }; return 'parent-book/' + t.product; } return 'pub-request'; }
   A['pub-choose'] = function (el) {
     var t = db.setPubIntent(el.dataset.offer, el.dataset.i); if (!t) return;
     K.log({ area: 'Public site', summary: 'Visitor chose “' + t.action + '” for ' + (t.name || t.who), who: 'Visitor' });

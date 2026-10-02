@@ -14,13 +14,17 @@
   /* Six everyday sections; the rest of Finance is one step deeper (finance
      tools on the overview). On a deeper page its name joins the bar so you
      always know where you are. */
-  var NAV = [['mgmt-finance', 'Overview'], ['mgmt-fin-invoices', 'Invoices'], ['mgmt-fin-parent-money', 'Parent payments'], ['mgmt-fin-money-out', 'Money out'], ['mgmt-fin-cash', 'Cash'], ['mgmt-fin-reports', 'Month report']];
+  var NAV = [['mgmt-finance', 'Overview'], ['mgmt-fin-money-in', 'Money in'], ['mgmt-fin-money-out', 'Money out'], ['mgmt-fin-cash', 'Cash flow'], ['mgmt-fin-reports', 'Month report']];
+  /* Deeper pages sit under one of the five sections, which stays highlighted */
+  var GROUP = { 'mgmt-fin-invoices': 'mgmt-fin-money-in', 'mgmt-fin-invoice': 'mgmt-fin-money-in', 'mgmt-fin-invoice-print': 'mgmt-fin-money-in', 'mgmt-fin-drafts': 'mgmt-fin-money-in', 'mgmt-fin-draft': 'mgmt-fin-money-in',
+    'mgmt-fin-payments': 'mgmt-fin-money-in', 'mgmt-fin-credit-notes': 'mgmt-fin-money-in', 'mgmt-fin-client-credits': 'mgmt-fin-money-in', 'mgmt-fin-parent-money': 'mgmt-fin-money-in', 'mgmt-fin-clients': 'mgmt-fin-money-in', 'mgmt-fin-client': 'mgmt-fin-money-in',
+    'mgmt-fin-ledger': 'mgmt-fin-reports' };
   var TOOLS = [
-    ['Money in', [['mgmt-fin-drafts', 'Invoices to issue', 'Build an invoice from delivered sessions', 'finance'], ['mgmt-fin-payments', 'Payments received', 'Record, reverse and match payments', 'download'], ['mgmt-fin-credit-notes', 'Credit notes', 'Corrections to issued invoices', 'swap'], ['mgmt-fin-client-credits', 'Client credits', 'Overpayments and credit to use', 'card'], ['mgmt-fin-clients', 'Clients', 'Schools and their terms', 'users']]],
     ['Costs and profit', [['mgmt-fin-ledger', 'Profit by session', 'Revenue and costs for each session', 'development'], ['mgmt-allocations', 'Coach pay', 'Work done and pay, session by session', 'coaches']]],
     ['Setup', [['mgmt-fin-settings', 'Finance settings', 'Business details, VAT, invoice numbers', 'settings'], ['mgmt-fin-integrations', 'Connected apps', 'Card payments and accounting', 'link'], ['mgmt-fin-access', 'Access and history', 'Who can see Finance, and every change', 'shield']]]
   ];
   function finNav(active) {
+    active = GROUP[active] || active;
     var list = NAV.slice(), known = NAV.some(function (n) { return n[0] === active; });
     if (!known) { TOOLS.forEach(function (g) { g[1].forEach(function (t) { if (t[0] === active) list.push([t[0], t[1]]); }); }); }
     return '<nav class="fin-nav" aria-label="Financials sections">' + list.map(function (n) { return '<a href="#' + n[0] + '"' + (n[0] === active ? ' aria-current="page"' : '') + '>' + esc(n[1]) + '</a>'; }).join('') + '</nav>';
@@ -70,13 +74,48 @@
     var up = cash.events.filter(function (e) { return e.date >= K.today && e.kind === 'Out'; }).slice(0, 4);
     var upcoming = K.card({ title: 'Upcoming payments', sub: 'Next confirmed or expected outgoing cash.', right: K.goBtn('View cash flow', 'mgmt-fin-cash', { variant: 'secondary', size: 'sm' }), body: '<div class="lx-rows">' + up.map(function (e) { return '<div class="lx-row"><span class="lx-row__date num">' + K.dm(e.date) + '</span><span class="lx-row__main"><b>' + esc(e.label) + '</b><small>' + esc(e.certainty) + ' · ' + esc(e.authority) + '</small></span><b class="lx-row__amt num">' + M(e.expected) + '</b></div>'; }).join('') + '</div>' });
     var areas = K.tiles([
-      { route: 'mgmt-fin-invoices', icon: 'download', title: 'Money in', desc: 'School invoices and what is still owed.', value: M(rec.total), label: 'owed to us' },
+      { route: 'mgmt-fin-money-in', icon: 'download', title: 'Money in', desc: 'Invoices, parent payments, bookings and credits.', value: M(rec.total), label: 'owed to us' },
       { route: 'mgmt-fin-money-out', icon: 'card', title: 'Money out', desc: 'Coach costs, venues, other costs and overheads.' },
-      { route: 'mgmt-fin-cash', icon: 'finance', title: 'Cash flow', desc: 'Cash position, dated expected movements and the 30-day low.' },
+      { route: 'mgmt-fin-cash', icon: 'finance', title: 'Cash flow', desc: 'Cash now, what is coming in and going out, and the 30-day low.' },
       { route: 'mgmt-fin-reports', icon: 'development', title: 'Month report', desc: 'Programme breakdown, VAT estimate and profit.' }], 4);
     var band = '<section class="lx-band" aria-label="Cash position"><div><span>Current cash</span><b class="num">' + M(cash.current) + '</b><small>' + esc(K.d(K.today)) + '</small></div><div><span>Lowest next 30 days</span><b class="num">' + M(cash.low) + '</b><small>' + K.dm(cash.lowDate) + '</small></div><div><span>Safety threshold</span><b class="num">' + M(cash.threshold) + '</b><small>' + (cash.low >= cash.threshold ? 'Currently above threshold' : 'Projected below threshold') + '</small></div></section>';
     var tools = K.moreIn('More in Financials', TOOLS.map(function (g) { return [g[0], g[1].map(function (t) { return { route: t[0], title: t[1], desc: t[2], icon: t[3] }; })]; }));
     return K.page(h, bar + kpis + K.section('Today', 'What needs you and what is about to go out.', '<div class="lx-pair">' + attn + upcoming + '</div>') + band + K.section('Where the money is', '', areas) + tools, 'fin');
+  };
+
+  /* ================================================================ MONEY IN */
+  /* Everything coming in, in one place. The detailed pages (invoices, drafts,
+     payments, credit notes, client credits, parent money) sit behind it. */
+  route('mgmt-fin-money-in', 'Money in');
+  Hub.screens['mgmt-fin-money-in'] = function (ctx) {
+    var h = head('mgmt-fin-money-in', { title: 'Money in', sub: 'School invoices, parent payments, bookings and credits.' });
+    var g = gate(ctx, h, { empty: ['download', 'Nothing coming in yet', 'Invoices and payments appear here once the first month is set up.'] }); if (g) return g;
+    var rec = F.receivables(), invs = db.getInvoices(), drafts = db.getDrafts().filter(function (d) { return d.state !== 'Issued'; });
+    var open = invs.filter(function (i) { return F.balance(i) > 0; }).sort(function (a, b) { return a.due < b.due ? -1 : 1; });
+    var overdue = open.filter(function (i) { return F.paymentState(i) === 'Overdue'; });
+    var oct = db.getFamilyCharges(function (c) { return c.month === '2026-10'; });
+    var bks = db.getBookings(), bkTotal = K.sum(bks, function (b) { return K.sum(b.lines || [], function (l) { return l.amountDue != null ? l.amountDue : (l.base || 0) - (l.discount || 0); }); });
+    var cns = db.getCreditNotes(), ccs = db.getClientCredits(), ccLeft = K.sum(ccs, function (c) { return F.creditRemaining(c); });
+    var stats = K.stats([
+      { label: 'Owed to us', value: M(rec.total), sub: open.length + ' open invoice' + (open.length === 1 ? '' : 's'), tone: 'feature' },
+      { label: 'Overdue', value: M(K.sum(overdue, function (i) { return F.balance(i); })), sub: overdue.length ? overdue.map(function (i) { return i.number; }).join(', ') : 'Nothing overdue', tone: overdue.length ? 'warn' : '' },
+      { label: 'Parent payments in October', value: M(K.sum(oct, 'paid')), sub: oct.length + ' subscriptions this month', route: 'mgmt-fin-parent-money' },
+      { label: 'Invoices to issue', value: drafts.length, sub: drafts.length ? 'September for ' + drafts.map(function (d) { return db.getClient(d.client).name; }).join(', ') : 'All issued', route: 'mgmt-fin-drafts', tone: drafts.length ? 'warn' : '' }]);
+    var invT = K.table({ cols: 'minmax(0,1.6fr) 92px minmax(0,100px)', head: ['Invoice', { label: 'Balance', cls: 'c-num' }, { label: '', cls: 'c-end' }],
+      rows: open.map(function (i) { return { route: 'mgmt-fin-invoice/' + i.id, cells: [K.cell(esc(i.number) + ' · ' + esc(clientName(i.client)), 'Due ' + esc(K.dm(i.due))), { cls: 'c-num', html: M(F.balance(i)) }, { cls: 'c-end', html: K.status(F.paymentState(i)) }] }; }),
+      empty: 'Every issued invoice is paid.' });
+    function link(route, icon, title, sub) { return K.tile({ route: route, icon: icon, title: title, desc: sub }); }
+    var body = stats +
+      K.section('School and client invoices', 'Unpaid first. Open one to record a payment, send a reminder or raise a credit note.', invT,
+        K.goBtn('All invoices', 'mgmt-fin-invoices', { size: 'sm', variant: 'secondary' })) +
+      K.section('Parents and bookings', '', '<div class="lx-links">' +
+        link('mgmt-fin-parent-money', 'family', 'Parent payments', 'Monthly subscriptions, failed card payments, family credit and refunds.') +
+        link('mgmt-bookings', 'card', 'Bookings', bks.length + ' camps, events and tours · ' + M(bkTotal) + ' booked.') + '</div>') +
+      K.section('Credits and corrections', 'For when something needs putting right.', '<div class="lx-links">' +
+        link('mgmt-fin-credit-notes', 'swap', 'Credit notes', cns.length + ' issued. Corrections to issued invoices.') +
+        link('mgmt-fin-client-credits', 'card', 'Client credit', M(ccLeft) + ' to use, from overpayments and credit notes.') +
+        link('mgmt-fin-payments', 'download', 'Payments received', 'Every payment, including part payments and reversals.') + '</div>');
+    return K.page(h, body, 'fin');
   };
 
   /* ================================================================ ACCESS & AUDIT */
@@ -522,6 +561,9 @@
     var pl = K.card({ title: 'Profit', body: K.kv([['Before overheads', M(t.contribution)], ['Overheads', '−' + M(t.overheads) + '<br><small class="c-mute">' + db.getOverheads().map(function (o) { return esc(o.name) + ' ' + M(o.net); }).join(' · ') + '</small>'], ['Profit', '<b class="k-big">' + M(t.profit) + '</b>']]) });
     var vat = K.card({ title: 'VAT estimate · ' + v.quarter, body: K.kv([['Output VAT (sales)', M(v.output)], ['Input VAT (reclaimable costs)', '−' + M(v.input)], ['Estimated to pay', '<b>' + M(v.due) + '</b> by ' + K.d(v.dueDate)]]) + '<p class="k-note">An estimate until the return is reviewed.</p>' });
     var cash = K.card({ title: 'Cash position', body: K.kv([['Current cash', M(cp.current)], ['30-day low point', M(cp.low) + ' on ' + K.dd(cp.lowDate)], ['Safety threshold', M(cp.threshold) + ' · ' + (cp.low >= cp.threshold ? 'above' : 'below')]]) + K.goBtn('Open cash flow', 'mgmt-fin-cash', { variant: 'secondary', size: 'sm' }) });
-    return K.page(h, K.section('By programme', Hub.finView.expected ? 'Including the Northgate September draft and any other unissued drafts.' : 'Actual only: issued invoices and paid parent charges.', table) + K.grid([pl, vat, cash], 3), 'fin');
+    var result = K.stats([{ label: 'Revenue', value: M(t.net), sub: 'Net of VAT' }, { label: 'Direct costs', value: M(t.direct), sub: 'Coaches, venues and other' }, { label: 'Overheads', value: M(t.overheads) }, { label: 'Profit', value: M(t.profit), sub: t.margin + '% before overheads', tone: 'feature' }]);
+    var notes = K.card({ title: 'Notes and export', body: '<p class="k-note">Figures are worked out from issued invoices, paid parent charges and confirmed costs. Draft invoices are only included when you choose Including expected.</p>' + K.actBtn('Print this report', 'fin-print-report', {}, { variant: 'secondary', icon: 'download', size: 'sm' }) });
+    return K.page(h, result + K.section('By programme', Hub.finView.expected ? 'Including the Northgate September draft and any other unissued drafts.' : 'Actual only: issued invoices and paid parent charges.', table) + K.grid([pl, vat, cash], 3) + notes, 'fin');
   };
+  Hub.actions['fin-print-report'] = function () { window.print(); };
 })();

@@ -68,9 +68,23 @@
     var r = fn && fn();
     if (log) K.log(log);
     if (msg) Hub.toast(msg);
+    /* Opened from a Needs Attention item: once the source is fixed the item
+       clears on re-check, so take the person back to where they started. */
+    var L = Hub.launch;
+    if (L && L.key && Hub.db.getAttentionCases && !Hub.db.getAttentionCases().some(function (k) { return k.caseKey === L.key; })) {
+      Hub.launch = null;
+      Hub.toast((msg ? msg + '. ' : '') + 'That item is cleared');
+      if (Hub.closeSheet) Hub.closeSheet(true);
+      location.hash = L.from.full; return r;
+    }
     Hub.render();
     return r;
   };
+  /* Any link or button carrying data-case-key starts a launch from this page */
+  document.addEventListener('click', function (e) {
+    var el = e.target.closest && e.target.closest('[data-case-key]');
+    if (el && Hub.currentPlace) Hub.launch = { key: el.getAttribute('data-case-key'), from: Hub.currentPlace() };
+  }, true);
   K.log = function (e) {
     var D = Hub.data; D.audit = D.audit || [];
     var entry = { id: 'AUD-' + String(D.audit.length + 1001), at: e.at || K.now(), who: e.who || K.me(), area: e.area || 'General', summary: e.summary, entity: e.entity || '', before: e.before, after: e.after, restricted: !!e.restricted, finance: !!e.finance };
@@ -86,7 +100,7 @@
     overdue: 'danger', cancelled: 'danger', absent: 'danger', declined: 'danger', expired: 'danger', missing: 'danger', failed: 'danger', void: '', credited: '', reversed: 'danger', denied: 'danger', no: 'danger', disconnected: 'danger', 'at risk': 'warn'
   };
   /* Display wording for stored states whose name is a system term; the stored value is unchanged */
-  var STATE_LABEL = { Exported: 'Sent for payment' };
+  var STATE_LABEL = { Exported: 'Sent for payment', 'Cancellation Pending': 'Cancellation requested', 'Ending Scheduled': 'Ending' };
   K.stateLabel = function (text) { return STATE_LABEL[text] || text; };
   K.status = function (text) { return K.pill(K.stateLabel(text), TONES[String(text).toLowerCase()] || ''); };
   K.link = function (route, text) { return '<a class="k-link" href="#' + route + '">' + esc(text) + '</a>'; };
@@ -108,6 +122,7 @@
 
   /* ---------- Layout ---------- */
   K.head = function (o) {
+    if (o.back && Hub.backFor) o.back = Hub.backFor(o.back);
     return '<header class="lx-head">' +
       (o.back ? '<a class="lx-back" href="#' + o.back[0] + '">' + I('chevron', 'icon-sm flip') + esc(o.back[1]) + '</a>' : '') +
       '<div class="lx-head__row"><div class="lx-head__text">' + (o.eyebrow ? '<div class="lx-eyebrow">' + esc(o.eyebrow) + '</div>' : '') + '<h1 class="lx-title">' + esc(o.title) + '</h1>' +
@@ -140,12 +155,26 @@
     var A = Hub.db.getAttention(), list = A.cases.filter(function (k) { return cats.indexOf(k.category) >= 0; });
     var word = { Urgent: 'Urgent', Warning: 'Warning', Normal: 'To do' };
     var rows = list.slice(0, o.limit || 5).map(function (k) {
-      return ui.row({ lead: ui.sev(k.severity), title: esc(k.title), sub: [esc(word[k.severity]), esc(k.when || '')].concat(k.detail ? [esc(k.detail)] : []), href: '#' + (k.route || 'mgmt-attention'), trail: '<span class="k-needs__act">' + esc(k.actionLabel || 'Open') + '</span>' });
+      return ui.row({ lead: ui.sev(k.severity), title: esc(k.title), sub: [esc(word[k.severity]), esc(k.when || '')].concat(k.detail ? [esc(k.detail)] : []), href: '#' + (k.route || 'mgmt-attention'), trail: '<span class="k-needs__act">' + esc(k.actionLabel || 'Open') + '</span>' }).replace('<a ', '<a data-case-key="' + esc(k.caseKey) + '" ');
     });
-    var body = list.length ? K.list(rows) + (list.length > rows.length ? '<p class="k-note">' + (list.length - rows.length) + ' more in ' + K.link('mgmt-attention', 'Needs attention') + '</p>' : '')
+    var body = list.length ? K.list(rows) + (list.length > rows.length ? '<p class="k-note">' + (list.length - rows.length) + ' more in Needs attention</p>' : '')
       : '<div class="k-needs__clear">' + I('checkCircle', 'icon-sm') + '<span>' + esc(o.clear || 'Nothing here needs you right now.') + '</span></div>';
-    return K.section('Needs you', list.length ? list.length + ' item' + (list.length === 1 ? '' : 's') + ', most urgent first' : '', body, list.length ? K.goBtn('All needs attention', 'mgmt-attention', { size: 'sm', variant: 'secondary' }) : '');
+    return K.section('Needs you', list.length ? list.length + ' item' + (list.length === 1 ? '' : 's') + ' from Needs attention, most urgent first' : '', body, list.length && o.area ? K.actBtn('See all ' + list.length, 'attn-area', { area: o.area }, { size: 'sm', variant: 'secondary' }) : '');
   };
+  /* Needs Attention items about one thing (a coach, player, family or session
+     date). Same items as the master list, so fixing one clears it everywhere.
+     Quiet (renders nothing) when there is nothing to do. */
+  K.needsFor = function (test, o) {
+    o = o || {};
+    var list = Hub.db.getAttentionCases().filter(test);
+    if (!list.length) return o.quiet === false ? '<div class="k-needs__clear">' + I('checkCircle', 'icon-sm') + '<span>Nothing needs you here.</span></div>' : '';
+    var rows = list.map(function (k) {
+      return '<a class="k-needsfor__row" data-case-key="' + esc(k.caseKey) + '" href="#' + esc(k.route || 'mgmt-attention') + '">' + ui.sev(k.severity) + '<span><b>' + esc(k.title) + '</b><small>' + esc(k.when || '') + '</small></span><span class="k-needs__act">' + esc(k.actionLabel || 'Open') + I('arrowRight', 'icon-sm') + '</span></a>';
+    }).join('');
+    return '<section class="k-needsfor" aria-label="Needs you"><h2>' + esc(o.title || 'Needs you') + '</h2>' + rows + '</section>';
+  };
+  K.snap = function (items) { return '<div class="k-snap">' + items.map(function (i) { return '<div><span>' + esc(i[0]) + '</span><b>' + i[1] + '</b>' + (i[2] ? '<small>' + i[2] + '</small>' : '') + '</div>'; }).join('') + '</div>'; };
+  K.relatesTo = function (k, kind, id) { return !!((k.related && k.related[kind] === id) || (k.route && k.route.split('/')[1] === id)); };
   /* Everything else in an area, one quiet step away (closed by default). */
   K.moreIn = function (title, groups) {
     var n = 0;
@@ -174,8 +203,9 @@
   };
   Hub.actions.wstab = function (el) {
     var tabs = Array.prototype.slice.call(el.parentNode.querySelectorAll('.glide__tab')), cur = el.parentNode.querySelector('[aria-selected="true"]');
-    Hub.sectionDir = tabs.indexOf(el) - tabs.indexOf(cur);
-    Hub.wsTabs[el.dataset.ws] = el.dataset.tab; Hub.animateSection = Hub.sectionDir !== 0; Hub.render();
+    if (el.getAttribute('aria-selected') === 'true' || el.getAttribute('aria-pressed') === 'true') return;
+    /* Local tabs switch the content in place: same page, same scroll, no slide */
+    Hub.wsTabs[el.dataset.ws] = el.dataset.tab; Hub.navKind = 'tab'; Hub.focusTab = { ws: el.dataset.ws, tab: el.dataset.tab }; Hub.render();
   };
   /* Segmented filter with the same state store */
   K.seg = function (id, list) {

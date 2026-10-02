@@ -101,15 +101,15 @@
         '<span class="lx-person__pills">' + dirPills(c).join('') + '<span class="lx-person__n num">' + db.getCoachWeekCount(c.id) + ' this week</span></span></a>';
     }).join('');
     var anyShown = list.some(function (c) { return !dirQuery || (c.name + ' ' + c.role + ' ' + c.code).toLowerCase().indexOf(dirQuery) >= 0; });
-    return page(h, K.areaNeeds(['Coaches & Compliance', 'Staffing & Cover'], { clear: 'Every coach is up to date and every session is covered.' }) + glance +
+    return page(h, K.areaNeeds(['Coaches & Compliance', 'Staffing & Cover'], { area: 'Coaches', clear: 'Every coach is up to date and every session is covered.' }) + glance +
       K.section('Find a coach', 'Open a coach for their sessions, time off and cover, documents, and pay and work.', bar + '<div class="lx-people co-dir">' + cards + '</div>' +
         '<p class="k-note co-dir__none"' + (anyShown ? ' hidden' : '') + '>No ' + esc(word().toLowerCase()) + ' match this search and filter.</p>') + more);
   };
 
   /* ============================================================ PROFILE */
   /* Five tabs: the coach as a person, their sessions, their time (availability, time off and cover), their documents, and their pay and work */
-  var TABS = [{ id: 'overview', label: 'Overview' }, { id: 'roles', label: 'Sessions & roles' }, { id: 'availability', label: 'Time off & cover' },
-    { id: 'documents', label: 'Documents' }, { id: 'pay', label: 'Pay & work' }];
+  var TABS = [{ id: 'overview', label: 'Overview' }, { id: 'roles', label: 'Sessions' }, { id: 'availability', label: 'Availability' },
+    { id: 'documents', label: 'Documents' }, { id: 'pay', label: 'Work & Pay' }];
   Hub.screens['mgmt-coach'] = function (ctx) {
     var c = db.getCoach(ctx.param);
     var base = K.head({ back: ['mgmt-coaches', word()], eyebrow: one(), title: c ? c.name : one() });
@@ -150,7 +150,16 @@
       var me = o.staff.filter(function (s) { return s.coach === c.id; })[0];
       return ui.row({ title: esc(o.session), sub: [K.dd(o.date) + ', ' + o.start + '–' + o.end, esc(db.venueName(o.venue))], trail: me && me.unavailable ? K.pill(me.covering ? 'Covered by ' + first(db.coachName(me.covering)) : 'Unavailable', me.covering ? 'info' : 'danger') : st(me ? me.role : ''), href: '#mgmt-occurrence/' + o.id });
     })) : '<p class="k-note">No upcoming dates.</p>' });
-    return alert + K.grid([profile, '<div class="lx-stack">' + compCard + upcoming + '</div>'], '21');
+    /* Overview first: anything needing action for this coach (the same items as Needs attention), then the answers to where, when and how they are doing */
+    var cs = db.getCoachComplianceSummary(c.id), sess = db.getAssignments ? db.getAssignments(c.id) : [];
+    var sep = db.getAllocations(function (a) { return a.coach === c.id && a.date.slice(0, 7) === '2026-09'; });
+    var exc = db.getAvailabilityExceptions(c.id).filter(function (e) { return e.to >= K.today; })[0];
+    var snap = K.snap([
+      ['Works at', sess.length ? sess.map(function (a) { return esc(a.sessionName || (db.getSession(a.session) || {}).name || ''); }).filter(Boolean).slice(0, 3).join(', ') : 'No regular sessions', db.getCoachWeekCount(c.id) + ' this week · ' + esc(db.getRole(c.type).name)],
+      ['Available', exc ? esc(exc.type) + ' ' + esc(K.dm(exc.from)) + (exc.to !== exc.from ? '–' + esc(K.dm(exc.to)) : '') : 'Usual week', exc ? esc(exc.reason || '') : 'Nothing booked off'],
+      ['Documents and pay', cs.state === 'Current' ? 'Documents up to date' : esc(cs.text), 'September: ' + sep.length + ' sessions' + (K.canFin() || K.fin() === 'view' ? ' · ' + K.money(K.sum(sep, 'cost')) : '')]
+    ]);
+    return K.needsFor(function (k) { return K.relatesTo(k, 'coach', c.id); }, { title: 'Needs you for ' + c.name.split(' ')[0] }) + alert + snap + K.grid([profile, '<div class="lx-stack">' + compCard + upcoming + '</div>'], '21');
   }
 
   function permsList(role) {

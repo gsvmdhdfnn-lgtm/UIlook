@@ -85,21 +85,52 @@
   }
 
   /* ================================================================ HUB */
+  /* Players & Parents: one compact working view. Players by default, parents
+     one tap away, search across both, and a shortcut into the same master
+     Needs attention list (filtered to this area), never a separate queue. */
+  var ppQuery = '';
+  document.addEventListener('input', function (e) {
+    if (!e.target.matches || !e.target.matches('[data-pp-search]')) return;
+    ppQuery = e.target.value.trim().toLowerCase(); var shown = 0;
+    document.querySelectorAll('[data-pp]').forEach(function (el) { var hit = !ppQuery || el.getAttribute('data-pp').indexOf(ppQuery) >= 0; el.hidden = !hit; if (hit) shown++; });
+    var none = document.querySelector('.pp-none'); if (none) none.hidden = shown > 0;
+  });
   Hub.screens['mgmt-players'] = function (ctx) {
     var c = client();
-    var h = K.head({ back: ['mgmt-home', 'Home'], eyebrow: 'Home', title: 'Players & Parents', sub: 'The families you work with: players, parents, memberships, requests and bookings.',
-      actions: K.goBtn('Find a player', 'mgmt-players-list', { variant: 'secondary', icon: 'search' }) + K.actBtn('Add a player or family', 'pp-add', {}, { variant: 'primary', icon: 'plus' }) });
+    var h = K.head({ back: ['mgmt-home', 'Home'], eyebrow: 'Home', title: 'Players & Parents', sub: 'Find a player or parent, then do what you need from their page.',
+      actions: K.actBtn('Add a player or family', 'pp-add', {}, { variant: 'primary', icon: 'plus' }) });
     var g = K.guard(ctx, h, { empty: ['players', 'No players yet', 'Players appear here once families sign up or are moved across.'] }); if (g) return g;
     var F = db.getPlayerFigures();
+    var need = db.getAttentionCases().filter(function (k) { return k.category === 'Players & Families'; }).length;
+    var counts = '<div class="pp-counts">' +
+      '<span class="pp-count"><b class="num">' + F.active + '</b> active players' + (F.trial ? ' · ' + F.trial + ' on trial' : '') + '</span>' +
+      '<span class="pp-count"><b class="num">' + F.parents + '</b> ' + c.toLowerCase() + 's</span>' +
+      '<button type="button" class="pp-count pp-count--act' + (need ? ' is-on' : '') + '" data-action="attn-area" data-area="Players & Parents"><b class="num">' + need + '</b> need action' + I('arrowRight', 'icon-sm') + '</button></div>';
+    var tab = K.tab('pp-land', [{ id: 'players' }, { id: 'parents' }]);
+    var seg = K.seg('pp-land', [{ id: 'players', label: 'Players' }, { id: 'parents', label: c + 's' }]);
+    var search = '<label class="search pp-search"><span class="visually-hidden">Search</span>' + I('search') + '<input class="input" data-pp-search placeholder="' + (tab === 'players' ? 'Search players by name, age group or school' : 'Search ' + c.toLowerCase() + 's by name or child') + '" value="' + esc(ppQuery) + '"></label>';
+    function match(key) { return !ppQuery || key.indexOf(ppQuery) >= 0; }
+    var rows, key;
+    if (tab === 'players') {
+      rows = db.getPlayers(function (p) { return p.status !== 'Inactive'; }).map(function (p) {
+        var where = db.getPlayerMemberships(p.id).filter(function (m) { return m.state !== 'Ended'; }).map(function (m) { return db.getSession(m.session).name; });
+        key = (p.name + ' ' + p.ageGroup + ' ' + p.school + ' ' + where.join(' ')).toLowerCase();
+        var flags = (p.status === 'Trial' ? K.pill('Trial', 'info') : '') + (p.medical === 'not_confirmed' ? K.pill('Medical to confirm', 'warn') : '');
+        return ui.row({ lead: ui.avatar(p.name, 'md'), title: esc(p.name), sub: [esc(p.ageGroup || 'Age group to set'), esc(where.join(', ') || 'Not on a session yet')], href: '#mgmt-player/' + p.id, trail: flags })
+          .replace('<a ', '<a data-pp="' + esc(key) + '"' + (match(key) ? '' : ' hidden') + ' ');
+      });
+    } else {
+      rows = db.getParents().filter(function (p) { return !p.link.ended; }).map(function (p) {
+        var kids = db.getFamilyPlayers(p.family).map(function (x) { return x.first; });
+        key = (p.name + ' ' + p.email + ' ' + kids.join(' ')).toLowerCase();
+        var flag = p.link.invite === 'Invite sent' ? K.pill('Invite not accepted', 'warn') : '';
+        return ui.row({ lead: ui.avatar(p.name, 'md'), title: esc(p.name), sub: [kids.length ? 'Parent of ' + esc(kids.join(' and ')) : 'No children linked', esc(p.relationship)], href: '#mgmt-parent/' + p.id, trail: flag })
+          .replace('<a ', '<a data-pp="' + esc(key) + '"' + (match(key) ? '' : ' hidden') + ' ');
+      });
+    }
+    var anyShown = rows.some(function (r) { return r.indexOf(' hidden ') < 0; });
+    var list = K.list(rows) + '<p class="k-note pp-none"' + (anyShown ? ' hidden' : '') + '>Nobody matches this search.</p>';
     var claims = (db.getApprovals().filter(function (a) { return a.id === 'parent-claims'; })[0] || { count: 0 }).count;
-    var stats = K.stats([
-      { label: 'Active players', value: F.active, sub: F.trial + ' on trial · ' + F.inactive + ' inactive', route: 'mgmt-players-list' },
-      { label: c + ' accounts', value: F.parents, sub: F.invites + ' invite' + (F.invites === 1 ? '' : 's') + ' waiting', route: 'mgmt-parents' },
-      { label: 'Claims waiting', value: claims, sub: c + 's claiming a child', route: 'mgmt-parent-claims' },
-      { label: 'Needs action', value: F.openRequests, sub: 'Open requests', route: 'mgmt-requests', tone: 'feature' }]);
-    var links = '<div class="lx-links">' +
-      areaCard({ route: 'mgmt-players-list', icon: 'players', title: 'Players', desc: 'Search players, then open one for their sessions, family, medical details and history.', cta: 'Open players' }) +
-      areaCard({ route: 'mgmt-parents', icon: 'family', title: c + 's', desc: 'Parent accounts, the children they are linked to and anything they have asked for.', cta: 'Open ' + c.toLowerCase() + 's' }) + '</div>';
     var mems = db.getMemberships(), bookings = db.getBookings();
     var more = K.moreIn('More in Players & Parents', [
       ['Families and memberships', [{ route: 'mgmt-families', icon: 'family', title: 'Families', desc: 'Status, reviews and family credits', count: F.families },
@@ -112,18 +143,10 @@
       ['Bookings and charges', [{ route: 'mgmt-bookings', icon: 'card', title: 'Bookings', desc: 'Camps, events and tours', count: bookings.length },
         { route: 'mgmt-adjustments', icon: 'finance', title: 'Charges and credits', desc: 'One-off charges and goodwill credits', count: db.getAdjustments().length },
         { route: 'mgmt-commercial', icon: 'settings', title: 'Prices and policies', desc: 'Discounts, refunds, packages and terms' },
+        { route: 'mgmt-players-list', icon: 'filter', title: 'Players with filters', desc: 'Medical, permissions, inactive players' },
         { route: 'mgmt-audit', icon: 'clock', title: 'History', desc: 'Who changed what, and when' }]]
     ]);
-    var checks = [];
-    db.getPlayersMissingMedical().forEach(function (p) { checks.push(ui.row({ lead: I('alertCircle', 'row-glyph'), title: esc(p.name) + ': medical details not confirmed', sub: [esc(p.ageGroup), esc(db.getFamily(p.family).name)], href: '#mgmt-player/' + p.id, trail: K.status('Not confirmed') })); });
-    db.getPlayersPhotoUnknown().forEach(function (p) { checks.push(ui.row({ lead: I('info', 'row-glyph'), title: esc(p.name) + ': photo and video permission unknown', sub: [esc(p.ageGroup)], href: '#mgmt-player/' + p.id, trail: K.status('Unknown') })); });
-    db.getFamiliesReviewDue(30).forEach(function (f) { checks.push(ui.row({ lead: I('family', 'row-glyph'), title: esc(f.name) + ': family review due', sub: [K.d(f.reviewDue)], href: '#mgmt-family/' + f.id, trail: K.status('Pending') })); });
-    db.getParents().filter(function (p) { return !p.link.ended && p.link.invite === 'Invite sent'; }).forEach(function (p) { checks.push(ui.row({ lead: I('link', 'row-glyph'), title: esc(p.name) + ': invite not yet accepted', sub: [esc(db.getFamily(p.family).name)], href: '#mgmt-parent/' + p.id, trail: K.status('Pending') })); });
-    /* Anything already listed under Needs you is not repeated here */
-    var shown = db.getAttentionCases().filter(function (k) { return k.category === 'Players & Families'; }).map(function (k) { return 'href="#' + k.route + '"'; });
-    checks = checks.filter(function (row) { return !shown.some(function (x) { return row.indexOf(x) >= 0; }); });
-    return K.page(h, K.findBar('Find a player, parent or family') + K.areaNeeds(['Players & Families'], { clear: 'No requests, claims or cancellations are waiting.' }) + stats + links +
-      K.section('Also worth checking', 'Each clears once it is fixed.', checks.length ? K.list(checks) : emptyNote('checkCircle', 'Nothing to check', 'Every player has confirmed medical details and permissions.')) + more);
+    return K.page(h, counts + '<div class="pp-bar">' + seg + search + '</div>' + list + more);
   };
 
   /* New families join through the public site (child matched, never by name alone);
@@ -177,7 +200,7 @@
 
   Hub.screens['mgmt-player'] = function (ctx) {
     var p = db.getPlayer(ctx.param);
-    var h0 = K.head({ back: ['mgmt-players-list', 'Players'], eyebrow: 'Player', title: p ? p.name : 'Player' });
+    var h0 = K.head({ back: ['mgmt-players', 'Players & Parents'], eyebrow: 'Player', title: p ? p.name : 'Player' });
     var g = K.guard(ctx, h0, { empty: ['players', 'No player details', 'This player has no details yet.'] }); if (g) return g;
     if (!p) return K.page(h0, emptyNote('players', 'Player not found', 'Check the link or search the players list.'));
     Hub.crumbTail = p.name;
@@ -187,7 +210,7 @@
     var acts = [];
     if (p.medical === 'not_confirmed') acts.push(K.actBtn('Send medical reminder', 'pp-med-remind', { id: p.id }, { variant: 'secondary', icon: 'bell' }));
     acts.push(K.goBtn('Attendance', 'mgmt-attendance/' + p.id, { variant: 'secondary', icon: 'calendar' }));
-    var h = K.head({ back: ['mgmt-players-list', 'Players'], eyebrow: 'Player · ' + p.id, title: p.name,
+    var h = K.head({ back: ['mgmt-players', 'Players & Parents'], eyebrow: 'Player', title: p.name,
       sub: esc(p.ageGroup) + ' · ' + esc(p.school) + ', ' + esc(p.year) + ' · ' + famLink(p.family) + ' · ' + K.status(p.status), actions: acts.join(''), tabs: K.tabs('pp-player', tabsList) });
     var body = '';
     if (tab === 'overview') {
@@ -205,7 +228,16 @@
         '</div>' + (p.medical === 'not_confirmed' ? '<div class="pp-actions">' + K.actBtn('Record "confirmed none" from a call', 'pp-med-confirm', { id: p.id }, { size: 'sm', variant: 'secondary' }) + '</div>' : '') });
       var address = K.card({ title: 'Home address', body: restr(['management', 'parent'], '<p class="pp-p">' + esc(p.address) + '</p>', 'Address') });
       var contacts = K.card({ title: 'Emergency contacts', body: restr(['management', 'parent', 'coach:lead'], ui.fields(p.emergency.map(function (c, i) { return [(i + 1) + '. ' + c.rel, esc(c.name) + '<br><span class="num">' + esc(c.phone) + '</span>']; })), 'Emergency contacts') });
-      body = viewAsBar() + K.grid([details, care, address, contacts], 2);
+      /* Overview first: what needs doing, where they play, who their parents are, how it is going */
+      var mems = db.getPlayerMemberships(p.id).filter(function (m) { return m.state !== 'Ended'; });
+      var att = db.getPlayerAttendance(p.id), pres = att.filter(function (a) { return a.mark === 'Present' || a.mark === 'Late'; }).length, fb0 = feedbackFor(p.id)[0];
+      var live = parents.filter(function (x) { return !x.link.ended; });
+      var snap = K.snap([
+        ['Plays at', mems.length ? mems.map(function (m) { return esc(db.getSession(m.session).name); }).join(', ') : 'Not on a session yet', mems.map(function (m) { return m.state === 'Active' ? '' : esc(m.state); }).filter(Boolean).join(' · ') || (mems.length ? 'Membership active' : '')],
+        [client() + 's', live.map(function (x) { return parLink(x.id); }).join(', ') || 'None linked', live.map(function (x) { return x.link.invite === 'Verified' ? 'Verified' : esc(x.link.invite || ''); }).join(' · ')],
+        ['How it is going', att.length ? Math.round(pres / att.length * 100) + '% attendance' : 'No registers yet', fb0 ? 'Latest feedback ' + esc(fb0.period || '') + ' from ' + esc(db.coachName(fb0.coach)) : 'No feedback yet']
+      ]);
+      body = K.needsFor(function (k) { return K.relatesTo(k, 'player', p.id); }, { title: 'Needs you for ' + p.first }) + snap + viewAsBar() + K.grid([details, care, address, contacts], 2);
     } else if (tab === 'development') {
       var fb = feedbackFor(p.id), plans = plansFor(p.id);
       var fbHtml = fb.length ? K.list(fb.map(function (f) {
@@ -272,14 +304,14 @@
 
   Hub.screens['mgmt-parent'] = function (ctx) {
     var c = client(), p = db.getParent(ctx.param);
-    var h0 = K.head({ back: ['mgmt-parents', c + 's'], eyebrow: c, title: p ? p.name : c });
+    var h0 = K.head({ back: ['mgmt-players', 'Players & Parents'], eyebrow: c, title: p ? p.name : c });
     var g = K.guard(ctx, h0, { empty: ['family', 'No details', 'This account has no details yet.'] }); if (g) return g;
     if (!p) return K.page(h0, emptyNote('family', c + ' not found', 'Check the link or search the list.'));
     Hub.crumbTail = p.name;
     var L = p.link, acts = [];
     if (!L.ended && L.invite === 'Invite sent') { acts.push(K.actBtn('Resend invite', 'pp-invite', { id: p.id }, { variant: 'secondary', icon: 'refresh' })); acts.push(K.actBtn('Mark verified', 'pp-verify', { id: p.id }, { variant: 'secondary', icon: 'userCheck' })); }
     if (!L.ended) acts.push(K.actBtn('End link', 'pp-endlink', { id: p.id }, { variant: 'secondary', icon: 'x' }));
-    var h = K.head({ back: ['mgmt-parents', c + 's'], eyebrow: c + ' · ' + p.id, title: p.name, sub: esc(p.relationship) + ' · ' + famLink(p.family) + ' · ' + K.status(linkState(p)), actions: acts.join('') });
+    var h = K.head({ back: ['mgmt-players', 'Players & Parents'], eyebrow: c, title: p.name, sub: esc(p.relationship) + ' · ' + famLink(p.family) + ' · ' + K.status(linkState(p)), actions: acts.join('') });
     var kids = db.getFamilyPlayers(p.family);
     var contact = K.card({ title: 'Contact', body: K.kv([['Email', esc(p.email)], ['Phone', '<span class="num">' + esc(p.phone) + '</span>'], ['Relationship', esc(p.relationship)], ['Contact priority', String(p.priority) + ' <span class="text-3">of ' + db.getFamilyParents(p.family).filter(function (x) { return !x.link.ended; }).length + '</span>']]) +
       noteBox('Contact priority only sets who we call first. Every verified ' + c.toLowerCase() + ' has the same access to their children.') });
@@ -291,10 +323,22 @@
     var reqs = db.getRequests(function (r) { return r.by === p.id || r.parent === p.id; });
     var acc = db.getTermsAcceptances(function (a) { return a.parent === p.id; });
     var bks = db.getBookings(function (b) { return b.bookedBy === p.id || b.payer === p.id; });
-    return K.page(h, K.grid([contact, link], 2) + K.section('Linked players', null, children) +
+    /* Family first: what needs doing, the children, their places, money and open requests */
+    var kidIds = kids.map(function (k) { return k.id; });
+    var famMems = db.getMemberships(function (m) { return kidIds.indexOf(m.player) >= 0 && m.state !== 'Ended'; });
+    var bill = db.getFamilyBillingSummary ? db.getFamilyBillingSummary(p.family) : null;
+    var openReqs = db.getRequests(function (r) { return (r.by === p.id || kidIds.indexOf(r.player) >= 0) && r.status !== 'Resolved' && r.status !== 'Declined'; });
+    var snap = K.snap([
+      ['Children', kids.map(function (k) { return '<a class="k-link" href="#mgmt-player/' + k.id + '">' + esc(k.first) + '</a>'; }).join(', ') || 'None linked', kids.map(function (k) { return esc(k.ageGroup || ''); }).filter(Boolean).join(' · ')],
+      ['Places', famMems.length + ' membership' + (famMems.length === 1 ? '' : 's'), famMems.map(function (m) { return esc(db.getPlayer(m.player).first) + ': ' + esc(db.getSession(m.session).name) + (m.state === 'Active' ? '' : ' (' + esc(m.state.toLowerCase()) + ')'); }).join('<br>')],
+      ['Money', bill ? (bill.owed > 0 ? K.money(bill.owed) + ' to pay' : 'Nothing owed') : '—', bill ? (bill.credit > 0 ? K.money(bill.credit) + ' family credit available' : 'No family credit') + (openReqs.length ? '<br>' + openReqs.length + ' open request' + (openReqs.length === 1 ? '' : 's') : '') : '']
+    ]);
+    var needs = K.needsFor(function (k) { return K.relatesTo(k, 'player', kidIds[0]) || kidIds.some(function (id) { return K.relatesTo(k, 'player', id); }) || (k.route || '').indexOf(p.family) >= 0; }, { title: 'Needs you for this family' });
+    return K.page(h, needs + snap + K.section('Children', null, children) +
       K.section('Requests', null, requestTable(reqs)) +
       K.section('Bookings', null, tbl({ cols: 'minmax(0,1.6fr) 110px 100px', head: ['Booking', { label: 'Total', cls: 'c-num wide' }, { label: 'Status', cls: 'c-end' }], rows: bks.map(function (b) { return { route: 'mgmt-booking/' + b.id, cells: [K.cell(esc(b.product), K.id(b.id) + ' · ' + (b.bookedBy === p.id ? 'Booked' : 'Paid') + ' ' + K.dt(b.at)), { cls: 'c-num wide', html: K.money(b.total) }, { cls: 'c-end', html: K.status(b.state) }] }; }), empty: 'No bookings.' })) +
       K.section('Terms accepted', 'Evidence of which version was accepted and when.', tbl({ cols: 'minmax(0,1.4fr) minmax(0,1.2fr) 120px', head: ['Version', { label: 'Evidence', cls: 'wide' }, { label: 'Accepted', cls: 'c-end' }], rows: acc.map(function (a) { var v = db.getTermsVersion(a.version); return { route: 'mgmt-commercial', cells: [K.cell(esc(v.kind) + ' v' + esc(v.version), K.id(v.id)), { cls: 'wide c-cell', html: esc(a.evidence) }, { cls: 'c-end', html: K.dt(a.at) }] }; }), empty: 'No acceptances recorded.' })) +
+      K.grid([contact, link], 2) +
       K.section('History', null, historyList(db.getEntityAudit([p.id]))));
   };
   Hub.actions['pp-invite'] = function (el) { var p = db.getParent(el.dataset.id), at = K.now(), who = K.me(); Hub.mutate(function () { db.resendInvite(p.id, who, at); }, 'Invite resent to ' + p.email, { area: AREA, summary: 'Invite resent to ' + p.name, entity: p.id, at: at, who: who }); };
@@ -398,8 +442,8 @@
     function inState(m, s) { return s === 'All' || (s === 'Open' ? m.state !== 'Ended' : m.state === s); }
     var list = all.filter(function (m) { return inState(m, st); }).sort(function (a, b) { return STATES.indexOf(b.state) - STATES.indexOf(a.state) || (player(a.player).name < player(b.player).name ? -1 : 1); });
     var stats = K.stats([{ label: 'Active', value: all.filter(function (m) { return m.state === 'Active'; }).length }, { label: 'Paused', value: all.filter(function (m) { return m.state === 'Paused'; }).length },
-      { label: 'Cancellation pending', value: all.filter(function (m) { return m.state === 'Cancellation Pending'; }).length, tone: 'feature', route: 'mgmt-requests' }, { label: 'Ending in 30 days', value: db.getMembershipsEndingSoon(30).length }]);
-    return K.page(h, stats + '<div class="lx-filterbar pp-filters">' + K.seg('pp-memstate', list0.map(function (s) { return { id: s.id, label: s.id + ' (' + all.filter(function (m) { return inState(m, s.id); }).length + ')' }; })) + '</div>' + membershipTable(list));
+      { label: 'Cancellation requested', value: all.filter(function (m) { return m.state === 'Cancellation Pending'; }).length, tone: 'feature', route: 'mgmt-requests' }, { label: 'Ending in 30 days', value: db.getMembershipsEndingSoon(30).length }]);
+    return K.page(h, stats + '<div class="lx-filterbar pp-filters">' + K.seg('pp-memstate', list0.map(function (s) { return { id: s.id, label: K.stateLabel(s.id) + ' (' + all.filter(function (m) { return inState(m, s.id); }).length + ')' }; })) + '</div>' + membershipTable(list));
   };
 
   Hub.screens['mgmt-membership'] = function (ctx) {
@@ -417,7 +461,7 @@
     if (m.state === 'Ended') acts = [K.frozen('Ended · kept as history')];
     var h = K.head({ back: ['mgmt-memberships', 'Memberships'], eyebrow: 'Membership · ' + m.id, title: p.name + ' · ' + (s ? s.name : ''), sub: K.status(m.state) + ' · ' + keyDate(m), actions: acts.join('') });
     var cur = STATES.indexOf(m.state);
-    var life = '<ol class="pp-life" aria-label="Status">' + STATES.map(function (x, i) { return '<li class="' + (x === m.state ? 'is-current' : (x !== 'Paused' && i < cur && m.state !== 'Paused' && !(x === 'Cancellation Pending' && !m.cancel)) ? 'is-done' : '') + '"><span>' + esc(x) + '</span></li>'; }).join('') + '</ol>';
+    var life = '<ol class="pp-life" aria-label="Status">' + STATES.map(function (x, i) { return '<li class="' + (x === m.state ? 'is-current' : (x !== 'Paused' && i < cur && m.state !== 'Paused' && !(x === 'Cancellation Pending' && !m.cancel)) ? 'is-done' : '') + '"><span>' + esc(K.stateLabel(x)) + '</span></li>'; }).join('') + '</ol>';
     var main = K.card({ title: 'Membership', body: K.kv([['Player', pLink(m.player)], ['Session', sesLink(m.session)], ['Family', famLink(p.family)], ['Started', K.d(m.start)], ['State', K.status(m.state)]], true) });
     var price = K.card({ title: 'Price and billing terms at the start', sub: 'Copied when the membership started; later rule changes do not alter it.', body: K.kv([['Price agreed', K.money(m.price) + ' a month'], ['Billing rule', rule ? K.id(rule.id) + ' ' + esc(rule.name) : esc(m.billingRule)],
       rule ? ['Payer', esc(rule.payer)] : null, rule ? ['Billing model', esc(rule.model) + ' · ' + esc(rule.basis)] : null, rule ? ['Anchor day', 'Day ' + rule.anchorDay + ' of each month'] : null, rule ? ['Notice', rule.noticeDays + ' days'] : null], true) });
