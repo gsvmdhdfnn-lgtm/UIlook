@@ -417,7 +417,12 @@
     /* Is this session ready to run? One message and the one next step. */
     var issues = readiness(o, s, reg), handled = [].concat.apply([], issues.map(function (x) { return x.rules || []; }));
     var sit = readinessHtml(issues);
-    var history = K.details('History', K.timeline(o.history.slice().reverse()), { sub: 'Every change to this date, with who and when' });
+    var originals = (o.deliveryHistory || []).map(function (hx, i) {
+      return '<div class="sch-orig"><b>' + (i === 0 ? 'Original confirmation' : 'Before correction ' + (i + 1)) + '</b><small>' + K.stamp('Confirmed', hx.delivery.by, hx.delivery.at) + ' · replaced ' + K.dt(hx.replacedAt) + ' by ' + esc(hx.replacedBy) + ': ' + esc(hx.reason) + '</small>' +
+        '<p>' + (hx.delivery.staff || []).map(function (x) { return esc(db.coachName(x.coach)) + ' (' + esc(K.roleName(x.role)) + '): ' + esc(x.attended === 'Attended' ? 'present' : (x.attended || 'not recorded').toLowerCase()); }).join(' · ') + '</p>' +
+        (K.fin() === 'none' ? '' : '<p class="c-mute">Pay: ' + hx.pay.map(function (a) { return esc(db.coachName(a.coach).split(' ')[0]) + ' ' + a.units + ' h × ' + K.money(a.rate) + ' = ' + K.money(a.cost); }).join(' · ') + '</p>') + '</div>';
+    }).join('');
+    var history = K.details('History', originals + K.timeline(o.history.slice().reverse()), { sub: 'Every change to this date, with who and when' });
     var also = K.needsFor(function (k) { return K.relatesTo(k, 'occurrence', o.id) && handled.indexOf(k.ruleId) < 0; }, { title: 'Also needs you' });
     return K.page(h, sit + also + K.grid(['<div class="lx-stack">' + staffT + details + '</div>', '<div class="lx-stack">' + change + notes + '</div>'], '21') + history);
   };
@@ -432,8 +437,10 @@
     }
     if (o.delivery) {
       var d = o.delivery;
-      list.push({ tone: 'ok', kicker: 'Confirmed ' + K.dm(d.at.slice(0, 10)), title: d.state === 'Partial' ? 'Partially delivered' : d.state === 'Changed' ? 'Delivered, with changes' : 'Delivered as planned',
-        text: (d.changes && d.changes.length ? esc(d.changes.join('. ')) + '. ' : '') + 'Who coached, and their pay, are saved for history. ' + K.stamp('Confirmed', d.by, d.at) });
+      list.push({ tone: 'ok', kicker: d.corrected ? 'Corrected ' + K.dm(d.corrected.at.slice(0, 10)) : 'Confirmed ' + K.dm(d.at.slice(0, 10)), title: d.state === 'Partial' ? 'Partially delivered' : d.state === 'Changed' ? 'Delivered, with changes' : 'Delivered as planned',
+        text: (d.corrected ? esc(d.corrected.changes.join('. ')) + '. Reason: ' + esc(d.corrected.reason) + '. The original confirmation is kept in History. ' + K.stamp('Corrected', d.corrected.by, d.corrected.at)
+          : (d.changes && d.changes.length ? esc(d.changes.join('. ')) + '. ' : '') + 'Who coached, and their pay, are saved for history. ' + K.stamp('Confirmed', d.by, d.at)),
+        secondary: K.canFin() ? K.actBtn('Correct delivery', 'sch-correct', { id: o.id }, { variant: 'tertiary', size: 'sm' }) : '' });
       if (!regDone) list.push(regIssue);
       return list;
     }
@@ -502,6 +509,40 @@
     K.sheet({ overline: '<span class="overline">' + esc(o.session) + ' · ' + esc(K.dd(o.date)) + '</span>', title: 'What actually happened?', meta: '<p class="k-note">Only record what changed. Everything else stays as planned.</p>',
       body: people + extra + short + '<div class="k-bar sch-gap">' + K.actBtn('It was cancelled', 'sch-cancel', { id: o.id }, { variant: 'tertiary', size: 'sm' }) + K.actBtn('It moved to another date', 'sch-resched', { id: o.id }, { variant: 'tertiary', size: 'sm' }) + '</div>',
       foot: sheetFoot('Confirm session', 'sch-changed-go', { id: o.id }) });
+  };
+  /* Correcting a confirmed delivery: deliberate, with a reason; the original stays in History */
+  Hub.actions['sch-correct'] = function (el) {
+    var o = db.getOccurrence(el.dataset.id), O = OPT(), roles = O.staffRoles.map(function (r) { return [r, K.roleName(r)]; });
+    var full = (function () { var a = o.start.split(':'), b = o.end.split(':'); return ((+b[0] * 60 + +b[1]) - (+a[0] * 60 + +a[1])) / 60; })();
+    function pay(c) { return db.getAllocations(function (a) { return a.occurrence === o.id && a.coach === c && !a.adjusts; })[0]; }
+    var rows = o.staff.filter(function (x) { return x.attended === 'Attended' || x.attended === 'Absent'; });
+    var onStaff = o.staff.map(function (x) { return x.coach; });
+    var others = [['', 'Choose a coach']].concat(db.getCoaches().filter(function (c) { return c.active !== false && onStaff.indexOf(c.id) < 0; }).map(function (c) { return [c.id, c.name]; }));
+    var people = '<div class="lx-stack">' + rows.map(function (x) {
+      var a = pay(x.coach), rate = a ? a.rate : db.coverRate(x.coach, o).rate, units = a ? a.units : full;
+      return '<div class="sch-staffedit"><div class="sch-staffedit__who">' + ui.avatar(db.coachName(x.coach), 'sm') + '<b>' + esc(db.coachName(x.coach)) + '</b><small class="k-note">Confirmed: ' + (x.attended === 'Attended' ? 'worked as ' + esc(K.roleName(x.actualRole || x.role)) : 'did not work') + '</small></div>' +
+        K.form([K.field('Worked?', K.select('cr-at-' + x.coach, [['Present', 'Yes'], ['Absent', 'No']], x.attended === 'Attended' ? 'Present' : 'Absent')), K.field('Role', K.select('cr-role-' + x.coach, roles, x.actualRole || x.role)),
+          K.field('Hours', K.input('cr-h-' + x.coach, units, { type: 'number' })), K.field('Rate (£ an hour)', K.input('cr-r-' + x.coach, (rate / 100).toFixed(2)))], 2) + '</div>';
+    }).join('') + '</div>';
+    var add = '<details class="k-details sch-dv"><summary><span><b>Someone else actually worked</b><small>For example, Joe covered, not Danny</small></span>' + I('chevron', 'icon-sm k-details__chev') + '</summary><div class="k-details__body">' +
+      K.form([K.field('Coach', K.select('cr-add', others, '')), K.field('Role', K.select('cr-add-role', roles, 'Coach')), K.field('Covering for', K.select('cr-add-for', [['', 'Nobody: an extra coach']].concat(rows.map(function (x) { return [x.coach, db.coachName(x.coach)]; })), '')),
+        K.field('Hours', K.input('cr-add-h', full, { type: 'number' })), K.field('Rate (£ an hour)', K.input('cr-add-r', '', { placeholder: 'Their normal rate if left blank' }))], 1) + '</div></details>';
+    K.sheet({ overline: '<span class="overline">' + esc(o.session) + ' · ' + esc(K.dd(o.date)) + '</span>', title: 'Correct confirmed delivery', meta: '<p class="k-note">Use this only for a genuine mistake. The original confirmation stays in History, and pay already sent is adjusted, never rewritten.</p>',
+      body: people + add + K.form([K.field('Reason for the correction', K.textarea('cr-why', '', 'For example: Joe covered, not Danny; confirmed in error'), null, true)], 1), foot: sheetFoot('Save correction', 'sch-correct-go', { id: o.id }) });
+  };
+  Hub.actions['sch-correct-go'] = function (el) {
+    var o = db.getOccurrence(el.dataset.id), at = K.now(), why = K.val('cr-why').trim();
+    if (!why) { Hub.toast('Add a reason for the correction'); return; }
+    var bad = false, num = function (v) { var n = parseFloat(String(v).replace(/[£,\s]/g, '')); if (isNaN(n) || n < 0) bad = true; return n; };
+    var rows = o.staff.filter(function (x) { return x.attended === 'Attended' || x.attended === 'Absent'; }).map(function (x) {
+      return { coach: x.coach, attended: K.val('cr-at-' + x.coach), role: K.val('cr-role-' + x.coach), units: num(K.val('cr-h-' + x.coach)), rate: Math.round(num(K.val('cr-r-' + x.coach)) * 100) };
+    });
+    var add = K.val('cr-add');
+    if (add) { var rr = K.val('cr-add-r').trim(); rows.push({ coach: add, attended: 'Present', role: K.val('cr-add-role') || 'Coach', covers: K.val('cr-add-for') || null, units: num(K.val('cr-add-h')), rate: rr ? Math.round(num(rr) * 100) : db.coverRate(add, o).rate }); }
+    if (bad) { Hub.toast('Check the hours and rates'); return; }
+    Hub.closeSheet(true);
+    var res = db.correctDelivery(o.id, rows, why, who(), at);
+    Hub.mutate(null, res ? 'Delivery corrected. The original is kept in History' : 'Nothing changed', res ? occLog(o, 'Delivery corrected: ' + why, at, { finance: true }) : null);
   };
   Hub.actions['sch-changed-go'] = function (el) {
     var o = db.getOccurrence(el.dataset.id), at = K.now();

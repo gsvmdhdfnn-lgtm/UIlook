@@ -175,7 +175,7 @@
     /* Only work confirmed as delivered goes into a summary */
     return F.allocations.filter(function (a) { return a.coach === coach && a.date.slice(0, 7) === month && a.state !== 'Draft'; }).sort(function (a, b) { return a.date < b.date ? -1 : 1; }).map(function (a) {
       var o = db.getOccurrence(a.occurrence);
-      return { allocation: a.id, occurrence: a.occurrence, date: a.date, session: o ? o.session : '', role: a.role, units: a.units, rate: a.rate, cost: a.cost, override: a.override ? a.override.reason : '' };
+      return { allocation: a.id, occurrence: a.occurrence, date: a.date, session: o ? o.session : '', role: a.role, units: a.units, rate: a.rate, cost: a.cost, override: a.override ? a.override.reason : a.adjustment ? 'Correction: ' + a.adjustment.reason : '' };
     });
   }
   C.freeze = freeze;
@@ -474,18 +474,71 @@
       /* Snapshot of the confirmed staffing, kept even if the delivery is later corrected */
       staff: o.staff.map(function (x) { return { coach: x.coach, plannedRole: x.role, role: x.actualRole || x.role, attended: x.attended, covers: x.covers || null, extra: !!x.extra }; }) };
     (o.history = o.history || []).push({ text: 'Delivery confirmed: ' + (changes.length ? changes.join('; ') : 'went as planned'), who: who, at: at, tone: 'ok' });
-    /* A summary not yet finalised picks the confirmed work up straight away */
-    var touched = workers.concat(o.staff.map(function (x) { return x.coach; }));
+    syncSummaries(o, workers, o.staff.map(function (x) { return x.coach; }), 'confirmed as delivered', who, at);
+    return o;
+  };
+
+  /* Work summaries after a delivery is confirmed or corrected: one still in review picks the
+     change up; a finalised one is never rewritten, it is flagged for Management to reopen. */
+  function syncSummaries(o, workers, touched, what, who, at) {
     C.summaries.forEach(function (ws) {
       if (ws.month !== o.date.slice(0, 7) || touched.indexOf(ws.coach) < 0) return;
       if (ws.state !== 'Needs review') {
-        /* Already finalised: never changed silently; Management reopens it to include the new work */
-        if (workers.indexOf(ws.coach) >= 0) { ws.stale = { occurrence: o.id, at: at }; ev(ws, { text: o.session + ' on ' + K.dm(o.date) + ' was confirmed after finalising; reopen to include it', who: who, at: at, tone: 'warn' }); }
+        if (workers.indexOf(ws.coach) < 0) return;
+        ws.stale = { occurrence: o.id, at: at };
+        ev(ws, { text: o.session + ' on ' + K.dm(o.date) + ' was ' + what + ' after finalising; reopen to include it', who: who, at: at, tone: 'warn' });
         return;
       }
       ws.lines = freeze(ws.coach, ws.month); ws.total = K.sum(ws.lines, 'cost'); ws.cycles[ws.cycles.length - 1].total = ws.total;
-      ev(ws, { text: 'Updated: ' + o.session + ' on ' + K.dm(o.date) + ' confirmed as delivered', who: who, at: at, tone: 'info' });
+      ev(ws, { text: 'Updated: ' + o.session + ' on ' + K.dm(o.date) + ' ' + what, who: who, at: at, tone: 'info' });
     });
+  }
+  function paid(a) { return a.state === 'Exported' || !!a.run; }
+
+  /* ---------- Correcting a confirmed delivery ----------
+     A deliberate action with a reason. The original confirmation is kept; actual staff, role,
+     hours and rate are replaced; actual cost is recalculated. Pay already sent for payment or
+     in a finalised summary is never rewritten: the difference becomes an adjustment pay item
+     and the summary is flagged. rows: [{ coach, attended: 'Present'|'Absent', role, units, rate, covers }] */
+  db.correctDelivery = function (id, rows, reason, who, at) {
+    var o = db.getOccurrence(id); if (!o || !o.delivery || !reason) return null;
+    var before = { delivery: JSON.parse(JSON.stringify(o.delivery)), pay: F.allocations.filter(function (a) { return a.occurrence === o.id; }).map(function (a) { return { id: a.id, coach: a.coach, role: a.role, units: a.units, rate: a.rate, cost: a.cost, state: a.state }; }) };
+    (o.deliveryHistory = o.deliveryHistory || []).push(Object.assign(before, { replacedBy: who, replacedAt: at, reason: reason }));
+    var first = function (c) { return db.coachName(c).split(' ')[0]; }, changes = [], money = 0;
+    rows.forEach(function (r) {
+      var x = o.staff.filter(function (st) { return st.coach === r.coach && !(st.unavailable && st.covering && st.attended !== 'Attended'); })[0];
+      if (!x) { x = { coach: r.coach, lead: r.role === 'Lead', role: r.role, actualRole: r.role, attended: null, extra: !r.covers, cover: !!r.covers, covers: r.covers || null, corrected: true }; o.staff.push(x); }
+      var was = x.attended, wasRole = x.actualRole || x.role;
+      x.attended = r.attended === 'Absent' ? 'Absent' : 'Attended'; x.actualRole = r.role || wasRole;
+      if (was !== x.attended) changes.push(first(r.coach) + (x.attended === 'Attended' ? (r.covers ? ' covered for ' + first(r.covers) : ' did work') : ' did not work'));
+      else if (x.attended === 'Attended' && x.actualRole !== wasRole) changes.push(first(r.coach) + ' was ' + K.roleName(x.actualRole));
+      if (r.covers) { var ab = o.staff.filter(function (st) { return st.coach === r.covers && st !== x; })[0]; if (ab) { ab.covering = r.coach; } }
+      var a = F.allocations.filter(function (al) { return al.occurrence === o.id && al.coach === r.coach && !al.adjusts; })[0];
+      var worked = x.attended === 'Attended', units = worked ? +r.units : 0, rate = worked ? Math.round(+r.rate) : 0, cost = Math.round(rate * units);
+      var oldCost = a ? a.cost + K.sum(F.allocations.filter(function (al) { return al.adjusts === a.id; }), 'cost') : 0;
+      if (a && worked && a.units === units && a.rate === rate && a.role === x.actualRole && !F.allocations.some(function (al) { return al.adjusts === a.id; })) return;
+      if (a && paid(a)) {
+        /* Already paid or finalised: keep it, record the difference */
+        if (cost - oldCost) { db.addAllocation({ coach: r.coach, occurrence: o.id, date: o.date, role: x.actualRole, rate: rate, units: units, override: null, cost: cost - oldCost, rateSource: 'occurrence', state: 'Confirmed', adjusts: a.id, adjustment: { reason: reason, by: who, at: at }, confirmedBy: { by: who, at: at }, actual: { coach: r.coach, role: x.actualRole, units: units, rate: rate, cost: cost - oldCost, by: who, at: at } }); money += cost - oldCost; changes.push('Pay for ' + first(r.coach) + ' ' + (cost > oldCost ? 'up ' : 'down ') + K.money(Math.abs(cost - oldCost)) + ' (adjustment, already sent for payment)'); }
+      } else if (a) {
+        (a.actualHistory = a.actualHistory || []).push(a.actual);
+        if (!worked) { F.allocations.splice(F.allocations.indexOf(a), 1); money -= oldCost; return; }
+        if (rate !== a.rate) { a.rateNote = { normal: a.rate, reason: reason, by: who, at: at }; a.rateSource = 'occurrence'; }
+        a.role = x.actualRole; a.units = units; a.rate = rate; a.override = null; a.cost = cost; money += cost - oldCost;
+        a.actual = { coach: a.coach, role: a.role, units: units, rate: rate, rateSource: a.rateSource, cost: cost, by: who, at: at, corrected: true };
+      } else if (worked) {
+        var rp = F.rateFor(r.coach, o.date), normal = db.coverRate(r.coach, o).rate;
+        a = db.addAllocation({ coach: r.coach, occurrence: o.id, date: o.date, role: x.actualRole, rate: rate, rateProfile: rp && rp.id, units: units, override: null, cost: cost, rateSource: rate === normal ? 'normal' : 'occurrence', state: 'Confirmed', confirmedBy: { by: who, at: at } });
+        a.actual = { coach: a.coach, role: a.role, units: units, rate: rate, rateSource: a.rateSource, cost: cost, by: who, at: at, corrected: true }; money += cost;
+      }
+    });
+    if (!changes.length && !money) { o.deliveryHistory.pop(); return null; }
+    o.delivery.state = o.delivery.state === 'As planned' ? 'Changed' : o.delivery.state;
+    o.delivery.corrected = { by: who, at: at, reason: reason, changes: changes, money: money };
+    o.delivery.staff = o.staff.map(function (x) { return { coach: x.coach, plannedRole: x.role, role: x.actualRole || x.role, attended: x.attended, covers: x.covers || null, extra: !!x.extra }; });
+    o.history.push({ text: 'Delivery corrected: ' + changes.join('; '), detail: 'Reason: ' + reason + '. Original confirmation by ' + before.delivery.by + ' kept in history.', who: who, at: at, tone: 'warn' });
+    var coaches = rows.map(function (r) { return r.coach; });
+    syncSummaries(o, coaches, coaches, 'corrected', who, at);
     return o;
   };
 

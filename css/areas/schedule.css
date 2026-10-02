@@ -133,3 +133,7 @@
 /* Reason next to a status pill, and the exception folds in "What actually happened?" */
 .sch-why { font-size: 12px; color: var(--text-3); margin-left: 4px; }
 .sch-dv { margin-top: 12px; }
+/* Earlier confirmed versions of a delivery, kept in History */
+.sch-orig { display: grid; gap: 4px; padding: 10px 12px; margin-bottom: 10px; border-radius: 12px; background: var(--hover); }
+.sch-orig small { font-size: 12px; color: var(--text-3); }
+.sch-orig p { margin: 0; font-size: 13.5px; }
