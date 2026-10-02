@@ -114,23 +114,24 @@
       (notes ? '<p class="lx-next__note"><span>Note from ' + esc(first(notes.by)) + '</span>' + esc(notes.text) + '</p>' : (o.theme ? '<p class="lx-next__note"><span>Focus this week</span>' + esc(o.theme) + '</p>' : '')) +
       '<div class="lx-next__actions"><a class="lx-next__btn" href="#coach-session/' + o.id + '">Open session' + I('arrowRight', 'icon-sm') + '</a><a class="lx-next__ghost" href="#coach-register/' + o.id + '">' + I('check', 'icon-sm') + 'Start register</a><a class="lx-next__ghost" href="#coach-venues">' + I('pin', 'icon-sm') + 'Location details</a></div></section>';
   }
+  function docWords(x) { var n = x.doc && x.doc.expires ? K.daysBetween(K.today, x.doc.expires) : 0; return x.state === 'Expiring' ? esc(x.type.name) + ' expires in ' + n + ' day' + (n === 1 ? '' : 's') : x.state === 'Expired' ? esc(x.type.name) + ' has expired' : esc(x.type.name) + ' is needed'; }
   function needsYou() {
     var k = meKey(), out = [];
-    db.getMyOpenRegisters(k).forEach(function (o) { out.push(ui.row({ lead: icoLead('check'), title: 'Register still open: ' + esc(o.session), sub: [esc(K.dd(o.date) + ', ' + o.start), esc(db.getRegister(o.id).state)], trail: K.pill('Overdue', 'danger'), href: '#coach-register/' + o.id })); });
-    if (K.feature('cover')) db.getPendingCoverOffers(k).forEach(function (x) { out.push(ui.row({ lead: icoLead('coaches'), title: 'Cover offered: ' + esc(x.occurrence.session), sub: [esc(when(x.occurrence)), esc(venueName(x.occurrence))], trail: K.pill('Reply', 'info'), href: '#coach-cover' })); });
-    db.getMyReturnedFeedback(k).forEach(function (f) { out.push(ui.row({ lead: icoLead('development'), title: 'Feedback returned: ' + esc(db.getPlayer(f.player).name), sub: [esc(f.returns.length ? f.returns[f.returns.length - 1].note : '')], trail: K.pill('Returned', 'warn'), href: '#coach-feedback/' + f.player })); });
-    db.getMyDraftFeedback(k).forEach(function (f) { out.push(ui.row({ lead: icoLead('development'), title: 'Draft feedback: ' + esc(db.getPlayer(f.player).name), sub: [esc(f.period), 'Started ' + esc(K.dt(f.startedAt))], trail: K.status('Draft'), href: '#coach-feedback/' + f.player })); });
+    db.getMyOpenRegisters(k).forEach(function (o) { out.push(ui.row({ lead: icoLead('check'), title: 'Register still needed for ' + esc(o.session), sub: [esc(K.dd(o.date) + ', ' + o.start)], trail: K.pill('Open register', 'danger'), href: '#coach-register/' + o.id })); });
+    if (K.feature('cover')) db.getPendingCoverOffers(k).forEach(function (x) { out.push(ui.row({ lead: icoLead('coaches'), title: 'You’ve been offered cover', sub: [esc(x.occurrence.session), esc(when(x.occurrence)), esc(venueName(x.occurrence))], trail: K.pill('View offer', 'info'), href: '#coach-cover' })); });
+    db.getMyReturnedFeedback(k).forEach(function (f) { out.push(ui.row({ lead: icoLead('development'), title: 'Feedback for ' + esc(db.getPlayer(f.player).name) + ' needs changes', sub: [esc(f.returns.length ? f.returns[f.returns.length - 1].note : '')], trail: K.pill('Edit feedback', 'warn'), href: '#coach-feedback/' + f.player })); });
+    db.getMyDraftFeedback(k).forEach(function (f) { out.push(ui.row({ lead: icoLead('development'), title: 'Finish feedback for ' + esc(db.getPlayer(f.player).name), sub: [esc(f.period), 'Started ' + esc(K.dt(f.startedAt))], trail: K.pill('Continue', 'info'), href: '#coach-feedback/' + f.player })); });
     db.getFeedbackToSignOff(k).forEach(function (f) { out.push(ui.row({ lead: icoLead('userCheck'), title: 'Sign off ' + esc(first(db.coachName(f.coach))) + '’s feedback for ' + esc(db.getPlayer(f.player).name), sub: ['Learning coach', 'Submitted ' + esc(K.dt(f.submittedAt))], trail: K.pill('Sign off', 'info'), href: '#coach-feedback/' + f.player })); });
     if (K.feature('documents')) db.getCoachCompliance(k).forEach(function (x) {
       if (x.state === 'Verified') return;
       var tone = x.state === 'Expired' || x.state === 'Missing' ? 'danger' : 'warn';
       var sub = x.state === 'Expiring' ? 'Expires ' + K.d(x.doc.expires) : x.state === 'Expired' ? 'Expired ' + K.d(x.doc.expires) : x.state === 'Missing' ? 'Nothing on file' : 'Uploaded ' + K.dt(x.pending.uploaded.at);
       var fix = x.state === 'Expiring' || x.state === 'Expired' || x.state === 'Missing';
-      out.push(fix ? ui.row({ lead: icoLead('shield'), title: 'Update ' + esc(x.type.name), sub: [esc(sub)], trail: K.pill(x.state, tone), action: 'ch-doc-upload', data: { type: x.type.id } })
-        : ui.row({ lead: icoLead('shield'), title: esc(x.type.name) + ': being checked', sub: [esc(sub)], trail: K.pill(x.state, tone), href: '#coach-documents' }));
+      /* A new upload being checked needs nothing from the coach, so it stays on My documents */
+      if (fix) out.push(ui.row({ lead: icoLead('shield'), title: docWords(x), sub: [esc(sub)], trail: K.pill('Update document', tone), action: 'ch-doc-upload', data: { type: x.type.id } }));
     });
     var ws = db.getMyWorkSummary(k, '2026-09');
-    if (ws && ws.state === 'Awaiting coach') out.push(ui.row({ lead: icoLead('finance'), title: 'Check your ' + esc(ws.label) + ' summary', sub: [ws.lines.length + ' sessions', K.money(ws.total)], trail: K.pill('Confirm', 'info'), href: '#coach-work-summary' }));
+    if (ws && ws.state === 'Awaiting coach') out.push(ui.row({ lead: icoLead('finance'), title: 'Check your ' + esc(ws.label) + ' summary', sub: [ws.lines.length + ' sessions', K.money(ws.total)], trail: K.pill('Check and confirm', 'info'), href: '#coach-work-summary' }));
     return out;
   }
   Hub.screens['coach-home'] = function (ctx) {
@@ -603,11 +604,16 @@
         var o = db.getOccurrence(n.occurrence), pending = n.offers.filter(function (f) { return !f.response; }).map(function (f) { return first(db.coachName(f.coach)); });
         return ui.row({ lead: dateLead(o.date), title: esc(o.session), sub: [esc(o.start + '–' + o.end), n.confirmed ? 'Covered by ' + esc(db.coachName(n.confirmed.coach)) : pending.length ? 'Offered to ' + esc(pending.join(', ')) : n.offers.length ? n.offers.length + ' offer' + (n.offers.length === 1 ? '' : 's') + ' declined' : 'Not offered yet'], trail: K.status(n.state), href: '#coach-session/' + o.id });
       });
-      return K.card({ title: r.kind + ' · ' + (r.from === r.to ? K.dd(r.from) : K.dm(r.from) + '–' + K.dm(r.to)), sub: esc(r.reason) + ' · ' + r.id, right: K.status(db.coverStatus(r)),
-        body: (rows.length ? ui.rows(rows, 'rows--lead') : '<p class="k-note">No sessions affected.</p>') + '<h3 class="ch-h3">History</h3>' + K.timeline(r.history.slice().reverse()) });
+      return K.card({ title: r.kind + ' · ' + (r.from === r.to ? K.dd(r.from) : K.dm(r.from) + '–' + K.dm(r.to)), sub: esc(r.reason), right: K.status(db.coverStatus(r)),
+        body: (rows.length ? ui.rows(rows, 'rows--lead') : '<p class="k-note">No sessions affected.</p>') + K.details('History', K.timeline(r.history.slice().reverse()), { key: 'ch-cover-hist-' + r.id }) });
     }).join('');
     var reqSec = K.section('Your cover requests', 'The office finds cover; each date moves on its own.', reqs.length ? reqCards : '<div class="zone-inset">' + ui.empty('calendar', 'No cover requests', 'Mark dates you can’t make in Availability and ask for cover there.') + '</div>');
-    return page(h, offerSec + reqSec);
+    var waitingOffers = offers.filter(function (x) { return !x.offer.response; });
+    var openNeeds = []; reqs.forEach(function (r) { r.needs.forEach(function (n) { if (!n.confirmed) openNeeds.push(n); }); });
+    var sit = waitingOffers.length ? K.situation({ tone: 'warn', title: waitingOffers.length === 1 ? 'You’ve been offered cover' : 'You’ve been offered cover for ' + waitingOffers.length + ' sessions', text: esc(waitingOffers[0].occurrence.session) + ', ' + esc(when(waitingOffers[0].occurrence)) + '. Accept or decline below.' }) :
+      openNeeds.length ? K.situation({ tone: 'info', title: 'The office is finding cover', text: openNeeds.length + ' of your session' + (openNeeds.length === 1 ? '' : 's') + ' still need' + (openNeeds.length === 1 ? 's' : '') + ' a coach. No action needed from you.' }) :
+      K.situation({ tone: 'ok', title: 'Nothing needs you', text: 'No cover offers waiting, and your dates are all covered.' });
+    return page(h, sit + offerSec + reqSec);
   };
 
   /* ============================================================ DOCUMENTS */
@@ -620,16 +626,20 @@
     var cards = list.map(function (x) {
       var d = x.doc, tone = { Verified: 'ok', Expiring: 'warn', Expired: 'danger', Missing: 'danger', 'Pending verification': 'warn' }[x.state];
       var kv = d ? K.kv([['Reference', esc(d.ref || '—')], ['Issued', esc(K.d(d.issued))], ['Expires', d.expires ? esc(K.d(d.expires)) + (d.expires >= K.today ? ' <small>(' + K.daysBetween(K.today, d.expires) + ' days)</small>' : '') : 'No expiry'], ['Checked', d.verification.by ? stamp('Verified', d.verification.by, d.verification.at) : '—']]) : '<p class="k-note">Nothing on file yet.</p>';
-      var pend = x.pending ? ui.notice('info', 'New upload pending verification', esc(x.pending.ref || '') + ' · ' + stamp('Uploaded', x.pending.uploaded.by, x.pending.uploaded.at)) : '';
+      var pend = x.pending ? ui.notice('info', 'New upload being checked by the office', esc(x.pending.ref || '') + ' · ' + stamp('Uploaded', x.pending.uploaded.by, x.pending.uploaded.at)) : '';
       var warn = x.state === 'Expiring' ? ui.notice('warn', 'Expires soon', 'Upload the new certificate so the office can check it before ' + esc(K.d(d.expires)) + '.') : x.state === 'Expired' ? ui.notice('danger', 'Expired', 'You can’t be staffed on sessions that need this until a new one is verified.') : '';
-      return K.card({ title: x.type.name, sub: x.type.validYears ? 'Valid for ' + x.type.validYears + ' years' : 'Reviewed every ' + (x.type.reviewMonths || 24) + ' months', right: K.pill(x.state, tone),
+      return K.card({ title: x.type.name, sub: x.type.validYears ? 'Valid for ' + x.type.validYears + ' years' : 'Reviewed every ' + (x.type.reviewMonths || 24) + ' months', right: K.pill(x.state === 'Pending verification' ? 'Being checked' : x.state, tone),
         body: warn + kv + pend + '<div class="k-row-actions">' + K.actBtn(x.pending ? 'Upload again' : 'Upload new', 'ch-doc-upload', { type: x.type.id }, { variant: x.state === 'Verified' ? 'tertiary' : 'secondary', icon: 'plus' }) + '</div>' });
     });
     var all = db.getDocuments(function (d) { return d.coach === k; }).slice().sort(function (a, b) { return a.uploaded.at < b.uploaded.at ? 1 : -1; });
-    var hist = K.card({ title: 'Everything you’ve uploaded', sub: 'Older certificates are kept, never changed', body: K.table({ cols: 'minmax(0,1.4fr) minmax(0,1fr) minmax(0,1fr) auto', head: ['Document', 'Uploaded', 'Expires', 'Status'], rows: all.map(function (d) {
-      return { cells: [K.cell(esc(db.getDocType(d.type).name), esc(d.ref || '')), esc(K.dt(d.uploaded.at)), esc(d.expires ? K.d(d.expires) : 'No expiry'), K.pill(db.docState(d), { Verified: 'ok', Expired: 'danger', Expiring: 'warn', 'Pending verification': 'warn', Rejected: 'danger' }[db.docState(d)] || '')] };
-    }), empty: 'Nothing uploaded yet.' }) });
-    return page(h, K.grid(cards, 2) + hist);
+    var hist = (K.table({ cols: 'minmax(0,1.4fr) minmax(0,1fr) minmax(0,1fr) auto', head: ['Document', 'Uploaded', 'Expires', 'Status'], rows: all.map(function (d) {
+      return { cells: [K.cell(esc(db.getDocType(d.type).name), esc(d.ref || '')), esc(K.dt(d.uploaded.at)), esc(d.expires ? K.d(d.expires) : 'No expiry'), K.pill(db.docState(d) === 'Pending verification' ? 'Being checked' : db.docState(d), { Verified: 'ok', Expired: 'danger', Expiring: 'warn', 'Pending verification': 'warn', Rejected: 'danger' }[db.docState(d)] || '')] };
+    }), empty: 'Nothing uploaded yet.' }));
+    var todo = list.filter(function (x) { return x.state === 'Expired' || x.state === 'Missing' || x.state === 'Expiring'; }), checking = list.filter(function (x) { return x.pending; });
+    var sit = todo.length ? K.situation({ tone: todo[0].state === 'Expiring' ? 'warn' : 'danger', title: docWords(todo[0]), text: todo[0].state === 'Expiring' ? 'Upload the new certificate so the office can check it in time.' : 'You can’t be staffed on sessions that need it until a new one is checked.', primary: K.actBtn('Update document', 'ch-doc-upload', { type: todo[0].type.id }, { variant: 'primary', icon: 'plus' }) }) :
+      checking.length ? K.situation({ tone: 'info', title: 'The office is checking your new ' + esc(checking[0].type.name), text: 'No action needed. You’ll be told if anything is wrong.' }) :
+      K.situation({ tone: 'ok', title: 'All documents current', text: 'Nothing to upload. We’ll remind you before anything expires.' });
+    return page(h, sit + K.grid(cards, 2) + K.details('Everything you’ve uploaded', hist, { sub: 'Older certificates are kept, never changed' }));
   };
 
   /* ============================================================ WORK SUMMARY */
@@ -657,14 +667,17 @@
     var hrs = K.sum(ws.lines, 'units');
     var stats = K.stats([{ label: 'Sessions', value: ws.lines.length, sub: ws.label }, { label: 'Hours', value: hrs, sub: 'Delivered' }, { label: 'Rate', value: esc(rate ? K.money(rate.evening) : '—'), sub: esc(rateTxt) }, { label: 'Total', value: K.money(ws.total), sub: ws.state, tone: ws.state === 'Queried' ? 'warn' : '' }]);
     var acts = '';
-    if (ws.state === 'Awaiting coach') acts = K.actBtn('Confirm', 'ch-ws-confirm', { id: ws.id }, { variant: 'primary', icon: 'check' }) + K.actBtn('Query', 'ch-ws-query', { id: ws.id }, { variant: 'secondary' });
-    else if (ws.state === 'Ready to finalise') acts = '<span class="k-note">You confirmed this. The office finalises it for payment.</span>' + K.actBtn('Query', 'ch-ws-query', { id: ws.id }, { variant: 'secondary' });
+    if (ws.state === 'Ready to finalise') acts = '<span class="k-note">You confirmed this. The office finalises it for payment.</span>' + K.actBtn('Query', 'ch-ws-query', { id: ws.id }, { variant: 'secondary' });
     else if (ws.state === 'Queried') acts = '<span class="k-note">Your query is with the office.</span>' + K.actBtn('Confirm instead', 'ch-ws-confirm', { id: ws.id }, { variant: 'secondary' });
     var stateLine = ws.state === 'Finalised' ? K.frozen('Finalised · frozen') + ' ' + stamp('Finalised', ws.finalised.by, ws.finalised.at) : K.status(ws.state) + ' ' + stamp('Prepared', ws.frozenBy, ws.frozenAt);
     var query = ws.query ? ui.notice('warn', 'Your query', esc(ws.query.text) + ' ' + stamp('Queried', ws.query.by, ws.query.at)) : '';
     var card = K.card({ title: ws.label, sub: stateLine, right: '<b class="num ch-total">' + K.money(ws.total) + '</b>', body: query + lineTable(ws.lines, false, '<span>' + ws.lines.length + ' sessions · ' + hrs + ' hours</span><span class="k-total">Total ' + K.money(ws.total) + '</span>') + (acts ? '<div class="k-row-actions">' + acts + '</div>' : '') });
     var cyc = K.card({ title: 'History', sub: 'Each preparation is kept', body: ws.cycles.slice().reverse().map(function (c) { return '<h3 class="ch-h3">Cycle ' + c.n + ' · ' + K.money(c.total) + '</h3>' + K.timeline(c.events.slice().reverse()); }).join('') });
-    return page(h, noteBox + stats + cols(card, cyc));
+    var sit = ws.state === 'Awaiting coach' ? K.situation({ tone: 'warn', title: 'Check your ' + esc(ws.label) + ' summary', text: ws.lines.length + ' sessions, ' + hrs + ' hours, ' + K.money(ws.total) + '. Confirm it if it’s right, or query anything that isn’t.', primary: K.actBtn('Confirm', 'ch-ws-confirm', { id: ws.id }, { variant: 'primary', icon: 'check' }), secondary: K.actBtn('Query', 'ch-ws-query', { id: ws.id }, { variant: 'secondary' }) }) :
+      ws.state === 'Queried' ? K.situation({ tone: 'info', title: 'Your query is with the office', text: 'No action needed. They’ll update the summary or reply.' }) :
+      ws.state === 'Ready to finalise' ? K.situation({ tone: 'ok', title: 'Confirmed · ' + K.money(ws.total), text: 'The office finalises it for payment.' }) :
+      ws.state === 'Finalised' ? K.situation({ tone: 'ok', title: K.money(ws.total) + ' finalised for payment', text: 'Paid with the next coach payment run.' }) : '';
+    return page(h, noteBox + sit + stats + card + K.details('History', cyc, { sub: 'Each preparation is kept', key: 'ch-ws-hist' }));
   };
 
   /* ============================================================ PROFILE */

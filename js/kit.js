@@ -168,13 +168,33 @@
     o = o || {};
     var list = Hub.db.getAttentionCases().filter(test);
     if (!list.length) return o.quiet === false ? '<div class="k-needs__clear">' + I('checkCircle', 'icon-sm') + '<span>Nothing needs you here.</span></div>' : '';
-    var rows = list.map(function (k) {
-      return '<a class="k-needsfor__row" data-case-key="' + esc(k.caseKey) + '" href="#' + esc(k.route || 'mgmt-attention') + '">' + ui.sev(k.severity) + '<span><b>' + esc(k.title) + '</b><small>' + esc(k.when || '') + '</small></span><span class="k-needs__act">' + esc(k.actionLabel || 'Open') + I('arrowRight', 'icon-sm') + '</span></a>';
+    /* The same problem on several dates reads as one line with a count */
+    var groups = [];
+    list.forEach(function (k) { var g = groups.filter(function (x) { return x.title === k.title; })[0]; if (g) g.n++; else groups.push({ title: k.title, k: k, n: 1 }); });
+    var rows = groups.map(function (g) { var k = g.k;
+      return '<a class="k-needsfor__row" data-case-key="' + esc(k.caseKey) + '" href="#' + esc(k.route || 'mgmt-attention') + '">' + ui.sev(k.severity) + '<span><b>' + esc(k.title) + '</b><small>' + (g.n > 1 ? g.n + ' sessions · first ' : '') + esc(k.when || '') + '</small></span><span class="k-needs__act">' + esc(k.actionLabel || 'Open') + I('arrowRight', 'icon-sm') + '</span></a>';
     }).join('');
     return '<section class="k-needsfor" aria-label="Needs you"><h2>' + esc(o.title || 'Needs you') + '</h2>' + rows + '</section>';
   };
   K.snap = function (items) { return '<div class="k-snap">' + items.map(function (i) { return '<div><span>' + esc(i[0]) + '</span><b>' + i[1] + '</b>' + (i[2] ? '<small>' + i[2] + '</small>' : '') + '</div>'; }).join('') + '</div>'; };
   K.relatesTo = function (k, kind, id) { return !!((k.related && k.related[kind] === id) || (k.route && k.route.split('/')[1] === id)); };
+  /* The situation: what is happening and, if needed, the one next action.
+     tone: 'danger' | 'warn' | 'info' | 'ok' (ok = calm, no action panel). */
+  K.situation = function (o) {
+    var icon = { danger: 'alertCircle', warn: 'alertCircle', info: 'info', ok: 'checkCircle' }[o.tone || 'info'];
+    return '<section class="k-sit k-sit--' + (o.tone || 'info') + '" aria-live="polite">' + I(icon, 'k-sit__icon') + '<div class="k-sit__text">' + (o.kicker ? '<span class="k-sit__k">' + esc(o.kicker) + '</span>' : '') +
+      '<h2 class="k-sit__title">' + o.title + '</h2>' + (o.text ? '<p>' + o.text + '</p>' : '') + '</div>' +
+      (o.primary || o.secondary ? '<div class="k-sit__act">' + (o.primary || '') + (o.secondary || '') + '</div>' : '') + '</section>';
+  };
+  /* An opened "Details" stays open when the page re-renders (after a save or a filter change) */
+  Hub.openDetails = {};
+  document.addEventListener('toggle', function (e) { var d = e.target; if (d && d.dataset && d.dataset.dkey) Hub.openDetails[d.dataset.dkey] = d.open; }, true);
+  /* Level 4: details, history and system information, only when asked for */
+  K.details = function (title, html, o) {
+    o = o || {};
+    var key = o.key || title;
+    return '<details class="k-details" data-dkey="' + esc(key) + '"' + (o.open || Hub.openDetails[key] ? ' open' : '') + '><summary><span><b>' + esc(title) + '</b>' + (o.sub ? '<small>' + esc(o.sub) + '</small>' : '') + '</span>' + I('chevron', 'icon-sm k-details__chev') + '</summary><div class="k-details__body">' + html + '</div></details>';
+  };
   /* Everything else in an area, one quiet step away (closed by default). */
   K.moreIn = function (title, groups) {
     var n = 0;

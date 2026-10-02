@@ -103,13 +103,15 @@
   function tile(tone, icon, title, desc, route) {
     return '<a class="lx-tile lx-tile--' + tone + '" href="#' + route + '"><span class="lx-tile__icon">' + I(icon) + '</span><b>' + esc(title) + '</b><small>' + esc(desc) + '</small></a>';
   }
+  /* What an open request means for the parent, in one sentence */
+  function reqWords(r) { return ({ Cancellation: 'Your cancellation request is being reviewed.', Pause: 'Your pause request is being reviewed.', 'Session request': 'Your request for a place is being reviewed.', 'Detail change': 'Your change of details is being checked.', 'Second parent invite': 'Your invite for a second parent is being checked.' }[r.type] || 'Your request is with the office.'); }
   function homeActions() {
     var out = [], f = fam();
     var due = db.getMedicalReconfirmDue(f.id);
     if (due.length) out.push({ title: 'Confirm ' + names(due) + '’s medical details for this term', meta: 'We ask every family at the start of term · takes a minute', route: 'parent-child/' + due[0].id });
     db.getFamilyParents(f.id).filter(function (x) { return !x.link.ended && x.link.invite === 'Invite sent'; }).forEach(function (x) { out.push({ title: x.name + ' has not accepted the invite yet', meta: 'Invited ' + (x.link.invitedAt ? K.dt(x.link.invitedAt) : '27 Sep') + ' · resend it from Family', route: 'parent-family' }); });
     var open = db.getFamilyRequests(f.id).filter(function (r) { return (r.status === 'Open' || r.status === 'In review') && r.type !== 'Second parent invite'; });
-    if (open.length) out.push({ title: open.length + ' request' + (open.length === 1 ? '' : 's') + ' with the office', meta: open.map(function (r) { return r.type; }).join(' · '), route: 'parent-requests' });
+    open.forEach(function (r) { var p = r.player ? db.getPlayer(r.player) : null; out.push({ title: reqWords(r).replace(/\.$/, '') + (p ? ' (' + p.first + ')' : ''), meta: 'No action needed · we’ll let you know the outcome', route: r.membership ? 'parent-membership/' + r.membership : 'parent-requests' }); });
     if (db.getBasket().length) out.push({ title: db.getBasket().length + ' place' + (db.getBasket().length === 1 ? '' : 's') + ' in your basket', meta: 'Not booked until you pay', route: 'parent-basket' });
     var credit = K.sum(db.getFamilyCredits(f.id), 'remaining');
     if (credit > 0) out.push({ title: K.money(credit) + ' family credit available', meta: 'Used automatically on your next payment or booking', route: 'parent-billing' });
@@ -421,7 +423,7 @@
     var s = sess(m.session), n = db.getMembershipNotice(m), r = db.getOpenMembershipRequest(m.id), pol = db.getRefundPolicies().filter(function (x) { return x.id === 'RFP-02'; })[0];
     var top = '';
     if (m.state === 'Paused' && m.pause) top = ui.notice('warn', 'Paused from ' + K.dm(m.pause.from) + ' to ' + K.dm(m.pause.to), esc(m.pause.reason) + '. No sessions or charges while paused.', { meta: 'Paused by ' + m.pause.by + ', ' + K.dt(m.pause.at) });
-    if (m.state === 'Cancellation Pending' && m.cancel) top = ui.notice('warn', 'Cancellation requested', 'Once the office confirms, ' + n.days + ' days notice runs from the request date: the last day would be ' + K.d(K.addDays(m.cancel.requested.slice(0, 10), n.days)) + '.', { meta: 'Requested by ' + m.cancel.by + ', ' + K.dt(m.cancel.requested) });
+    if (m.state === 'Cancellation Pending' && m.cancel) top = ui.notice('info', 'Your cancellation request is being reviewed.', 'No action needed. If it is confirmed, the last day will be ' + K.d(K.addDays(m.cancel.requested.slice(0, 10), n.days)) + ' (' + n.days + ' days’ notice from your request).', { meta: 'Requested by ' + m.cancel.by + ', ' + K.dt(m.cancel.requested) });
     if (m.state === 'Ending Scheduled' && m.cancel) top = ui.notice('info', 'Ending on ' + K.d(m.cancel.end), 'Sessions carry on until then. No charges after the end date.', { meta: 'Confirmed by ' + m.cancel.approvedBy + ', ' + K.dt(m.cancel.approvedAt) });
     if (m.state === 'Ended' && m.ended) top = ui.notice('neutral', 'Ended on ' + K.d(m.ended.on), esc(m.ended.reason), { meta: 'Recorded by ' + m.ended.by + ', ' + K.dt(m.ended.at) });
     var details = K.card({ title: 'Details', body: K.kv([['Status', memPill(m)], ['Session', esc(s.name) + '<br><span class="text-3">' + esc(DAYS[s.days[0]]) + 's ' + s.start + '–' + s.end + ' · ' + esc(db.venueName(s.venue)) + '</span>'], ['Price', K.money(m.price) + ' a month, taken on the 1st'], ['Started', K.d(m.start)], ['Notice to cancel', n.days + ' days']]) });
@@ -481,6 +483,9 @@
     var f = fam(), S = db.getFamilyBillingSummary(f.id), tab = K.tab('ph-bill', tabs);
     var nextAmt = K.sum(db.phMemberships().filter(function (m) { return m.state === 'Active' || m.state === 'Cancellation Pending' || (m.state === 'Ending Scheduled' && m.cancel.end >= '2026-11-01'); }), 'price');
     var stats = K.stats([{ label: 'Owed now', value: K.money(S.owed), sub: S.owed ? 'Due now' : 'Nothing to pay' }, { label: 'Family credit', value: K.money(S.credit), sub: 'Used automatically on your next payment', tone: S.credit ? 'feature' : '' }, { label: 'Paid in October', value: K.money(S.paidThisMonth), sub: 'Card payments' }, { label: 'Next payment', value: K.money(nextAmt), sub: '1 Nov · memberships' }]);
+    var unpaid = S.charges.filter(function (c) { return c.state !== 'Paid' && c.paid < c.gross - (c.creditApplied || 0); })[0];
+    var sit = S.owed > 0 ? K.situation({ tone: 'warn', title: K.money(S.owed) + ' to pay', text: unpaid ? esc(unpaid.description) + (unpaid.note ? ': ' + esc(unpaid.note) : '') + '.' : 'Open a payment below for details.', primary: unpaid ? K.actBtn('View payment', 'ph-charge', { id: unpaid.id }, { variant: 'primary' }) : '' }) :
+      K.situation({ tone: 'ok', title: 'You’re all paid up', text: 'Next payment ' + K.money(nextAmt) + ' on 1 Nov.' + (S.credit ? ' ' + K.money(S.credit) + ' family credit comes off it automatically.' : '') });
     var body = '';
     if (tab === 'charges') {
       body = K.table({ cols: '90px minmax(0,1.6fr) 100px 100px 100px 140px', head: ['Date', 'Payment', { label: 'Charged', cls: 'c-num wide' }, { label: 'Credit used', cls: 'c-num wide' }, { label: 'Paid', cls: 'c-num' }, { label: 'State', cls: 'wide' }],
@@ -506,7 +511,7 @@
           rows: st.map(function (r) { return { cells: [{ cls: 'c-cell', html: K.dm(r.date) }, K.cell(esc(r.text), esc(r.ref)), { cls: 'c-num', html: r.charge ? K.money(r.charge) : r.paid ? '<span class="only-narrow">−' + K.money(r.paid) + '</span>' : r.refund ? K.money(r.refund) : '' }, { cls: 'c-num wide', html: r.paid ? K.money(r.paid) : '' }, { cls: 'c-num wide', html: K.money(r.balance) }] }; }),
           foot: '<span>Owed now <b class="num">' + K.money(S.owed) + '</b></span><span>Family credit available <b class="num">' + K.money(S.credit) + '</b></span>' }) });
     }
-    return K.page(h, stats + body, 'ph');
+    return K.page(h, sit + stats + body, 'ph');
   };
   Hub.actions['ph-statement'] = function () { var at = K.now(), who = K.me(); mutate(null, 'Statement sent to ' + me().email, 'Statement emailed to ' + who, fam().id, { at: at, who: who, finance: true }); };
 
@@ -645,14 +650,16 @@
     var list = db.getFamilyRequests(fam().id);
     var rows = list.map(function (r) {
       var open = r.status === 'Open' || r.status === 'In review', p = r.player ? db.getPlayer(r.player) : null;
-      return K.card({ title: r.type + (p ? ' · ' + p.first : ''), sub: K.stamp('Sent', db.getParent(r.by).name, r.at), right: K.status(r.status),
-        body: K.kv([['Request', r.change ? esc(r.change.label) + (/(medical|support|emergency)/i.test(r.change.field) ? ' <span class="text-3">(details restricted)</span>' : ': ' + esc(r.change.after)) : esc(r.reason)], r.membership ? ['Membership', K.link('parent-membership/' + r.membership, sess(r.session).name)] : r.session ? ['Session', esc(sess(r.session).name)] : null,
-          r.effective ? [r.type === 'Pause' ? 'From' : 'Takes effect', K.d(r.effective) + (r.pauseTo ? ' to ' + K.d(r.pauseTo) : '')] : null, ['Stage', esc(r.stage)],
+      return K.card({ title: r.type + (p ? ' · ' + p.first : ''), sub: K.stamp('Sent', db.getParent(r.by).name, r.at), right: K.status(open ? 'Being reviewed' : r.status),
+        body: (open ? '<p class="ph-outcome"><b>' + esc(reqWords(r)) + '</b> No action needed.</p>' : '') + K.kv([['Request', r.change ? esc(r.change.label) + (/(medical|support|emergency)/i.test(r.change.field) ? ' <span class="text-3">(details restricted)</span>' : ': ' + esc(r.change.after)) : esc(r.reason)], r.membership ? ['Membership', K.link('parent-membership/' + r.membership, sess(r.session).name)] : r.session ? ['Session', esc(sess(r.session).name)] : null,
+          r.effective ? [r.type === 'Pause' ? 'From' : 'Takes effect', K.d(r.effective) + (r.pauseTo ? ' to ' + K.d(r.pauseTo) : '')] : null,
           r.resolution ? ['Outcome', K.status(r.resolution.outcome) + ' ' + esc(r.resolution.note || '') + '<br>' + K.stamp(r.resolution.outcome, r.resolution.by, r.resolution.at)] : null].filter(Boolean)) +
           (open ? '<div class="ph-actions">' + K.actBtn('Withdraw', 'ph-req-withdraw', { id: r.id }, { variant: 'tertiary', size: 'sm' }) + '</div>' : '') });
     });
     var start = K.tiles([{ route: 'parent-memberships', icon: 'calendar', title: 'Pause or cancel', desc: 'From the membership' }, { route: 'parent-child/' + (kids()[0] || {}).id, icon: 'user', title: 'Update child details', desc: 'Address, school, medical, contacts' }, { route: 'parent-browse', icon: 'plus', title: 'Ask for a weekly place', desc: 'From Book camps and events' }], 3);
-    return K.page(h, (K.feature('sessionRequests') ? '' : K.featureOff('sessionRequests')) + K.section('Start a request', null, start) + K.section('Your requests', list.length + ' in total', list.length ? '<div class="lx-stack">' + rows.join('') + '</div>' : emptyBox('inbox', 'No requests yet', 'Requests you send appear here.')), 'ph');
+    var nOpen = list.filter(function (r) { return r.status === 'Open' || r.status === 'In review'; }).length;
+    var sit = nOpen ? K.situation({ tone: 'info', title: nOpen === 1 ? reqWords(list.filter(function (r) { return r.status === 'Open' || r.status === 'In review'; })[0]) : nOpen + ' requests are being reviewed', text: 'No action needed. We’ll let you know the outcome.' }) : K.situation({ tone: 'ok', title: 'Nothing waiting on the office', text: 'Every request you sent has an answer.' });
+    return K.page(h, (K.feature('sessionRequests') ? '' : K.featureOff('sessionRequests')) + sit + K.section('Your requests', list.length + ' in total', list.length ? '<div class="lx-stack">' + rows.join('') + '</div>' : emptyBox('inbox', 'No requests yet', 'Requests you send appear here.')) + K.section('Start a request', null, start), 'ph');
   };
 
   /* ================================================================ POLICIES */

@@ -51,6 +51,9 @@
   function expectedToggle() {
     return '<div class="segmented k-seg" role="group" aria-label="Figures"><button type="button" data-action="fin-expected" data-val="0" aria-pressed="' + !Hub.finView.expected + '">Actual only</button><button type="button" data-action="fin-expected" data-val="1" aria-pressed="' + Hub.finView.expected + '">Including expected</button></div>';
   }
+  /* The one-line answer at the top of each finance page */
+  function overdueList() { return db.getInvoices().filter(function (i) { return F.balance(i) > 0 && F.paymentState(i) === 'Overdue'; }).sort(function (a, b) { return a.due < b.due ? -1 : 1; }); }
+  function cashWords(cp) { return cp.low >= cp.threshold ? 'Cash stays above the ' + M(cp.threshold).replace('.00', '') + ' safety level; lowest ' + M(cp.low).replace('.00', '') + ' on ' + K.dm(cp.lowDate) + '.' : 'Cash falls below the ' + M(cp.threshold).replace('.00', '') + ' safety level: ' + M(cp.low).replace('.00', '') + ' on ' + K.dm(cp.lowDate) + '.'; }
   function financeAttention() {
     var items = [];
     db.getInvoices().forEach(function (i) { var st = F.paymentState(i); if (st === 'Overdue') items.push({ tone: 'danger', tag: 'Overdue', title: i.number + ' · ' + clientName(i.client), meta: M(F.balance(i)) + ' · due ' + K.dm(i.due) + (i.originalDue && i.originalDue !== i.due ? ' (moved from ' + K.dm(i.originalDue) + ')' : ''), route: 'mgmt-fin-invoice/' + i.id }); if (i.xero && i.xero.status === 'Failed') items.push({ tone: 'warn', tag: 'Xero', title: i.number + ' not sent to Xero', meta: i.xero.error, route: 'mgmt-fin-invoice/' + i.id }); });
@@ -80,7 +83,11 @@
       { route: 'mgmt-fin-reports', icon: 'development', title: 'Month report', desc: 'Programme breakdown, VAT estimate and profit.' }], 4);
     var band = '<section class="lx-band" aria-label="Cash position"><div><span>Current cash</span><b class="num">' + M(cash.current) + '</b><small>' + esc(K.d(K.today)) + '</small></div><div><span>Lowest next 30 days</span><b class="num">' + M(cash.low) + '</b><small>' + K.dm(cash.lowDate) + '</small></div><div><span>Safety threshold</span><b class="num">' + M(cash.threshold) + '</b><small>' + (cash.low >= cash.threshold ? 'Currently above threshold' : 'Projected below threshold') + '</small></div></section>';
     var tools = K.moreIn('More in Financials', TOOLS.map(function (g) { return [g[0], g[1].map(function (t) { return { route: t[0], title: t[1], desc: t[2], icon: t[3] }; })]; }));
-    return K.page(h, bar + kpis + K.section('Today', 'What needs you and what is about to go out.', '<div class="lx-pair">' + attn + upcoming + '</div>') + band + K.section('Where the money is', '', areas) + tools, 'fin');
+    var od = overdueList(), odSum = K.sum(od, function (i) { return F.balance(i); });
+    var sit = cash.low < cash.threshold ? K.situation({ tone: 'danger', kicker: 'September 2026', title: 'Cash drops below the safety level on ' + K.dm(cash.lowDate), text: cashWords(cash) + ' Profit ' + M(t.profit) + ' this month.', primary: K.goBtn('View cash flow', 'mgmt-fin-cash', { variant: 'primary' }) }) :
+      od.length ? K.situation({ tone: 'warn', kicker: 'September 2026', title: M(odSum) + ' overdue · chase ' + esc(od[0].number), text: 'Otherwise on track: profit ' + M(t.profit) + ' this month. ' + cashWords(cash), primary: ui.btn('Open ' + esc(od[0].number), { variant: 'primary', href: '#mgmt-fin-invoice/' + od[0].id }) }) :
+      K.situation({ tone: 'ok', kicker: 'September 2026', title: 'On track', text: 'Profit ' + M(t.profit) + ' this month. Nothing overdue. ' + cashWords(cash) });
+    return K.page(h, sit + bar + kpis + K.section('Today', 'What needs you and what is about to go out.', '<div class="lx-pair">' + attn + upcoming + '</div>') + band + K.section('Where the money is', '', areas) + tools, 'fin');
   };
 
   /* ================================================================ MONEY IN */
@@ -105,7 +112,11 @@
       rows: open.map(function (i) { return { route: 'mgmt-fin-invoice/' + i.id, cells: [K.cell(esc(i.number) + ' · ' + esc(clientName(i.client)), 'Due ' + esc(K.dm(i.due))), { cls: 'c-num', html: M(F.balance(i)) }, { cls: 'c-end', html: K.status(F.paymentState(i)) }] }; }),
       empty: 'Every issued invoice is paid.' });
     function link(route, icon, title, sub) { return K.tile({ route: route, icon: icon, title: title, desc: sub }); }
-    var body = stats +
+    var odSum = K.sum(overdue, function (i) { return F.balance(i); });
+    var sit = overdue.length ? K.situation({ tone: 'warn', title: M(odSum) + ' overdue · chase ' + esc(overdue[0].number), text: esc(clientName(overdue[0].client)) + ' is ' + K.daysBetween(overdue[0].due, K.today) + ' days late.' + (drafts.length ? ' ' + drafts.length + ' invoice' + (drafts.length === 1 ? '' : 's') + ' still to issue.' : ''), primary: ui.btn('Open ' + esc(overdue[0].number), { variant: 'primary', href: '#mgmt-fin-invoice/' + overdue[0].id }), secondary: drafts.length ? K.goBtn('Issue invoices', 'mgmt-fin-drafts', { variant: 'secondary' }) : '' }) :
+      drafts.length ? K.situation({ tone: 'info', title: drafts.length + ' invoice' + (drafts.length === 1 ? '' : 's') + ' to issue', text: 'Nothing overdue. ' + M(rec.total) + ' owed to us and not yet due.', primary: K.goBtn('Issue invoices', 'mgmt-fin-drafts', { variant: 'primary' }) }) :
+      K.situation({ tone: 'ok', title: 'Everything due has come in', text: M(rec.total) + ' owed to us, none of it late.' });
+    var body = sit + stats +
       K.section('School and client invoices', 'Unpaid first. Open one to record a payment, send a reminder or raise a credit note.', invT,
         K.goBtn('All invoices', 'mgmt-fin-invoices', { size: 'sm', variant: 'secondary' })) +
       K.section('Parents and bookings', '', '<div class="lx-links">' +
@@ -355,7 +366,7 @@
   Hub.actions['fin-replace-go'] = function (el) { var r = K.val('rep_reason'); if (!r) { Hub.toast('A reason is required'); return; } Hub.closeSheet(true); var d = Hub.mutate(function () { return db.replaceInvoice(el.dataset.id, r); }, 'Replacement draft created'); location.hash = 'mgmt-fin-draft/' + d.id; };
   Hub.screens['mgmt-fin-invoice'] = function (ctx) {
     var i = db.getInvoice(ctx.param) || db.getInvoices()[0], c = db.getClient(i.client), ps = F.paymentState(i), bal = F.balance(i), done = db.creditedLines(i.id), w = can() && F.invoiceState(i) !== 'Credited';
-    var acts = can() ? K.actBtn('Send', 'fin-send', { id: i.id }, { variant: 'secondary', icon: 'external' }) + K.actBtn('Download PDF', 'fin-pdf', { id: i.id }, { variant: 'secondary', icon: 'download' }) + (bal > 0 ? K.actBtn('Record payment', 'fin-pay', { id: i.id }, { variant: 'primary' }) : '') : K.goBtn('Print view', 'mgmt-fin-invoice-print/' + i.id, { variant: 'secondary', icon: 'download' });
+    var acts = can() ? K.actBtn('Send', 'fin-send', { id: i.id }, { variant: 'secondary', icon: 'external' }) + K.actBtn('Download PDF', 'fin-pdf', { id: i.id }, { variant: 'secondary', icon: 'download' }) : K.goBtn('Print view', 'mgmt-fin-invoice-print/' + i.id, { variant: 'secondary', icon: 'download' });
     var h = head('mgmt-fin-invoices', { back: ['mgmt-fin-invoices', 'Invoices'], eyebrow: 'Invoice · ' + i.id, title: i.number + ' · ' + c.name, sub: K.frozen('Issued · frozen') + ' ' + K.stamp('Issued', i.issuedBy, i.issued + 'T15:30'), actions: acts });
     var g = gate(ctx, h); if (g) return g;
     var figs = K.stats([{ label: 'Total', value: M(i.gross), sub: 'Net ' + M(i.net) + ' · VAT ' + M(i.vat) }, { label: 'Credited', value: M(F.creditedOn(i.id)), sub: F.invoiceState(i) }, { label: 'Paid and applied', value: M(F.paidOn(i.id) + F.appliedCreditOn(i.id)) }, { label: 'Balance', value: M(Math.max(0, bal)), sub: ps + ' · due ' + K.dm(i.due), tone: ps === 'Overdue' ? 'warn' : '' }]);
@@ -370,7 +381,12 @@
       cns.map(function (cn) { return '<div class="lx-row"><span class="lx-row__date num">' + K.dm(cn.at) + '</span><span class="lx-row__main"><b>Credit note ' + esc(cn.number) + ' ' + K.frozen('Frozen') + '</b><small>' + esc(cn.reason) + ' · by ' + esc(cn.by) + '</small></span><b class="lx-row__amt num">−' + M(cn.gross) + '</b></div>'; }).join('') +
       db.getClientCredits(i.client).map(function (cc) { return cc.applied.map(function (a) { return a.invoice === i.id ? '<div class="lx-row"><span class="lx-row__date num">' + K.dm(a.at) + '</span><span class="lx-row__main"><b>Client credit ' + esc(cc.id) + (a.removed ? ' ' + K.pill('Unapplied', '') : '') + '</b><small>by ' + esc(a.by) + '</small></span><b class="lx-row__amt num">−' + M(a.amount) + '</b></div>' : ''; }).join(''); }).join('') +
       (pays.length || cns.length ? '' : '<p class="k-note">Nothing received yet.</p>') + '</div>' });
-    return K.page(h, figs + K.section('Lines', '', lines) + omis + K.grid([details, '<div class="lx-stack">' + money + corrections + '</div>'], 2) + K.section('History', '', '<div class="lx-surface">' + K.timeline(i.history.slice().reverse()) + '</div>'), 'fin');
+    var late = ps === 'Overdue' ? K.daysBetween(i.due, K.today) : 0, payBtn = can() && bal > 0 ? K.actBtn('Record payment', 'fin-pay', { id: i.id }, { variant: 'primary' }) : '';
+    var sit = F.invoiceState(i) === 'Credited' ? K.situation({ tone: 'ok', title: 'Credited in full', text: 'Nothing more to collect on this invoice.' }) :
+      bal <= 0 ? K.situation({ tone: 'ok', title: 'Paid in full', text: M(i.gross) + ' received.' }) :
+      ps === 'Overdue' ? K.situation({ tone: 'warn', kicker: M(bal) + ' outstanding', title: 'Payment overdue by ' + late + ' day' + (late === 1 ? '' : 's'), text: 'Was due ' + K.d(i.due) + '. Chase ' + esc(c.contact || c.name) + ', or record the payment if it has arrived.', primary: payBtn, secondary: can() ? K.actBtn('Send reminder', 'fin-send', { id: i.id }, { variant: 'secondary' }) : '' }) :
+      K.situation({ tone: 'info', title: M(bal) + ' due on ' + K.d(i.due), text: 'Not late yet. No action needed until then.', primary: payBtn ? payBtn.replace('btn--primary', 'btn--secondary') : '' });
+    return K.page(h, sit + figs + K.section('Lines', '', lines) + K.grid([details, '<div class="lx-stack">' + money + corrections + '</div>'], 2) + (omis ? K.details('Sessions left off this invoice', omis, { sub: i.omissions.length + ' approved' }) : '') + K.details('History', K.timeline(i.history.slice().reverse())), 'fin');
   };
   Hub.actions['fin-print'] = function () { window.print(); };
   Hub.screens['mgmt-fin-invoice-print'] = function (ctx) {
@@ -494,13 +510,16 @@
     var tabs = [{ id: 'coaches', label: 'Coach costs' }, { id: 'costs', label: 'Venue and other costs' }, { id: 'overheads', label: 'Overheads' }];
     var h = head('mgmt-fin-money-out', { title: 'Money out', sub: 'Coach costs come from pay items (one coach, one session). Coaches are paid on the ' + db.getFinanceSettings().coachPaymentDay + 'th for the previous month.', tabs: K.tabs('fin-mo', tabs) }); var g = gate(ctx, h); if (g) return g;
     var tab = K.tab('fin-mo', tabs), body = '';
+    var sepAll = db.getAllocations(function (a) { return a.date.slice(0, 7) === '2026-09'; }), unconf = sepAll.filter(function (a) { return a.state !== 'Confirmed' && a.state !== 'Exported'; }), toRun = sepAll.filter(function (a) { return (a.state === 'Confirmed' || a.state === 'Exported') && !a.run; });
+    var mos = unconf.length ? K.situation({ tone: 'warn', title: unconf.length + ' pay item' + (unconf.length === 1 ? '' : 's') + ' not confirmed', text: 'Confirm them before coaches are paid on ' + K.dm('2026-10-07') + '.', primary: K.goBtn('Review coach pay', 'mgmt-allocations', { variant: 'primary' }) }) :
+      K.situation({ tone: toRun.length ? 'info' : 'ok', title: (toRun.length ? M(K.sum(toRun, 'cost')) + ' to pay coaches on ' : 'Coach pay is ready for ') + K.dm('2026-10-07'), text: sepAll.length + ' September pay items, all confirmed and matching the work summaries. Venues, other costs and overheads (' + M(K.sum(db.getOverheads(), 'net')) + ' a month) are in the tabs above.', primary: can() && toRun.length ? K.actBtn('Prepare payment run', 'fin-run', {}, { variant: 'primary' }) : '' });
     if (tab === 'coaches') {
       var sep = db.getAllocations(function (a) { return a.date.slice(0, 7) === '2026-09'; });
       var per = {}; sep.forEach(function (a) { var p = per[a.coach] || (per[a.coach] = { n: 0, units: 0, cost: 0, states: {} }); p.n++; p.units += a.units; p.cost += a.cost; p.states[a.state] = 1; });
       var confirmed = sep.filter(function (a) { return a.state === 'Confirmed' || a.state === 'Exported'; });
       body = K.stats([{ label: 'September coach cost', value: M(K.sum(sep, 'cost')), sub: sep.length + ' pay items' }, { label: 'Ready to pay', value: M(K.sum(confirmed, 'cost')), sub: confirmed.length + ' confirmed or sent for payment' }, { label: 'Payment day', value: K.dm('2026-10-07'), sub: 'Previous month’s work' }, { label: 'Standard rate', value: M(3125), sub: 'Per evening hour' }]) +
         K.table({ cols: 'minmax(0,1.5fr) 100px 90px 160px 110px', head: ['Coach', 'Sessions', 'Hours', 'State', { label: 'Cost', cls: 'c-num' }], rows: Object.keys(per).map(function (k) { var p = per[k]; return { route: 'mgmt-coach/' + k, cells: [K.cell(esc(db.coachName(k)), (db.getRateProfiles(k).filter(function (r) { return !r.to; })[0] || {}).note || ''), { cls: 'c-cell', html: String(p.n) }, { cls: 'c-cell', html: String(p.units) }, { html: Object.keys(p.states).map(K.status).join(' ') }, { cls: 'c-num', html: M(p.cost) }] }; }), foot: '<span>Matches the work summaries for September</span><b class="num">' + M(K.sum(sep, 'cost')) + '</b>' }) +
-        K.section('Payment runs', '', K.table({ cols: '100px minmax(0,1fr) 140px minmax(0,1.4fr) 110px', head: ['Run', 'Work month', 'Paid on', 'Prepared', { label: 'Amount', cls: 'c-num' }], rows: db.getPaymentRuns().map(function (r) { return { cells: [{ cls: 'c-cell', html: esc(r.id) }, { cls: 'c-cell', html: monthName(r.month) }, { cls: 'c-cell', html: K.d(r.paidOn) + ' ' + K.status(r.state) }, { cls: 'c-cell', html: K.stamp('Prepared', r.by, r.at) }, { cls: 'c-num', html: M(r.amount) }] }; }) }), can() && confirmed.some(function (a) { return !a.run; }) ? K.actBtn('Prepare September payment run', 'fin-run', {}, { variant: 'primary', size: 'sm' }) : '');
+        K.details('Payment runs', K.table({ cols: '100px minmax(0,1fr) 140px minmax(0,1.4fr) 110px', head: ['Run', 'Work month', 'Paid on', 'Prepared', { label: 'Amount', cls: 'c-num' }], rows: db.getPaymentRuns().map(function (r) { return { cells: [{ cls: 'c-cell', html: esc(r.id) }, { cls: 'c-cell', html: monthName(r.month) }, { cls: 'c-cell', html: K.d(r.paidOn) + ' ' + K.status(r.state) }, { cls: 'c-cell', html: K.stamp('Prepared', r.by, r.at) }, { cls: 'c-num', html: M(r.amount) }] }; }) }), { sub: 'Past coach payments' });
     } else if (tab === 'costs') {
       var venues = {}; db.getOccurrences(function (o) { return o.date.slice(0, 7) === '2026-09'; }).forEach(function (o) { var c = F.venueCost(o); if (c) { venues[o.venue] = (venues[o.venue] || 0) + c; } });
       body = K.section('Venue hire · September', 'Hourly hire for parent sessions. Client sessions are held on the client’s own site.', K.table({ cols: 'minmax(0,1.5fr) 140px 110px', head: ['Venue', 'Rate', { label: 'September', cls: 'c-num' }], rows: Object.keys(venues).map(function (k) { var v = db.getVenue(k); return { route: 'mgmt-venue/' + k, cells: [K.cell(esc(v.name)), { cls: 'c-cell', html: M(v.costPerHour) + ' an hour' }, { cls: 'c-num', html: M(venues[k]) }] }; }) })) +
@@ -509,7 +528,7 @@
       var ovs = db.getOverheads();
       body = K.table({ cols: 'minmax(0,1.6fr) 110px 110px 100px 100px 120px', head: ['Overhead', 'Frequency', { label: 'Net', cls: 'c-num' }, { label: 'VAT', cls: 'c-num' }, 'Reclaimable', 'Paid on'], rows: ovs.map(function (o) { return { cells: [K.cell(esc(o.name), esc(o.supplier || '')), { cls: 'c-cell', html: esc(o.frequency) }, { cls: 'c-num', html: M(o.net) }, { cls: 'c-num', html: M(o.vat) }, { cls: 'c-cell', html: o.reclaim ? 'Yes' : 'No' }, { cls: 'c-cell', html: 'Day ' + o.day }] }; }), foot: '<span>Monthly overheads (net)</span><b class="num">' + M(K.sum(ovs, 'net')) + '</b>' }) + (can() ? '<div class="k-bar">' + K.actBtn('Add overhead', 'fin-ovh-new', {}, { variant: 'secondary', size: 'sm', icon: 'plus' }) + '</div>' : '');
     }
-    return K.page(h, body, 'fin');
+    return K.page(h, mos + body, 'fin');
   };
 
   /* ================================================================ LEDGER */
@@ -547,7 +566,8 @@
     var cp = F.cashPosition();
     var figs = K.stats([{ label: 'Current cash', value: M(cp.current), sub: 'Opening ' + M(cp.opening.amount) + ' on ' + K.dm(cp.opening.date) }, { label: '30-day low point', value: M(cp.low), sub: K.dd(cp.lowDate), tone: cp.low < cp.threshold ? 'warn' : '' }, { label: 'Safety threshold', value: M(cp.threshold), sub: cp.low >= cp.threshold ? 'Above threshold' : 'Projected below' }, { label: 'Headroom at the low', value: M(cp.low - cp.threshold), tone: 'feature' }]);
     var ev = K.table({ cols: '80px minmax(0,1.8fr) 70px 110px 110px 110px 100px minmax(0,1.2fr)', head: ['Date', 'Movement', 'In / out', { label: 'Expected', cls: 'c-num' }, { label: 'Actual', cls: 'c-num' }, { label: 'Balance', cls: 'c-num' }, 'Certainty', 'Authority'], rows: cp.events.map(function (e) { return { cells: [{ cls: 'c-cell', html: K.dm(e.date) }, K.cell(esc(e.label), K.status(e.state) + (e.remaining ? ' · ' + M(e.remaining) + ' remaining' : '')), { cls: 'c-cell', html: e.kind }, { cls: 'c-num', html: (e.kind === 'Out' ? '−' : '') + M(e.expected) }, { cls: 'c-num', html: e.actual != null ? (e.kind === 'Out' ? '−' : '') + M(e.actual) : '—' }, { cls: 'c-num', html: M(e.running) }, { html: K.status(e.certainty) }, { cls: 'c-cell', html: esc(e.authority) }] }; }) });
-    return K.page(h, figs + K.card({ title: 'Next 30 days', body: cashChart(cp) }) + K.section('Cash events', 'Every expected and actual movement since ' + K.dm(cp.opening.date) + '.', ev), 'fin');
+    var sit = K.situation({ tone: cp.low >= cp.threshold ? 'ok' : 'danger', title: cp.low >= cp.threshold ? 'Enough cash for the next 30 days' : 'Cash runs short on ' + K.dm(cp.lowDate), text: cashWords(cp) + ' ' + M(cp.current) + ' in the bank today.' });
+    return K.page(h, sit + K.card({ title: 'Next 30 days', body: cashChart(cp) }) + figs + K.details('Every cash movement', ev, { sub: 'Expected and actual since ' + K.dm(cp.opening.date) + ', with certainty and who approved it' }), 'fin');
   };
 
   /* ================================================================ REPORTS */
@@ -563,7 +583,9 @@
     var cash = K.card({ title: 'Cash position', body: K.kv([['Current cash', M(cp.current)], ['30-day low point', M(cp.low) + ' on ' + K.dd(cp.lowDate)], ['Safety threshold', M(cp.threshold) + ' · ' + (cp.low >= cp.threshold ? 'above' : 'below')]]) + K.goBtn('Open cash flow', 'mgmt-fin-cash', { variant: 'secondary', size: 'sm' }) });
     var result = K.stats([{ label: 'Revenue', value: M(t.net), sub: 'Net of VAT' }, { label: 'Direct costs', value: M(t.direct), sub: 'Coaches, venues and other' }, { label: 'Overheads', value: M(t.overheads) }, { label: 'Profit', value: M(t.profit), sub: t.margin + '% before overheads', tone: 'feature' }]);
     var notes = K.card({ title: 'Notes and export', body: '<p class="k-note">Figures are worked out from issued invoices, paid parent charges and confirmed costs. Draft invoices are only included when you choose Including expected.</p>' + K.actBtn('Print this report', 'fin-print-report', {}, { variant: 'secondary', icon: 'download', size: 'sm' }) });
-    return K.page(h, result + K.section('By programme', Hub.finView.expected ? 'Including the Northgate September draft and any other unissued drafts.' : 'Actual only: issued invoices and paid parent charges.', table) + K.grid([pl, vat, cash], 3) + notes, 'fin');
+    var best = s.rows.slice().sort(function (a, b) { return b.contribution - a.contribution; })[0];
+    var sit = K.situation({ tone: t.profit >= 0 ? 'ok' : 'warn', title: (t.profit >= 0 ? 'September made ' + M(t.profit) + ' profit' : 'September lost ' + M(-t.profit)), text: 'Revenue ' + M(t.net) + ' after VAT, ' + t.margin + '% kept before overheads.' + (best ? ' Strongest: ' + esc(best.programme) + ' (' + M(best.contribution) + ').' : '') });
+    return K.page(h, sit + result + K.section('By programme', Hub.finView.expected ? 'Including the Northgate September draft and any other unissued drafts.' : 'Actual only: issued invoices and paid parent charges.', table) + K.grid([pl, vat, cash], 3) + notes, 'fin');
   };
   Hub.actions['fin-print-report'] = function () { window.print(); };
 })();

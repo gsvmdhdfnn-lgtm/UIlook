@@ -36,7 +36,7 @@
   K.route('mgmt-documents', { title: 'Documents and compliance', parent: 'home' });
   K.route('mgmt-document', { title: function () { var d = db.getDocument(K.param()); return d ? db.getDocType(d.type).name : 'Document'; }, parent: 'home' });
   K.route('mgmt-cover', { title: 'Cover', parent: 'home' });
-  K.route('mgmt-cover-request', { title: function () { return 'Cover ' + K.param(); }, parent: 'home' });
+  K.route('mgmt-cover-request', { title: function () { var r = db.getCoverRequest(K.param()); return r && r.coach ? 'Cover for ' + db.coachName(r.coach).split(' ')[0] : 'Cover'; }, parent: 'home' });
   K.route('mgmt-work-summaries', { title: 'Work summaries', parent: 'home' });
   K.route('mgmt-work-summary', { title: function () { var w = db.getWorkSummary(K.param()); return w ? db.coachName(w.coach) + ' · ' + w.label : 'Work summary'; }, parent: 'home' });
 
@@ -121,7 +121,7 @@
       if (t.id === 'availability' && openCover) { m.meta = openCover + ' cover open'; m.state = 'Warning'; }
       return m;
     });
-    var h = K.head({ back: ['mgmt-coaches', word()], eyebrow: c.code + ' · ' + c.role, title: c.name,
+    var h = K.head({ back: ['mgmt-coaches', word()], eyebrow: c.role, title: c.name,
       sub: esc(c.hub + ' hub access') + ' · ' + (c.active ? 'Active' : 'Inactive') + ' · started ' + esc(K.dm(c.started) + ' ' + c.started.slice(0, 4)),
       actions: K.actBtn('Record time off', 'co-absence', { coach: c.id }, { variant: 'secondary', icon: 'calendar' }),
       tabs: K.tabs('coach-prof', tabs) });
@@ -159,7 +159,16 @@
       ['Available', exc ? esc(exc.type) + ' ' + esc(K.dm(exc.from)) + (exc.to !== exc.from ? '–' + esc(K.dm(exc.to)) : '') : 'Usual week', exc ? esc(exc.reason || '') : 'Nothing booked off'],
       ['Documents and pay', cs.state === 'Current' ? 'Documents up to date' : esc(cs.text), 'September: ' + sep.length + ' sessions' + (K.canFin() || K.fin() === 'view' ? ' · ' + K.money(K.sum(sep, 'cost')) : '')]
     ]);
-    return K.needsFor(function (k) { return K.relatesTo(k, 'coach', c.id); }, { title: 'Needs you for ' + c.name.split(' ')[0] }) + alert + snap + K.grid([profile, '<div class="lx-stack">' + compCard + upcoming + '</div>'], '21');
+    /* Is this coach okay, and is anything needed? */
+    var fn = first(c.name), list = db.getCoachCompliance(c.id), bad = list.filter(function (x) { return x.state === 'Expired' || x.state === 'Missing'; })[0];
+    var pend = list.filter(function (x) { return x.pending; })[0], soon = list.filter(function (x) { return x.state === 'Expiring'; })[0];
+    var sit = !c.active ? K.situation({ tone: 'info', title: fn + ' is inactive', text: 'Inactive coaches are not offered sessions or cover.' })
+      : bad ? K.situation({ tone: 'danger', title: esc(bad.type.name) + (bad.state === 'Expired' ? ' expired' : ' missing'), text: esc(fn) + ' should not be staffed until ' + (bad.state === 'Expired' ? 'it is replaced' : 'one is on file') + '.' + (pend && pend.type.id === bad.type.id ? ' A new one has been uploaded and is waiting to be checked.' : ''), primary: pend && pend.type.id === bad.type.id ? K.goBtn('Check the new ' + bad.type.name.toLowerCase(), 'mgmt-document/' + pend.pending.id, { variant: 'primary' }) : K.actBtn('Review documents', 'co-tab', { tab: 'documents' }, { variant: 'primary' }) })
+      : pend ? K.situation({ tone: 'warn', title: 'New ' + esc(pend.type.name.toLowerCase()) + ' uploaded', text: 'Check the original document before approving.', primary: K.goBtn('Review document', 'mgmt-document/' + pend.pending.id, { variant: 'primary' }) })
+      : t ? K.situation({ tone: 'warn', title: (t.type === 'Different hours' ? 'Different hours today' : fn + ' is unavailable today'), text: esc(t.reason || '') })
+      : soon ? K.situation({ tone: 'warn', title: esc(soon.type.name) + ' expires ' + esc(K.dm(soon.doc.expires)), text: 'Ask ' + esc(fn) + ' for a new one before then.', primary: K.actBtn('Review documents', 'co-tab', { tab: 'documents' }, { variant: 'secondary' }) })
+      : K.situation({ tone: 'ok', title: fn + ' is all set', text: 'Documents current, nothing booked off and no cover open.' });
+    return sit + K.needsFor(function (k) { return K.relatesTo(k, 'coach', c.id) && k.ruleId !== 'ATT-011' && k.ruleId !== 'ATT-042'; }, { title: 'Also needs you' }) + snap + K.grid([upcoming, compCard], 2) + K.details('Profile and contact', profile, { sub: 'Contact details, role, active status and its history' });
   }
 
   function permsList(role) {
@@ -441,21 +450,26 @@
     if (!K.feature('documents')) return page(h, K.featureOff('documents'));
     var issues = db.getComplianceIssues();
     function n(k) { return issues.filter(function (x) { return x.kind === k; }).length; }
-    var stats = K.stats([{ label: 'Expired', value: n('expired'), sub: 'Cannot be staffed until replaced', tone: n('expired') ? 'warn' : '' }, { label: 'Missing', value: n('missing'), sub: 'Required but not on file' }, { label: 'Expiring', value: n('expiring'), sub: 'Inside the review window' }, { label: 'Pending verification', value: n('pending'), sub: 'Uploaded, not yet checked' }]);
-    var KIND = { expired: 'Expired', missing: 'Missing', expiring: 'Expiring', pending: 'Pending verification' };
+    var KIND = { expired: 'Expired', missing: 'Missing', expiring: 'Expiring', pending: 'New upload to check' };
+    var nAct = n('expired') + n('missing') + n('pending'), firstIssue = issues[0];
+    var sit = !issues.length ? K.situation({ tone: 'ok', title: 'All documents current', text: 'Nothing expired, missing or waiting to be checked.' }) :
+      K.situation({ tone: n('expired') || n('missing') ? 'danger' : n('pending') ? 'warn' : 'info',
+        title: (nAct ? nAct + ' document' + (nAct === 1 ? '' : 's') + ' need' + (nAct === 1 ? 's' : '') + ' you' : n('expiring') + ' expiring soon'),
+        text: [n('expired') ? n('expired') + ' expired: those coaches should not be staffed until replaced' : '', n('missing') ? n('missing') + ' missing' : '', n('pending') ? n('pending') + ' new upload' + (n('pending') === 1 ? '' : 's') + ' to check against the original' : '', n('expiring') ? n('expiring') + ' expiring soon' : ''].filter(Boolean).join(' · ') + '.',
+        primary: firstIssue ? ui.btn(firstIssue.kind === 'pending' ? 'Review document' : 'Open the first', { variant: 'primary', href: '#' + (firstIssue.doc ? 'mgmt-document/' + firstIssue.doc : 'mgmt-coach/' + firstIssue.coach) }) : '' });
     var issueList = issues.length ? ui.rows(issues.map(function (x) {
       return ui.row({ lead: ui.sev(x.severity), title: esc(x.title), sub: [esc(x.typeName), x.date ? (x.kind === 'pending' ? 'Uploaded ' : x.kind === 'expired' ? 'Expired ' : 'Expires ') + K.d(x.date) : 'Nothing on file'], trail: st(KIND[x.kind]), href: '#' + (x.doc ? 'mgmt-document/' + x.doc : 'mgmt-coach/' + x.coach) });
-    }), 'rows--lead') : ui.empty('checkCircle', 'Everything is current', 'No expired, missing, expiring or unchecked documents.');
+    }), 'rows--lead') : '';
     var req = K.table({ cols: 'minmax(0,1.4fr) minmax(0,1.4fr) 100px 130px', head: ['Document type', { label: 'Required for', cls: 'wide' }, { label: 'Valid for', cls: 'wide' }, 'Review lead time'], rows: db.getDocTypes().map(function (t) {
       return { cells: [K.cell(esc(t.name), stamp('Set', t.by, t.at)), { cls: 'wide c-cell', html: esc(t.appliesTo.map(function (r) { return db.getRole(r).name; }).join(', ')) }, { cls: 'wide', html: t.validYears ? t.validYears + ' years' : 'No expiry' },
         { cls: 'c-end', html: t.validYears ? K.actBtn(t.leadDays + ' days', 'co-lead', { type: t.id }, { size: 'sm', variant: 'secondary' }) : '<span class="c-mute">Review every ' + t.reviewMonths + ' months</span>' }] };
     }) });
     var f = K.tab('co-docs', [{ id: 'action' }, { id: 'all' }, { id: 'pending' }, { id: 'expired' }]);
     var docs = db.getDocuments().filter(function (d) { var s = db.docState(d); return f === 'all' || (f === 'pending' && s === 'Pending verification') || (f === 'expired' && s === 'Expired') || (f === 'action' && s !== 'Verified'); }).sort(function (a, b) { return a.coach === b.coach ? (a.type < b.type ? -1 : 1) : db.coachName(a.coach) < db.coachName(b.coach) ? -1 : 1; });
-    return page(h, stats + K.grid([K.section('Needs a look', 'Raised in Needs Attention until fixed.', '<div class="zone-inset">' + issueList + '</div>'),
-      K.section('Required documents', 'For this organisation. Review starts this many days before expiry.', req)], 2) +
-      K.section('Documents on file', 'Open one to verify or reject it.', '<div class="k-bar">' + K.seg('co-docs', [{ id: 'action', label: 'Needs action' }, { id: 'all', label: 'All' }, { id: 'pending', label: 'Pending' }, { id: 'expired', label: 'Expired' }]) + '</div>' +
-        K.table({ cols: DOC_COLS, head: docHead(true), rows: docRows(docs, true), empty: 'Nothing here.' })));
+    return page(h, sit + (issueList ? K.section('Needs you', 'Each one stays in Needs Attention until it is fixed.', '<div class="zone-inset">' + issueList + '</div>') : '') +
+      K.details('All documents on file', '<div class="k-bar">' + K.seg('co-docs', [{ id: 'action', label: 'Needs action' }, { id: 'all', label: 'All' }, { id: 'pending', label: 'To check' }, { id: 'expired', label: 'Expired' }]) + '</div>' +
+        K.table({ cols: DOC_COLS, head: docHead(true), rows: docRows(docs, true), empty: 'Nothing here.' }), { sub: db.getDocuments().length + ' uploads' }) +
+      K.details('Required documents', req, { sub: 'What each role must hold, and when review starts' }));
   };
   Hub.actions['co-lead'] = function (el) {
     var t = db.getDocType(el.dataset.type);
@@ -466,22 +480,26 @@
 
   Hub.screens['mgmt-document'] = function (ctx) {
     var d = db.getDocument(ctx.param), t = d && db.getDocType(d.type);
-    var h = K.head({ back: ['mgmt-documents', 'Documents and compliance'], eyebrow: d ? db.coachName(d.coach) + ' · ' + d.id : 'Document', title: t ? t.name : 'Document',
-      sub: d ? 'Reference ' + esc(d.ref || '—') + ' · ' + stamp('Uploaded', d.uploaded.by, d.uploaded.at) : '',
-      actions: d && d.verification.state === 'Pending' ? K.actBtn('Reject', 'co-doc-reject', { id: d.id }, { variant: 'secondary' }) + K.actBtn('Verify', 'co-doc-verify', { id: d.id }, { variant: 'primary', icon: 'check' }) : '' });
+    var h = K.head({ back: ['mgmt-documents', 'Documents and compliance'], eyebrow: d ? db.coachName(d.coach) : 'Document', title: t ? t.name : 'Document',
+      sub: d ? (d.expires ? 'Expires ' + K.d(d.expires) : 'No expiry') : '',
+    });
     var g = K.guard(ctx, h, { empty: ['book', 'Nothing to show', 'This document has no details yet.'] }); if (g) return g;
     if (!d) return notFound(h, 'Document');
     var s = db.docState(d), others = db.getDocuments(function (x) { return x.coach === d.coach && x.type === d.type && x.id !== d.id; });
-    var stateNote = s === 'Expired' ? ui.notice('danger', 'Expired on ' + K.d(d.expires), 'This ' + t.name.toLowerCase() + ' is no longer valid. ' + (others.some(function (x) { return x.verification.state === 'Pending'; }) ? 'A newer upload is waiting to be checked.' : 'Ask ' + first(db.coachName(d.coach)) + ' to upload a new one.')) :
-      s === 'Expiring' ? ui.notice('warn', 'Expires in ' + K.daysBetween(K.today, d.expires) + ' days', 'Review window opened ' + K.d(d.reviewDue) + '. Ask for the renewal now.') :
-      s === 'Pending verification' ? ui.notice('info', 'Pending verification', 'Check the original certificate, then verify or reject it. The person verifying should not be the person who uploaded it.') :
-      s === 'Rejected' ? ui.notice('danger', 'Rejected', esc(d.verification.note) + '<br>' + stamp('Rejected', d.verification.by, d.verification.at)) : '';
+    var who = first(db.coachName(d.coach)), pend = others.filter(function (x) { return x.verification.state === 'Pending'; })[0];
+    var verifyBtns = { primary: K.actBtn('Approve', 'co-doc-verify', { id: d.id }, { variant: 'primary', icon: 'check' }), secondary: K.actBtn('Reject', 'co-doc-reject', { id: d.id }, { variant: 'secondary' }) };
+    var sit = s === 'Expired' ? K.situation({ tone: 'danger', kicker: 'Expired ' + K.d(d.expires), title: esc(t.name) + ' expired', text: who + ' should not be staffed until it is replaced. ' + (pend ? 'A newer upload is waiting to be checked.' : 'Ask ' + who + ' to upload a new one.'), primary: pend ? ui.btn('Check the new upload', { variant: 'primary', href: '#mgmt-document/' + pend.id }) : '' }) :
+      s === 'Pending verification' ? K.situation({ tone: 'warn', kicker: 'Uploaded ' + K.dm(d.uploaded.at), title: 'New ' + esc(t.name) + ' uploaded', text: 'Check the original document before approving. The person approving should not be the person who uploaded it.', primary: verifyBtns.primary, secondary: verifyBtns.secondary }) :
+      s === 'Expiring' ? K.situation({ tone: 'warn', title: 'Expires in ' + K.daysBetween(K.today, d.expires) + ' days', text: 'Ask ' + who + ' for the renewal now. Review started ' + K.d(d.reviewDue) + '.' }) :
+      s === 'Rejected' ? K.situation({ tone: 'danger', title: 'Rejected', text: esc(d.verification.note) + ' ' + who + ' needs to upload a new one.' }) :
+      K.situation({ tone: 'ok', title: esc(t.name) + ' is current', text: d.expires ? 'Valid until ' + K.d(d.expires) + '.' : 'No expiry.' });
+    var stateNote = sit;
     var details = K.card({ title: 'Details', body: K.kv([['Coach', K.link('mgmt-coach/' + d.coach, db.coachName(d.coach))], ['Type', esc(t.name)], ['Reference', esc(d.ref || '—')], ['Issued', K.d(d.issued)], ['Expires', d.expires ? K.d(d.expires) : 'No expiry'],
-      ['Review from', d.reviewDue ? K.d(d.reviewDue) : '—'], ['State', st(s)], ['Verification', d.verification.state === 'Verified' ? stamp('Verified', d.verification.by, d.verification.at) : d.verification.state === 'Rejected' ? stamp('Rejected', d.verification.by, d.verification.at) : '<span class="c-mute">Not checked yet</span>']]) });
+      ['Review from', d.reviewDue ? K.d(d.reviewDue) : '—'], ['State', st(s)], ['Uploaded', stamp('Uploaded', d.uploaded.by, d.uploaded.at)], ['Checked', d.verification.state === 'Verified' ? stamp('Approved', d.verification.by, d.verification.at) : d.verification.state === 'Rejected' ? stamp('Rejected', d.verification.by, d.verification.at) : '<span class="c-mute">Not checked yet</span>']]) });
     var scan = K.card({ title: 'Uploaded file', sub: 'Certificate scan provided by the coach.', body: '<div class="co-scan" aria-label="Certificate preview">' + I('book') + '<b>' + esc(t.name) + '</b><small>' + esc(d.ref || '') + ' · ' + esc(db.coachName(d.coach)) + '</small></div>' });
-    var hist = K.card({ title: 'History', body: K.timeline(d.history.slice().reverse()) });
+    var hist = K.details('History', K.timeline(d.history.slice().reverse()), { sub: 'Uploads, checks and changes' });
     var prev = others.length ? K.card({ title: 'Other ' + t.name.toLowerCase() + ' uploads', body: ui.rows(others.map(function (x) { return ui.row({ title: esc(x.ref || x.id), sub: [x.expires ? 'Expires ' + K.d(x.expires) : 'No expiry', 'Uploaded ' + K.dm(x.uploaded.at)], trail: st(db.docState(x)), href: '#mgmt-document/' + x.id }); })) }) : '';
-    return page(h, stateNote + K.grid([details + hist, scan + prev], '21'));
+    return page(h, stateNote + K.grid([details, scan + prev], '21') + hist);
   };
   Hub.actions['co-doc-verify'] = function (el) { var d = db.getDocument(el.dataset.id); Hub.mutate(function () { db.verifyDocument(d.id, K.me(), K.now()); }, db.getDocType(d.type).name + ' verified', log(db.getDocType(d.type).name + ' for ' + db.coachName(d.coach) + ' verified', d.id, { before: 'Pending', after: 'Verified' })); };
   Hub.actions['co-doc-reject'] = function (el) {
@@ -502,25 +520,39 @@
 
   /* ============================================================ COVER */
   var NEED_ORDER = ['Open', 'Needs a phone call', 'Offered', 'Accepted', 'Covered'];
+  /* Cover: what does each date mean and what is the next step */
+  function coverWords(r, n) {
+    var acc = n.offers.filter(function (f) { return f.response === 'Accepted'; }).slice(-1)[0];
+    var waiting = n.offers.filter(function (f) { return !f.response; });
+    if (n.state === 'Covered') return { tone: 'ok', title: db.coachName(n.confirmed.coach) + ' is covering', act: false };
+    if (n.state === 'Accepted' && acc) return { tone: 'info', title: db.coachName(acc.coach) + ' can cover: confirm', act: true };
+    if (n.state === 'Needs a phone call') return { tone: 'warn', title: 'Needs a phone call', act: true };
+    if (waiting.length) return { tone: 'info', title: 'Waiting for ' + waiting.map(function (f) { return first(db.coachName(f.coach)); }).join(' and ') + ' to reply', act: false };
+    if (n.offers.length) return { tone: 'danger', title: 'No one has said yes yet', act: true };
+    return { tone: 'warn', title: 'Cover still needed', act: true };
+  }
   Hub.screens['mgmt-cover'] = function (ctx) {
-    var h = K.head({ back: ['mgmt-coaches', word()], eyebrow: word(), title: 'Cover', sub: 'Every date that needs a ' + one().toLowerCase() + ', who has been asked, and what they said. Each date moves on its own.',
-      actions: K.actBtn('Record absence', 'co-absence', {}, { variant: 'primary', icon: 'plus' }) });
+    var h = K.head({ back: ['mgmt-coaches', word()], eyebrow: word(), title: 'Cover', sub: 'Sessions where a coach can’t make it, and what to do next.',
+      actions: K.actBtn('Record time off', 'co-absence', {}, { variant: 'secondary', icon: 'plus' }) });
     var g = K.guard(ctx, h, { empty: ['swap', 'No cover needed', 'Holidays, illness and unstaffed sessions appear here.'] }); if (g) return g;
     if (!K.feature('cover')) return page(h, K.featureOff('cover'));
     var all = [];
     db.getCoverRequests().forEach(function (r) { r.needs.forEach(function (n) { all.push({ r: r, n: n, o: db.getOccurrence(n.occurrence) }); }); });
-    function c(stt) { return all.filter(function (x) { return x.n.state === stt; }).length; }
-    var stats = K.stats([{ label: 'Open', value: c('Open') + c('Needs a phone call'), sub: c('Needs a phone call') + ' need a phone call', tone: c('Open') ? 'warn' : '' }, { label: 'Awaiting response', value: c('Offered'), sub: 'Offer sent' }, { label: 'Accepted', value: c('Accepted'), sub: 'Waiting for you to confirm' }, { label: 'Covered', value: c('Covered'), sub: 'Confirmed and staffed' }]);
     var open = all.filter(function (x) { return x.n.state !== 'Covered'; }).sort(function (a, b) { return (a.o.date + a.o.start) < (b.o.date + b.o.start) ? -1 : 1; });
-    var needRows = K.table({ cols: 'minmax(0,2fr) minmax(0,1.3fr) 90px 160px', head: ['Session', { label: 'Why', cls: 'wide' }, { label: 'Ref', cls: 'wide' }, ''], rows: open.map(function (x) {
-      var soon = K.daysBetween(K.today, x.o.date);
-      return { route: 'mgmt-cover-request/' + x.r.id, cells: [K.cell(esc(x.o.session), (soon === 0 ? 'Today' : soon === 1 ? 'Tomorrow' : K.dd(x.o.date)) + ', ' + x.o.start + '–' + x.o.end + ' · ' + esc(db.venueName(x.o.venue))),
-        { cls: 'wide c-cell', html: x.r.coach ? esc(db.coachName(x.r.coach)) + ' · ' + esc(x.r.kind.toLowerCase()) : 'No coach assigned' }, { cls: 'wide', html: K.id(x.r.id) }, { cls: 'c-end', html: (soon <= 1 ? ui.sev('Urgent') : '') + st(x.n.state) }] };
-    }), empty: 'Nothing open. Every date is covered.' });
+    var act = open.filter(function (x) { return coverWords(x.r, x.n).act; });
+    var sit = !open.length ? K.situation({ tone: 'ok', title: 'All covered', text: 'There are no open cover requests.' })
+      : act.length ? K.situation({ tone: 'warn', title: act.length + ' session' + (act.length === 1 ? ' needs' : 's need') + ' you', text: 'Open one to ask a coach or confirm someone who said yes.', primary: K.goBtn('Open the first', 'mgmt-cover-request/' + act[0].r.id, { variant: 'primary', trail: 'arrowRight' }) })
+      : K.situation({ tone: 'info', title: 'Waiting for replies', text: 'Coaches have been asked for every open session. No action needed yet.' });
+    var rows = open.map(function (x) {
+      var w = coverWords(x.r, x.n), soon = K.daysBetween(K.today, x.o.date);
+      var who = x.r.coach ? first(db.coachName(x.r.coach)) + ' can’t coach' : 'No coach yet';
+      return ui.row({ lead: ui.sev(w.tone === 'danger' || soon <= 1 ? 'Urgent' : w.act ? 'Warning' : 'Normal'), title: esc(x.o.session) + ' · ' + (soon === 0 ? 'Today' : soon === 1 ? 'Tomorrow' : esc(K.dd(x.o.date))) + ', ' + x.o.start,
+        sub: [esc(who), esc(w.title)], href: '#mgmt-cover-request/' + x.r.id, trail: w.act ? '<span class="k-needs__act">Sort it</span>' : '' });
+    });
     var f = K.tab('co-cvr', [{ id: 'open' }, { id: 'all' }]);
     var reqs = db.getCoverRequests(function (r) { return f === 'all' || db.coverStatus(r) !== 'Covered'; });
-    return page(h, stats + K.section('Dates needing cover', 'Soonest first. Open one to see eligible ' + word().toLowerCase() + ', send offers and confirm.', needRows) +
-      K.section('Requests', 'One request groups the dates of one absence.', '<div class="k-bar">' + K.seg('co-cvr', [{ id: 'open', label: 'Not yet covered' }, { id: 'all', label: 'All' }]) + '</div>' + K.table({ cols: COVER_COLS, head: ['Request', { label: 'Ref', cls: 'wide' }, { label: 'Dates', cls: 'c-num wide' }, ''], rows: coverRows(reqs), empty: 'No requests.' })));
+    var reqTable = '<div class="k-bar">' + K.seg('co-cvr', [{ id: 'open', label: 'Not yet covered' }, { id: 'all', label: 'All' }]) + '</div>' + K.table({ cols: COVER_COLS, head: ['Request', { label: 'Ref', cls: 'wide' }, { label: 'Dates', cls: 'c-num wide' }, ''], rows: coverRows(reqs), empty: 'No requests.' });
+    return page(h, sit + (open.length ? K.list(rows) : '') + K.details('All cover requests', reqTable, { sub: 'Each absence and its dates, including covered ones' }));
   };
   Hub.actions['co-absence'] = function (el) {
     var coaches = db.getCoaches().filter(function (c) { return c.active; }).map(function (c) { return [c.id, c.name]; });
@@ -539,48 +571,60 @@
     if (r) location.hash = 'mgmt-cover-request/' + r.id;
   };
 
+  /* One date that needs cover: the state in plain words and the next step,
+     then the best options, then who was already asked. Details and the
+     calculation sit behind a collapsed section. */
   function needCard(r, n) {
-    var o = db.getOccurrence(n.occurrence), step = { Open: 0, 'Needs a phone call': 0, Offered: 1, Accepted: 2, Covered: 3 }[n.state];
-    var staff = o.staff.length ? ui.staffNames(o.staff) : '<span class="c-mute">No coach yet</span>';
-    var head = K.kv([['Session', K.link('mgmt-occurrence/' + o.id, occLabel(o))], ['Venue', esc(db.venueName(o.venue))], ['Staff now', staff], ['Players expected', String(o.players)]], true);
-    var offers = n.offers.length ? '<h3 class="co-h3">Offers</h3>' + ui.rows(n.offers.map(function (f) {
-      var name = db.coachName(f.coach);
-      var acts = f.response ? '' : '<div class="k-row-actions co-offer-acts">' + K.actBtn('Respond as ' + name + ': Accept', 'co-respond', { req: r.id, need: n.id, offer: f.id, resp: 'Accepted' }, { size: 'sm', variant: 'secondary' }) +
-        K.actBtn('Decline', 'co-respond', { req: r.id, need: n.id, offer: f.id, resp: 'Declined' }, { size: 'sm', variant: 'tertiary' }) + '</div>';
-      return ui.row({ lead: ui.avatar(name, 'sm'), title: esc(name) + (K.fin() === 'none' ? '' : ' · ' + K.money(f.rate) + '/h, ' + K.money(f.cost)), sub: [stamp('Offered', f.sentBy, f.sentAt), f.respondedAt ? stamp(f.response, name, f.respondedAt) : 'Waiting for a reply', f.note ? '“' + esc(f.note) + '”' : ''], after: acts, trail: st(f.response || 'Offered') });
-    }), 'rows--lead') : '';
-    var body = '';
-    if (n.state === 'Covered') body = ui.notice('ok', 'Covered by ' + db.coachName(n.confirmed.coach), stamp('Confirmed', n.confirmed.by, n.confirmed.at) + '. The coaches for that date and a draft pay item were updated.');
-    else if (n.state === 'Accepted') {
-      var acc = n.offers.filter(function (f) { return f.response === 'Accepted'; }).slice(-1)[0];
-      body = ui.notice('info', db.coachName(acc.coach) + ' accepted', 'Confirm to put them on the session and create their pay item' + (K.fin() === 'none' ? '' : ' at ' + K.money(acc.cost)) + '.', { action: K.actBtn('Confirm cover', 'co-confirm', { req: r.id, need: n.id }, { variant: 'primary', size: 'sm' }) });
-    } else {
-      var cands = db.getCoverCandidates(r.id, n.id), pending = n.offers.some(function (f) { return !f.response; });
-      var ok = cands.filter(function (x) { return x.eligible; }), no = cands.filter(function (x) { return !x.eligible; });
-      if (n.state === 'Needs a phone call') body += ui.notice('warn', 'Needs a phone call', esc(n.phone.note) + '<br>' + stamp('Flagged', n.phone.by, n.phone.at));
-      if (n.offers.length && n.offers.every(function (f) { return f.response === 'Declined'; })) body += ui.notice('danger', 'Declined: pick another ' + one().toLowerCase(), 'Everyone asked so far has said no. Send a new offer below, or flag it for a phone call.');
-      body += '<h3 class="co-h3">Suggested ' + esc(word().toLowerCase()) + '</h3>' + (ok.length ? K.table({ cols: 'minmax(0,1.6fr) minmax(0,1.2fr) 90px 100px auto', head: [one(), { label: 'Availability', cls: 'wide' }, { label: 'Rate', cls: 'c-num wide' }, { label: 'Expected', cls: 'c-num wide' }, ''], rows: ok.map(function (x) {
-        return { cells: [coachCell(x.coach.id, esc(x.coach.role) + (x.compliance.state !== 'Current' ? ' · ' + esc(x.compliance.text) : '')), { cls: 'wide c-cell', html: 'Free ' + esc(x.available.reason) },
-          { cls: 'c-num wide', html: K.fin() === 'none' ? '—' : K.money(x.rate) + '/h' }, { cls: 'c-num wide', html: K.fin() === 'none' ? '—' : K.money(x.cost) + (x.note ? '<small class="co-ovr">' + esc(x.note.split(':')[0]) + '</small>' : '') },
-          { cls: 'c-end', html: K.actBtn('Send offer', 'co-offer', { req: r.id, need: n.id, coach: x.coach.id }, { size: 'sm', variant: pending ? 'secondary' : 'primary' }) }] };
-      }) }) : '<p class="k-note">No one is free and eligible. Flag it for a phone call.</p>') +
-        (no.length ? '<details class="co-more"><summary>' + no.length + ' not suggested</summary>' + ui.rows(no.map(function (x) { return ui.row({ title: esc(x.coach.name), sub: x.reasons.map(esc) }); })) + '</details>' : '') +
-        (n.state !== 'Needs a phone call' ? '<div class="k-bar co-formbar">' + K.actBtn('Needs a phone call', 'co-phone', { req: r.id, need: n.id }, { size: 'sm', variant: 'tertiary', icon: 'phone' }) + '</div>' : '');
+    var o = db.getOccurrence(n.occurrence), w = coverWords(r, n), fin = K.fin() !== 'none';
+    var absent = r.coach ? db.coachName(r.coach) : null;
+    var when = esc(K.dd(o.date)) + ' · ' + o.start + '–' + o.end + ' · ' + esc(db.venueName(o.venue)) + ' · ' + o.players + ' players';
+    var cands = n.state === 'Covered' ? [] : db.getCoverCandidates(r.id, n.id), ok = cands.filter(function (x) { return x.eligible; }), no = cands.filter(function (x) { return !x.eligible; });
+    var acc = n.offers.filter(function (f) { return f.response === 'Accepted'; }).slice(-1)[0];
+    var waiting = n.offers.filter(function (f) { return !f.response; });
+    function opt(x, primary) {
+      var nm = first(x.coach.name);
+      return '<div class="k-opt">' + ui.avatar(x.coach.name, 'md') + '<div><b>' + esc(x.coach.name) + '</b><small>Available ' + esc(x.available.reason) + (x.compliance.state !== 'Current' ? ' · ' + esc(x.compliance.text) : '') + (fin ? (x.cost ? ' · expected cost ' + K.money(x.cost) : ' · no extra cost') : '') + '</small></div>' +
+        '<div class="k-opt__acts">' + K.actBtn('Ask ' + nm, 'co-offer', { req: r.id, need: n.id, coach: x.coach.id }, { size: 'sm', variant: primary ? 'primary' : 'secondary' }) + '</div></div>';
     }
-    return K.card({ title: K.dd(o.date) + ' · ' + o.session, sub: o.start + '–' + o.end, right: st(n.state), body: K.steps(['Need', 'Offered', 'Accepted', 'Covered'], n.state === 'Covered' ? 4 : step) + head + offers + body });
+    var options = ok.length ? '<div class="k-opts">' + ok.slice(0, 3).map(function (x, i) { return opt(x, i === 0 && w.act && !acc); }).join('') + '</div>' +
+        (ok.length > 3 || no.length ? K.details('More coaches', (ok.length > 3 ? '<div class="k-opts">' + ok.slice(3).map(function (x) { return opt(x, false); }).join('') + '</div>' : '') + (no.length ? ui.rows(no.map(function (x) { return ui.row({ title: esc(x.coach.name), sub: x.reasons.map(esc) }); })) : ''), { sub: (ok.length > 3 ? (ok.length - 3) + ' more available · ' : '') + no.length + ' not suitable, and why' }) : '')
+      : '<p class="k-note">No one else is free and suitable for this session.</p>';
+    var sit;
+    if (n.state === 'Covered') sit = K.situation({ tone: 'ok', title: esc(db.coachName(n.confirmed.coach)) + ' is covering' + (absent ? ' ' + esc(first(absent)) : ''), text: 'Confirmed by ' + esc(n.confirmed.by) + '. Nothing more to do.' });
+    else if (n.state === 'Accepted' && acc) sit = K.situation({ tone: 'info', title: esc(db.coachName(acc.coach)) + ' can cover this session', text: 'Confirm to put ' + esc(first(db.coachName(acc.coach))) + ' on the session' + (fin ? ' at ' + K.money(acc.cost) : '') + '.', primary: K.actBtn('Confirm ' + first(db.coachName(acc.coach)), 'co-confirm', { req: r.id, need: n.id }, { variant: 'primary' }) });
+    else if (waiting.length) sit = K.situation({ tone: 'info', title: 'Waiting for replies', text: esc(waiting.map(function (f) { return first(db.coachName(f.coach)); }).join(' and ')) + (waiting.length === 1 ? ' has' : ' have') + ' been asked. No action needed yet.' });
+    else if (n.state === 'Needs a phone call') sit = K.situation({ tone: 'warn', title: 'Needs a phone call', text: esc(n.phone.note) });
+    else if (n.offers.length) sit = K.situation({ tone: 'danger', title: 'No one has said yes yet', text: 'Everyone asked so far declined. Ask someone else, or mark it for a phone call.', secondary: K.actBtn('Mark for phone call', 'co-phone', { req: r.id, need: n.id }, { variant: 'secondary', icon: 'phone' }) });
+    else sit = K.situation({ tone: 'warn', title: 'Cover still needed', text: (absent ? esc(first(absent)) + ' can’t coach. ' : 'No coach yet. ') + 'Ask one of the best options below.' });
+    var asked = n.offers.length ? '<h3 class="k-h3">Already asked</h3>' + ui.rows(n.offers.map(function (f) {
+      var name = db.coachName(f.coach);
+      var sim = f.response ? '' : '<div class="k-row-actions co-offer-acts"><span class="k-note">Prototype: reply as ' + esc(first(name)) + '</span>' + K.actBtn('Yes', 'co-respond', { req: r.id, need: n.id, offer: f.id, resp: 'Accepted' }, { size: 'sm', variant: 'tertiary' }) + K.actBtn('No', 'co-respond', { req: r.id, need: n.id, offer: f.id, resp: 'Declined' }, { size: 'sm', variant: 'tertiary' }) + '</div>';
+      return ui.row({ lead: ui.avatar(name, 'sm'), title: esc(name), sub: [f.response === 'Declined' ? 'Declined' + (f.note ? ': “' + esc(f.note) + '”' : '') : f.response === 'Accepted' ? 'Said yes' : 'Waiting for a reply'], after: sim });
+    }), 'rows--lead') : '';
+    var showOptions = n.state !== 'Covered' && !(n.state === 'Accepted' && acc);
+    var optionsBlock = !showOptions ? (n.state === 'Accepted' ? K.details('Ask someone else instead', options) : '')
+      : waiting.length ? K.details('Ask someone else as well', options, { sub: 'Best options for this session' }) : '<h3 class="k-h3">Best options</h3>' + options;
+    var detail = K.details('Details', K.kv([['Session', K.link('mgmt-occurrence/' + o.id, occLabel(o))], ['Coaches now', o.staff.length ? ui.staffNames(o.staff) : 'No coach yet'], ['Players expected', String(o.players)]].concat(
+      n.offers.map(function (f) { return ['Offer to ' + first(db.coachName(f.coach)), stamp('Sent', f.sentBy, f.sentAt) + (fin ? ' · ' + K.money(f.rate) + '/h, ' + K.money(f.cost) : '') + (f.respondedAt ? '<br>' + stamp(f.response, db.coachName(f.coach), f.respondedAt) : '')]; })).concat(
+      n.phone ? [['Phone call', esc(n.phone.note) + '<br>' + stamp('Flagged', n.phone.by, n.phone.at)]] : []), true) +
+      (n.state !== 'Covered' && n.state !== 'Needs a phone call' && !(n.offers.length && !waiting.length && !acc) ? '<div class="k-bar">' + K.actBtn('Mark for phone call', 'co-phone', { req: r.id, need: n.id }, { size: 'sm', variant: 'tertiary', icon: 'phone' }) + '</div>' : ''));
+    return '<article class="co-need"><h2 class="co-need__t">' + esc(o.session) + '</h2><p class="co-need__w">' + when + '</p>' + sit + (n.state === 'Covered' ? '' : optionsBlock + asked) + detail + '</article>';
   }
   Hub.screens['mgmt-cover-request'] = function (ctx) {
     var r = db.getCoverRequest(ctx.param);
-    var h = K.head({ back: ['mgmt-cover', 'Cover'], eyebrow: r ? r.id + ' · ' + r.kind : 'Cover', title: r ? (r.coach ? db.coachName(r.coach) + ': ' + r.kind.toLowerCase() : 'No coach assigned') : 'Cover request',
-      sub: r ? range(r.from, r.to) + ' · ' + esc(r.reason) + ' · ' + stamp('Recorded', r.requestedBy, r.at) : '', actions: r ? st(db.coverStatus(r)) : '' });
+    var who = r && r.coach ? db.coachName(r.coach) : null;
+    var h = K.head({ back: ['mgmt-cover', 'Cover'], eyebrow: 'Cover', title: r ? (who ? who + ' can’t coach' : 'No coach for this session') : 'Cover', sub: r ? esc(range(r.from, r.to)) + ' · ' + esc(r.kind.toLowerCase()) : '' });
     var g = K.guard(ctx, h, { empty: ['swap', 'No dates in this request', 'The absence does not touch any session.'] }); if (g) return g;
     if (!r) return notFound(h, 'Cover request');
     if (!K.feature('cover')) return page(h, K.featureOff('cover'));
-    var done = r.needs.filter(function (n) { return n.state === 'Covered'; }).length;
-    var sum = K.stats([{ label: 'Dates', value: r.needs.length, sub: 'Each handled on its own' }, { label: 'Covered', value: done, sub: r.needs.length - done + ' still to sort' }, { label: 'Offers sent', value: K.sum(r.needs, function (n) { return n.offers.length; }), sub: K.sum(r.needs, function (n) { return n.offers.filter(function (f) { return f.response === 'Declined'; }).length; }) + ' declined' },
-      { label: 'Expected cost', value: K.fin() === 'none' ? '—' : K.money(K.sum(r.needs, function (n) { var f = n.offers.filter(function (x) { return x.response !== 'Declined'; }).slice(-1)[0]; return f ? f.cost : 0; })), sub: 'Of offers accepted or pending' }]);
-    return page(h, sum + (r.needs.length ? '<div class="lx-stack">' + r.needs.map(function (n) { return needCard(r, n); }).join('') + '</div>' : ui.notice('info', 'No sessions affected', 'This absence does not touch any session, so nothing needs cover.')) +
-      K.section('History', 'Every step of this request, with who and when.', K.card({ body: K.timeline(r.history.slice().reverse()) })));
+    if (!r.needs.length) return page(h, K.situation({ tone: 'ok', title: 'No sessions affected', text: 'This absence does not touch any session, so nothing needs cover.' }));
+    var order = function (n) { var w = coverWords(r, n); return n.state === 'Covered' ? 2 : w.act ? 0 : 1; };
+    var needs = r.needs.slice().sort(function (a, b) { return order(a) - order(b); });
+    var open = needs.filter(function (n) { return n.state !== 'Covered'; }), done = needs.filter(function (n) { return n.state === 'Covered'; });
+    var top = r.needs.length > 1 ? (open.length ? '<p class="k-note co-need__sum">' + open.length + ' of ' + r.needs.length + ' sessions still need sorting' + (done.length ? '; ' + done.length + ' covered.' : '.') + '</p>' : K.situation({ tone: 'ok', title: 'All ' + r.needs.length + ' sessions are covered' })) : '';
+    var history = K.details('History', K.kv([['Why', esc(r.reason)], ['Recorded', stamp('Recorded', r.requestedBy, r.at)], ['Reference', K.id(r.id)]]) + K.timeline(r.history.slice().reverse()), { sub: 'Why, who recorded it, and every step' });
+    return page(h, top + '<div class="lx-stack">' + open.map(function (n) { return needCard(r, n); }).join('') + '</div>' +
+      (done.length ? (open.length ? K.details('Covered (' + done.length + ')', done.map(function (n) { return needCard(r, n); }).join('')) : '<div class="lx-stack">' + done.map(function (n) { return needCard(r, n); }).join('') + '</div>') : '') + history);
   };
   Hub.actions['co-offer'] = function (el) { var d = el.dataset; Hub.mutate(function () { db.sendCoverOffer(d.req, d.need, d.coach, K.me(), K.now()); }, 'Offer sent to ' + db.coachName(d.coach), log('Cover offer sent to ' + db.coachName(d.coach) + ' (' + d.need + ')', d.req)); };
   Hub.actions['co-respond'] = function (el) {

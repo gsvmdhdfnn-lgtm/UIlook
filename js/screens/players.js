@@ -208,8 +208,6 @@
     var tabsList = [{ id: 'overview', label: 'Overview' }, { id: 'development', label: 'Development' }, { id: 'attendance', label: 'Attendance' }, { id: 'money', label: 'Memberships & bookings' }, { id: 'history', label: 'History' }];
     var tab = K.tab('pp-player', tabsList);
     var acts = [];
-    if (p.medical === 'not_confirmed') acts.push(K.actBtn('Send medical reminder', 'pp-med-remind', { id: p.id }, { variant: 'secondary', icon: 'bell' }));
-    acts.push(K.goBtn('Attendance', 'mgmt-attendance/' + p.id, { variant: 'secondary', icon: 'calendar' }));
     var h = K.head({ back: ['mgmt-players', 'Players & Parents'], eyebrow: 'Player', title: p.name,
       sub: esc(p.ageGroup) + ' · ' + esc(p.school) + ', ' + esc(p.year) + ' · ' + famLink(p.family) + ' · ' + K.status(p.status), actions: acts.join(''), tabs: K.tabs('pp-player', tabsList) });
     var body = '';
@@ -225,7 +223,11 @@
         '<div class="pp-care__row"><span>Support needs</span>' + K.pill(SUP[p.support] || 'None recorded', p.support === 'details' ? 'info' : '') + '</div>' +
         (p.support === 'details' ? restr(['management', 'parent', 'coach:lead'], '<p class="pp-p">' + esc(p.supportDetail) + '</p>', 'Support details') : '') +
         '<div class="pp-care__row"><span>Photo and video</span>' + K.status(PHOTO[p.photo]) + (p.photoAnswered ? K.stamp('Answered', p.photoAnswered.by, p.photoAnswered.at) : '<span class="k-note">No answer yet: do not photograph</span>') + '</div>' +
-        '</div>' + (p.medical === 'not_confirmed' ? '<div class="pp-actions">' + K.actBtn('Record "confirmed none" from a call', 'pp-med-confirm', { id: p.id }, { size: 'sm', variant: 'secondary' }) + '</div>' : '') });
+        '</div>' });
+      var medNeeded = p.medical === 'not_confirmed' && p.status === 'Active';
+      var sit = p.status !== 'Active' ? K.situation({ tone: 'info', title: p.first + ' is ' + esc(String(p.status).toLowerCase()), text: p.leftOn ? 'Left on ' + K.d(p.leftOn) + '. Records are kept.' : 'Not on any active session.' }) :
+        medNeeded ? K.situation({ tone: 'warn', kicker: 'Before ' + p.first + ' plays', title: 'Medical details not confirmed', text: 'The family has not confirmed ' + p.first + '’s medical details. Ask them to confirm in the Parent hub, or record a phone confirmation.', primary: K.actBtn('Send reminder', 'pp-med-remind', { id: p.id }, { variant: 'primary', icon: 'bell' }), secondary: K.actBtn('Record phone confirmation', 'pp-med-confirm', { id: p.id }, { variant: 'secondary' }) }) :
+        !p.photoAnswered ? K.situation({ tone: 'info', title: 'No photo answer yet', text: 'Do not photograph or film ' + p.first + ' until the family answers.' }) : '';
       var address = K.card({ title: 'Home address', body: restr(['management', 'parent'], '<p class="pp-p">' + esc(p.address) + '</p>', 'Address') });
       var contacts = K.card({ title: 'Emergency contacts', body: restr(['management', 'parent', 'coach:lead'], ui.fields(p.emergency.map(function (c, i) { return [(i + 1) + '. ' + c.rel, esc(c.name) + '<br><span class="num">' + esc(c.phone) + '</span>']; })), 'Emergency contacts') });
       /* Overview first: what needs doing, where they play, who their parents are, how it is going */
@@ -237,7 +239,9 @@
         [client() + 's', live.map(function (x) { return parLink(x.id); }).join(', ') || 'None linked', live.map(function (x) { return x.link.invite === 'Verified' ? 'Verified' : esc(x.link.invite || ''); }).join(' · ')],
         ['How it is going', att.length ? Math.round(pres / att.length * 100) + '% attendance' : 'No registers yet', fb0 ? 'Latest feedback ' + esc(fb0.period || '') + ' from ' + esc(db.coachName(fb0.coach)) : 'No feedback yet']
       ]);
-      body = K.needsFor(function (k) { return K.relatesTo(k, 'player', p.id); }, { title: 'Needs you for ' + p.first }) + snap + viewAsBar() + K.grid([details, care, address, contacts], 2);
+      var also = K.needsFor(function (k) { return K.relatesTo(k, 'player', p.id) && !(medNeeded && k.ruleId === 'ATT-050'); }, { title: sit ? 'Also needs you' : 'Needs you for ' + p.first, quiet: true });
+      if (!sit && !also) sit = K.situation({ tone: 'ok', title: p.first + ' is all set', text: 'Medical confirmed, photo answer given and nothing waiting.' });
+      body = sit + also + snap + K.grid([care, details], 2) + K.details('Address and emergency contacts', viewAsBar() + K.grid([address, contacts], 2), { sub: 'Restricted' });
     } else if (tab === 'development') {
       var fb = feedbackFor(p.id), plans = plansFor(p.id);
       var fbHtml = fb.length ? K.list(fb.map(function (f) {
@@ -309,7 +313,6 @@
     if (!p) return K.page(h0, emptyNote('family', c + ' not found', 'Check the link or search the list.'));
     Hub.crumbTail = p.name;
     var L = p.link, acts = [];
-    if (!L.ended && L.invite === 'Invite sent') { acts.push(K.actBtn('Resend invite', 'pp-invite', { id: p.id }, { variant: 'secondary', icon: 'refresh' })); acts.push(K.actBtn('Mark verified', 'pp-verify', { id: p.id }, { variant: 'secondary', icon: 'userCheck' })); }
     if (!L.ended) acts.push(K.actBtn('End link', 'pp-endlink', { id: p.id }, { variant: 'secondary', icon: 'x' }));
     var h = K.head({ back: ['mgmt-players', 'Players & Parents'], eyebrow: c, title: p.name, sub: esc(p.relationship) + ' · ' + famLink(p.family) + ' · ' + K.status(linkState(p)), actions: acts.join('') });
     var kids = db.getFamilyPlayers(p.family);
@@ -333,13 +336,20 @@
       ['Places', famMems.length + ' membership' + (famMems.length === 1 ? '' : 's'), famMems.map(function (m) { return esc(db.getPlayer(m.player).first) + ': ' + esc(db.getSession(m.session).name) + (m.state === 'Active' ? '' : ' (' + esc(m.state.toLowerCase()) + ')'); }).join('<br>')],
       ['Money', bill ? (bill.owed > 0 ? K.money(bill.owed) + ' to pay' : 'Nothing owed') : '—', bill ? (bill.credit > 0 ? K.money(bill.credit) + ' family credit available' : 'No family credit') + (openReqs.length ? '<br>' + openReqs.length + ' open request' + (openReqs.length === 1 ? '' : 's') : '') : '']
     ]);
-    var needs = K.needsFor(function (k) { return K.relatesTo(k, 'player', kidIds[0]) || kidIds.some(function (id) { return K.relatesTo(k, 'player', id); }) || (k.route || '').indexOf(p.family) >= 0; }, { title: 'Needs you for this family' });
-    return K.page(h, needs + snap + K.section('Children', null, children) +
-      K.section('Requests', null, requestTable(reqs)) +
-      K.section('Bookings', null, tbl({ cols: 'minmax(0,1.6fr) 110px 100px', head: ['Booking', { label: 'Total', cls: 'c-num wide' }, { label: 'Status', cls: 'c-end' }], rows: bks.map(function (b) { return { route: 'mgmt-booking/' + b.id, cells: [K.cell(esc(b.product), K.id(b.id) + ' · ' + (b.bookedBy === p.id ? 'Booked' : 'Paid') + ' ' + K.dt(b.at)), { cls: 'c-num wide', html: K.money(b.total) }, { cls: 'c-end', html: K.status(b.state) }] }; }), empty: 'No bookings.' })) +
-      K.section('Terms accepted', 'Evidence of which version was accepted and when.', tbl({ cols: 'minmax(0,1.4fr) minmax(0,1.2fr) 120px', head: ['Version', { label: 'Evidence', cls: 'wide' }, { label: 'Accepted', cls: 'c-end' }], rows: acc.map(function (a) { var v = db.getTermsVersion(a.version); return { route: 'mgmt-commercial', cells: [K.cell(esc(v.kind) + ' v' + esc(v.version), K.id(v.id)), { cls: 'wide c-cell', html: esc(a.evidence) }, { cls: 'c-end', html: K.dt(a.at) }] }; }), empty: 'No acceptances recorded.' })) +
-      K.grid([contact, link], 2) +
-      K.section('History', null, historyList(db.getEntityAudit([p.id]))));
+    var needs = K.needsFor(function (k) { if (openReqs.length && k.ruleId === 'ATT-054') return false; return K.relatesTo(k, 'player', kidIds[0]) || kidIds.some(function (id) { return K.relatesTo(k, 'player', id); }) || (k.route || '').indexOf(p.family) >= 0; }, { title: openReqs.length || L.invite === 'Invite sent' ? 'Also needs you' : 'Needs you for this family' });
+    var firstReq = openReqs[0];
+    var sit = L.ended ? K.situation({ tone: 'info', title: 'Link to the family ended', text: esc(L.ended.reason || '') + ' ' + K.stamp('Ended', L.ended.by, L.ended.at) }) :
+      L.invite === 'Invite sent' ? K.situation({ tone: 'warn', title: 'Invite not accepted yet', text: p.name.split(' ')[0] + ' cannot see the family until the invite is accepted or you verify them another way.', primary: K.actBtn('Resend invite', 'pp-invite', { id: p.id }, { variant: 'primary', icon: 'refresh' }), secondary: K.actBtn('Mark verified', 'pp-verify', { id: p.id }, { variant: 'secondary', icon: 'userCheck' }) }) :
+      firstReq ? K.situation({ tone: 'warn', title: firstReq.type === 'Cancellation' ? 'Parent requested cancellation' : openReqs.length + ' request' + (openReqs.length === 1 ? '' : 's') + ' waiting for a decision', text: esc(firstReq.type) + (firstReq.player ? ' for ' + esc(db.getPlayer(firstReq.player).first) : '') + ', ' + K.dm(firstReq.at) + '.', primary: K.actBtn('Review request', 'pp-req', { id: firstReq.id }, { variant: 'primary' }) }) :
+      bill && bill.owed > 0 ? K.situation({ tone: 'info', title: K.money(bill.owed) + ' to pay', text: 'Collected on the next billing run unless it becomes overdue.' }) : '';
+    if (!sit && !needs) sit = K.situation({ tone: 'ok', title: 'Nothing needs you for this family', text: 'Children, places and payments are all in order.' });
+    return K.page(h, sit + needs + snap + K.section('Children', null, children) +
+      (openReqs.length ? K.section('Open requests', null, requestTable(openReqs)) : '') +
+      K.details('Contact and link to the family', K.grid([contact, link], 2), { sub: esc(p.email) }) +
+      K.details('All requests', requestTable(reqs), { sub: reqs.length + ' in total' }) +
+      K.details('Bookings', tbl({ cols: 'minmax(0,1.6fr) 110px 100px', head: ['Booking', { label: 'Total', cls: 'c-num wide' }, { label: 'Status', cls: 'c-end' }], rows: bks.map(function (b) { return { route: 'mgmt-booking/' + b.id, cells: [K.cell(esc(b.product), K.id(b.id) + ' · ' + (b.bookedBy === p.id ? 'Booked' : 'Paid') + ' ' + K.dt(b.at)), { cls: 'c-num wide', html: K.money(b.total) }, { cls: 'c-end', html: K.status(b.state) }] }; }), empty: 'No bookings.' }), { sub: bks.length + ' bookings' }) +
+      K.details('Terms accepted', tbl({ cols: 'minmax(0,1.4fr) minmax(0,1.2fr) 120px', head: ['Version', { label: 'Evidence', cls: 'wide' }, { label: 'Accepted', cls: 'c-end' }], rows: acc.map(function (a) { var v = db.getTermsVersion(a.version); return { route: 'mgmt-commercial', cells: [K.cell(esc(v.kind) + ' v' + esc(v.version), K.id(v.id)), { cls: 'wide c-cell', html: esc(a.evidence) }, { cls: 'c-end', html: K.dt(a.at) }] }; }), empty: 'No acceptances recorded.' }), { sub: 'Which version was accepted, and when' }) +
+      K.details('History', historyList(db.getEntityAudit([p.id]))));
   };
   Hub.actions['pp-invite'] = function (el) { var p = db.getParent(el.dataset.id), at = K.now(), who = K.me(); Hub.mutate(function () { db.resendInvite(p.id, who, at); }, 'Invite resent to ' + p.email, { area: AREA, summary: 'Invite resent to ' + p.name, entity: p.id, at: at, who: who }); };
   Hub.actions['pp-verify'] = function (el) {
@@ -455,22 +465,25 @@
     Hub.crumbTail = p.name + ' · ' + (s ? s.name : '');
     var acts = [];
     if (m.state === 'Active') acts = [K.actBtn('Pause', 'pp-mem-pause', { id: m.id }, { variant: 'secondary' }), K.actBtn('Record cancellation request', 'pp-mem-cancel', { id: m.id }, { variant: 'secondary' }), K.actBtn('End now', 'pp-mem-end', { id: m.id }, { variant: 'secondary' })];
-    if (m.state === 'Paused') acts = [K.actBtn('Resume', 'pp-mem-resume', { id: m.id }, { variant: 'primary' }), K.actBtn('End now', 'pp-mem-end', { id: m.id }, { variant: 'secondary' })];
-    if (m.state === 'Cancellation Pending') acts = [K.actBtn('Approve cancellation', 'pp-mem-approve', { id: m.id }, { variant: 'primary' }), K.actBtn('Keep active', 'pp-mem-resume', { id: m.id }, { variant: 'secondary' })];
-    if (m.state === 'Ending Scheduled') acts = [K.actBtn('End now', 'pp-mem-end', { id: m.id }, { variant: 'secondary' })];
+    if (m.state === 'Paused' || m.state === 'Ending Scheduled') acts = [K.actBtn('End now', 'pp-mem-end', { id: m.id }, { variant: 'secondary' })];
     if (m.state === 'Ended') acts = [K.frozen('Ended · kept as history')];
+    var sit = m.state === 'Cancellation Pending' ? K.situation({ tone: 'warn', kicker: 'Requested ' + K.dm(m.cancel.requested), title: 'Parent requested cancellation', text: (m.cancel.reason ? '"' + esc(m.cancel.reason) + '". ' : '') + 'If approved, the place ends ' + (rule ? rule.noticeDays : 30) + ' days after the request.', primary: K.actBtn('Review request', 'pp-mem-approve', { id: m.id }, { variant: 'primary' }), secondary: K.actBtn('Keep active', 'pp-mem-resume', { id: m.id }, { variant: 'secondary' }) }) :
+      m.state === 'Paused' ? K.situation({ tone: 'info', title: 'Paused' + (m.pause ? ' until ' + K.d(m.pause.to) : ''), text: 'No charges while paused.' + (m.pause && m.pause.reason ? ' Reason: ' + esc(m.pause.reason) + '.' : ''), primary: K.actBtn('Resume now', 'pp-mem-resume', { id: m.id }, { variant: 'primary' }) }) :
+      m.state === 'Ending Scheduled' ? K.situation({ tone: 'info', title: 'Ends on ' + (m.cancel && m.cancel.end ? K.d(m.cancel.end) : 'the scheduled date'), text: 'Cancellation approved. No action needed.' }) :
+      m.state === 'Ended' ? K.situation({ tone: 'ok', title: 'Ended' + (m.ended ? ' on ' + K.d(m.ended.on) : ''), text: 'Kept as history.' }) :
+      K.situation({ tone: 'ok', title: 'Active', text: K.money(m.price) + ' a month since ' + K.d(m.start) + '. Nothing needs you.' });
     var h = K.head({ back: ['mgmt-memberships', 'Memberships'], eyebrow: 'Membership · ' + m.id, title: p.name + ' · ' + (s ? s.name : ''), sub: K.status(m.state) + ' · ' + keyDate(m), actions: acts.join('') });
     var cur = STATES.indexOf(m.state);
     var life = '<ol class="pp-life" aria-label="Status">' + STATES.map(function (x, i) { return '<li class="' + (x === m.state ? 'is-current' : (x !== 'Paused' && i < cur && m.state !== 'Paused' && !(x === 'Cancellation Pending' && !m.cancel)) ? 'is-done' : '') + '"><span>' + esc(K.stateLabel(x)) + '</span></li>'; }).join('') + '</ol>';
     var main = K.card({ title: 'Membership', body: K.kv([['Player', pLink(m.player)], ['Session', sesLink(m.session)], ['Family', famLink(p.family)], ['Started', K.d(m.start)], ['State', K.status(m.state)]], true) });
     var price = K.card({ title: 'Price and billing terms at the start', sub: 'Copied when the membership started; later rule changes do not alter it.', body: K.kv([['Price agreed', K.money(m.price) + ' a month'], ['Billing rule', rule ? K.id(rule.id) + ' ' + esc(rule.name) : esc(m.billingRule)],
       rule ? ['Payer', esc(rule.payer)] : null, rule ? ['Billing model', esc(rule.model) + ' · ' + esc(rule.basis)] : null, rule ? ['Anchor day', 'Day ' + rule.anchorDay + ' of each month'] : null, rule ? ['Notice', rule.noticeDays + ' days'] : null], true) });
-    var cards = [main, price];
+    var cards = [main];
     if (m.pause) cards.push(K.card({ title: 'Pause', body: K.kv([['From', K.d(m.pause.from)], ['To', K.d(m.pause.to)], ['Reason', esc(m.pause.reason)], ['Recorded', K.stamp('Paused', m.pause.by, m.pause.at)], m.pause.resumedAt ? ['Resumed', K.dt(m.pause.resumedAt)] : null]) }));
     if (m.cancel) cards.push(K.card({ title: 'Cancellation', body: K.kv([['Requested', K.stamp('Requested', m.cancel.by, m.cancel.requested)], ['Reason', esc(m.cancel.reason)], ['Notice starts', m.cancel.noticeStart ? K.d(m.cancel.noticeStart) : '<span class="text-3">When approved</span>'],
       ['Scheduled end', m.cancel.end ? K.d(m.cancel.end) + ' <span class="text-3">(notice + ' + (rule ? rule.noticeDays : 30) + ' days)</span>' : '<span class="text-3">Not scheduled yet</span>'], m.cancel.approvedBy ? ['Approved', K.stamp('Approved', m.cancel.approvedBy, m.cancel.approvedAt)] : null]) }));
     if (m.ended) cards.push(K.card({ title: 'Ended', body: K.kv([['Ended on', K.d(m.ended.on)], ['Reason', esc(m.ended.reason)], ['Recorded', K.stamp('Ended', m.ended.by, m.ended.at)]]) }));
-    return K.page(h, life + K.grid(cards, 2) + K.section('History', null, '<div class="lx-card">' + K.timeline(db.getMembershipHistory(m.id)) + '</div>'));
+    return K.page(h, sit + K.grid(cards, 2) + life + K.details('Price and billing terms', price, { sub: K.money(m.price) + ' a month, agreed at the start' }) + K.details('History', K.timeline(db.getMembershipHistory(m.id))));
   };
   function memSheet(m, title, body, label, action) { Hub.openSheet({ title: esc(title), body: body, foot: ui.btn('Cancel', { variant: 'tertiary', attrs: { 'data-action': 'close-sheet' } }) + K.actBtn(label, action, { id: m.id }, { variant: 'primary' }) }); }
   function memLabel(m) { return player(m.player).name + ' (' + sesName(m.session) + ')'; }
@@ -537,13 +550,17 @@
     var off = K.feature('sessionRequests') ? '' : ui.notice('info', 'Session requests are switched off', 'Session requests from ' + client().toLowerCase() + 's stay visible here but cannot be approved until the feature is switched on.', { action: K.goBtn('Feature controls', 'mgmt-features', { size: 'sm', variant: 'secondary' }) });
     var bar = '<div class="lx-filterbar pp-filters">' + K.seg('pp-reqstate', ['Open', 'Done', 'All'].map(function (s) { return { id: s, label: s + ' (' + all.filter(function (r) { return inState(r, s); }).length + ')' }; })) +
       select('reqType', 'Request type', [['All', 'All request types']].concat(REQ_TYPES.map(function (t) { return [t, t]; }))) + K.goBtn('Session requests', 'mgmt-session-requests', { variant: 'tertiary', size: 'sm', trail: 'arrowRight' }) + '</div>';
-    return K.page(h, off + bar + requestTable(list));
+    var waiting = all.filter(function (r) { return inState(r, 'Open'); }).sort(function (a, b) { return a.at < b.at ? -1 : 1; });
+    var sit = waiting.length ? K.situation({ tone: 'warn', title: waiting.length + ' request' + (waiting.length === 1 ? '' : 's') + ' waiting for a decision', text: 'Oldest: ' + esc(waiting[0].type.toLowerCase()) + ' from ' + esc((db.getParent(waiting[0].by) || {}).name || 'a family') + ', ' + K.dm(waiting[0].at) + '.', primary: K.actBtn('Review the oldest', 'pp-req', { id: waiting[0].id }, { variant: 'primary' }) }) :
+      K.situation({ tone: 'ok', title: 'No requests waiting', text: 'Every family request has been decided.' });
+    return K.page(h, sit + off + bar + requestTable(list));
   };
 
   Hub.actions['pp-req'] = function (el) {
     var r = db.getRequest(el.dataset.id); if (!r) return;
     var who = db.getParent(r.by), open = r.status === 'Open' || r.status === 'In review', off = reqDisabled(r);
-    var pairs = [['Type', esc(r.type)], ['Status', K.status(r.status)], ['Workflow stage', esc(r.stage)], ['Requested by', (who ? parLink(who.id) : esc(r.by)) + '<br>' + K.stamp('Requested', who ? who.name : r.by, r.at)],
+    var ask = open ? K.situation({ tone: 'warn', kicker: 'Requested ' + K.dm(r.at), title: { Cancellation: 'Parent requested cancellation', Pause: 'Parent asked to pause', 'Session request': 'Parent asked for a place', 'Detail change': 'Parent asked to change a detail', 'Second parent invite': 'Second parent wants access' }[r.type] || esc(r.type), text: esc(r.reason || '') + ' Decide below.' }) : '';
+    var pairs = [['Type', esc(r.type)], ['Status', K.status(r.status)], ['Stage', esc(r.stage)], ['Requested by', (who ? parLink(who.id) : esc(r.by)) + '<br>' + K.stamp('Requested', who ? who.name : r.by, r.at)],
       r.player ? ['Player', pLink(r.player)] : null, ['Family', famLink(r.family)], r.session ? ['Session', sesLink(r.session)] : null, r.membership ? ['Membership', K.link('mgmt-membership/' + r.membership, r.membership)] : null,
       r.parent ? [client(), parLink(r.parent)] : null, ['Reason', esc(r.reason)], ['Effective date', r.effective ? K.d(r.effective) : '<span class="text-3">Not set</span>'], r.pauseTo ? ['Pause until', K.d(r.pauseTo)] : null];
     var change = r.change ? '<section class="section">' + ui.sectionHead('Requested change') + K.restricted(['management'], K.kv([['Detail', esc(r.change.label)], ['Old value', esc(r.change.before)], ['New value', esc(r.change.after)]]), 'Old and new values') + '</section>' : '';
@@ -552,12 +569,12 @@
     if (open && off) form = K.featureOff('sessionRequests');
     else if (open) {
       var approve = { 'Session request': 'Approve and add to session', Pause: 'Approve pause', Cancellation: 'Approve cancellation', 'Detail change': 'Apply change', 'Second parent invite': 'Confirm access' }[r.type] || 'Resolve';
-      var what = { 'Session request': 'A new Active membership starts on the effective date.', Pause: 'The membership is paused for the dates asked.', Cancellation: 'Ending Scheduled: notice starts on the request date, ends 30 days later.', 'Detail change': 'The new value replaces the old one; both are kept in history.', 'Second parent invite': 'The second ' + client().toLowerCase() + ' is verified with the same access.' }[r.type] || '';
-      form = '<section class="section">' + ui.sectionHead('Decide') + K.form([K.field('Workflow stage', K.select('pp-stage', ['New', 'Waiting on family', 'Ready to decide'], r.stage)), K.field('Resolution note', K.textarea('pp-note', '', 'Required to decline'), esc(what), true)], 1) +
+      var what = { 'Session request': 'A new Active membership starts on the effective date.', Pause: 'The membership is paused for the dates asked.', Cancellation: 'The place ends 30 days after the request date.', 'Detail change': 'The new value replaces the old one; both are kept in history.', 'Second parent invite': 'The second ' + client().toLowerCase() + ' is verified with the same access.' }[r.type] || '';
+      form = '<section class="section">' + ui.sectionHead('Decide') + K.form([K.field('Stage', K.select('pp-stage', ['New', 'Waiting on family', 'Ready to decide'], r.stage)), K.field('Resolution note', K.textarea('pp-note', '', 'Required to decline'), esc(what), true)], 1) +
         '<div class="pp-actions">' + K.actBtn('Save stage', 'pp-req-stage', { id: r.id }, { size: 'sm', variant: 'tertiary' }) + '</div></section>';
       foot += K.actBtn('Decline', 'pp-req-go', { id: r.id, outcome: 'Declined' }, { variant: 'secondary' }) + K.actBtn(approve, 'pp-req-go', { id: r.id, outcome: 'Approved' }, { variant: 'primary' });
     }
-    Hub.openSheet({ overline: '<span class="overline">' + esc(r.id) + '</span>', title: esc(r.type) + (r.player ? ' · ' + esc(player(r.player).name) : ''), body: K.kv(pairs.filter(Boolean)) + change + res + form, foot: foot });
+    Hub.openSheet({ overline: '<span class="overline">' + esc(r.id) + '</span>', title: esc(r.type) + (r.player ? ' · ' + esc(player(r.player).name) : ''), body: ask + K.kv(pairs.filter(Boolean)) + change + res + form, foot: foot });
   };
   Hub.actions['pp-req-stage'] = function (el) {
     var r = db.getRequest(el.dataset.id), s = K.val('pp-stage'), before = r.stage;
