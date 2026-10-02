@@ -5,6 +5,7 @@ one example organisation using it). It is a static, mock-data front end for
 trying out the look and feel. It is not a second Hub.
 
 - **Josh Evans brand = live Hub design:** `docs/JOSH-EVANS-THEME.md`, `docs/screenshots/joshevans/`. Switch Brand to Josh Evans in the prototype bar.
+- **Design audit against the Josh Evans packs and 68 designs:** `docs/DESIGN-AUDIT.md`.
 - **Screen priority (one screen, one obvious purpose):** `docs/SCREEN-PRIORITY.md`, `docs/screenshots/pass-12/priority/`.
 - **Flow simplification (all roles) and navigation motion:** `docs/FLOW-SIMPLIFICATION.md`, `docs/screenshots/pass-12/flow/`.
 - **Management simplification (four areas on Home):** `docs/MANAGEMENT-IA.md`, `docs/screenshots/pass-12/management-ia/`.
