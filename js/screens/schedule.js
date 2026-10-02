@@ -148,7 +148,11 @@
       }), empty: 'No registers completed yet.' });
     var attCard = K.card({ title: 'Attendance', sub: s.client ? '' : 'Overall ' + (att.summary.pct == null ? '—' : att.summary.pct + '%') + ' across ' + att.registers + ' completed registers', body: attBody });
     var lc = K.card({ title: 'Status', right: K.status(s.lifecycle), body: K.timeline(s.history.slice().reverse()) });
-    var coaches = K.card({ title: 'Regular coaches', sub: 'They coach every date unless a date is changed on its own.', body: s.staff.length ? K.list(s.staff.map(function (x) { return ui.row({ lead: ui.avatar(db.coachName(x.coach), 'md'), title: esc(db.coachName(x.coach)), sub: [esc(K.roleName(x.role))], href: '#mgmt-coach/' + x.coach }); })) : ui.notice('warn', 'No coaches yet', 'Assign coaches in Edit session.') });
+    /* Regular coaches in force today, any change already set for a later date, and Change / Add a coach */
+    var regNow = db.regularStaffOn(s, K.today), coming = (s.staffChanges || []).filter(function (ch) { return ch.from > K.today; });
+    var coaches = K.card({ title: 'Regular coaches', sub: 'They coach every date unless a date is changed on its own.', right: s.lifecycle !== 'Inactive' ? K.actBtn('Add a coach', 'sch-coach', { session: s.id, mode: 'add', coach: '' }, { size: 'sm', variant: 'secondary', icon: 'plus' }) : '',
+      body: (regNow.length ? K.list(regNow.map(function (x) { return ui.row({ lead: ui.avatar(db.coachName(x.coach), 'md'), title: '<a class="k-link" href="#mgmt-coach/' + x.coach + '">' + esc(db.coachName(x.coach)) + '</a>', sub: [esc(K.roleName(x.role))], after: s.lifecycle !== 'Inactive' ? K.actBtn('Change', 'sch-coach', { session: s.id, coach: x.coach }, { size: 'sm', variant: 'tertiary' }) : '' }); })) : ui.notice('warn', 'No coaches yet', 'Add a coach so dates are staffed.')) +
+        coming.map(function (ch) { return '<p class="k-note">From ' + esc(K.dd(ch.from)) + ': ' + esc(ch.to === 'same' ? db.coachName(ch.out) + ' becomes ' + K.roleName(ch.role) : ch.to === 'none' ? db.coachName(ch.out) + ' comes off' : (ch.out ? db.coachName(ch.to) + ' replaces ' + db.coachName(ch.out) : db.coachName(ch.to) + ' joins') + ' as ' + K.roleName(ch.role)) + '</p>'; }).join('') });
     var rule = db.getEligibilityRules(s.id) || { ageGroups: [], schoolYears: [] }, ovs = db.getEligibilityOverrides(s.id).filter(function (x) { return !x.revokedAt; });
     var elig = K.card({ title: 'Eligibility', right: K.link('mgmt-eligibility', 'Manage'), body: K.kv([['Age groups', esc(rule.ageGroups.join(', ') || 'Any')], ['School years', esc(rule.schoolYears.join(', ') || 'Any')], ['Membership required', rule.membership ? 'Yes' : 'No'], ['Exceptions', String(ovs.length)]]) });
     var members = s.client ? '' : K.card({ title: 'Players', body: '<p class="k-big num">' + db.getSessionMembers(s.id).length + ' <small class="k-note">of ' + s.capacity + ' places</small></p>' + K.link('mgmt-memberships', 'Open memberships') });
@@ -236,6 +240,11 @@
       return K.card({ title: 'Venue & capacity', body: K.form([venueField, K.field('Capacity', K.input('capacity', v.capacity, { type: 'number' }), 'For client sessions this is the expected headcount.'), K.field('Who can book?', K.select('booking', O.booking, v.booking), 'Invite only: families cannot sign up or pay until you offer a place.'),
         K.field('Meeting point', K.input('meetingPoint', v.meetingPoint), '', true)]) });
     }
+    if (st === 3 && wiz.id) {
+      var cs = db.getSession(wiz.id), reg = db.regularStaffOn(cs, K.today);
+      return K.card({ title: 'Regular coaches', sub: 'Changes open the coach change: one date, some dates, or from a date onwards.', right: K.actBtn('Add a coach', 'sch-coach', { session: wiz.id, mode: 'add', coach: '' }, { size: 'sm', variant: 'secondary', icon: 'plus' }),
+        body: reg.length ? K.list(reg.map(function (x) { return ui.row({ lead: ui.avatar(db.coachName(x.coach), 'md'), title: esc(db.coachName(x.coach)), sub: [esc(K.roleName(x.role))], after: K.actBtn('Change', 'sch-coach', { session: wiz.id, coach: x.coach }, { size: 'sm', variant: 'tertiary' }) }); })) : ui.notice('warn', 'No coaches yet', 'Add a coach so dates are staffed.') });
+    }
     if (st === 3) {
       var roles = [['', 'Not assigned']].concat(O.staffRoles.map(function (r) { return [r, K.roleName(r)]; }));
       return K.card({ title: 'Regular coaches', sub: 'They coach every date unless a date is changed on its own.', body: K.table({ cols: '40px minmax(0, 1fr) 170px', head: ['', 'Coach', 'Role'], rows: db.getCoaches().map(function (c) {
@@ -246,7 +255,7 @@
     var future = wiz.id ? db.getSessionOccurrences(wiz.id).filter(function (o) { return o.date > K.today && o.status === 'Scheduled'; }).length : 0;
     var summary = K.card({ title: 'Review', body: K.kv([['Session', esc(sp.name)], ['Programme', esc(sp.programme) + ' · ' + esc(sp.ageGroup)], ['Client', sp.client ? esc((db.getClient(sp.client) || {}).name || sp.client) : 'None'], ['Commercial', esc(sp.commercial) + ' · ' + esc(sp.billing)],
       ['Booking access', esc(sp.booking)], ['Price', K.money(sp.price)], ['Repeats', sp.pattern === 'Weekly' ? esc(dayNames(sp)) + ' ' + sp.start + '–' + sp.end : sp.dates.length + ' selected dates, ' + sp.start + '–' + sp.end], ['Runs', K.d(sp.startDate) + ' to ' + K.d(sp.endDate)],
-      ['Venue', esc(db.venueName(sp.venue))], ['Capacity', String(sp.capacity)], ['Coaches', sp.staff.length ? esc(sp.staff.map(function (x) { return db.coachName(x.coach) + ' (' + K.roleName(x.role) + ')'; }).join(', ')) : K.pill('None yet', 'warn')], ['Status', K.status(sp.lifecycle)]], true) });
+      ['Venue', esc(db.venueName(sp.venue))], ['Capacity', String(sp.capacity)], ['Coaches', (function () { var st = wiz.id ? db.regularStaffOn(db.getSession(wiz.id), K.today) : sp.staff; return st.length ? esc(st.map(function (x) { return db.coachName(x.coach) + ' (' + K.roleName(x.role) + ')'; }).join(', ')) : K.pill('None yet', 'warn'); })()], ['Status', K.status(sp.lifecycle)]], true) });
     var pv = K.card({ title: wiz.id ? 'Dates from this timetable' : 'Create dates', sub: wiz.id ? 'Saving applies only what you changed to the ' + future + ' upcoming dates that still follow the usual set-up. Dates with their own time, venue, capacity or coach arrangements keep them; past dates never change.' : make.length + ' dates will be created · ' + (prev.length - make.length) + ' skipped for breaks',
       body: '<ol class="sch-preview">' + prev.map(function (p) { return '<li class="' + (p.skipped ? 'is-skipped' : '') + '"><b class="num">' + esc(K.dd(p.date)) + '</b><span class="num">' + p.start + '–' + p.end + '</span>' + (p.skipped ? K.pill('Skipped · ' + p.skipped, 'warn') : K.pill(wiz.id ? 'In pattern' : 'Will be created', 'ok')) + '</li>'; }).join('') + '</ol>' + (prev.length ? '' : '<p class="k-note">This pattern produces no dates.</p>') });
     return summary + pv;
@@ -284,7 +293,7 @@
     var sp = spec(), at = K.now();
     if (wiz.id) {
       var id = wiz.id, s = db.getSession(id);
-      var patch = { name: sp.name, programme: sp.programme, area: sp.area, ageGroup: sp.ageGroup, client: sp.client, commercial: sp.commercial, booking: sp.booking, billing: sp.billing, price: sp.price, pattern: sp.pattern, days: sp.days, dates: sp.pattern === 'Selected dates' ? sp.dates : s.dates, start: sp.start, end: sp.end, startDate: sp.startDate, endDate: sp.endDate, capacity: sp.capacity, meetingPoint: sp.meetingPoint, staff: sp.staff };
+      var patch = { name: sp.name, programme: sp.programme, area: sp.area, ageGroup: sp.ageGroup, client: sp.client, commercial: sp.commercial, booking: sp.booking, billing: sp.billing, price: sp.price, pattern: sp.pattern, days: sp.days, dates: sp.pattern === 'Selected dates' ? sp.dates : s.dates, start: sp.start, end: sp.end, startDate: sp.startDate, endDate: sp.endDate, capacity: sp.capacity, meetingPoint: sp.meetingPoint };
       var lcChange = sp.lifecycle !== s.lifecycle;
       wiz = null;
       Hub.mutate(function () { var n = db.updateSession(id, patch, who(), at); if (lcChange) db.setSessionLifecycle(id, sp.lifecycle, 'Changed in Edit session', who(), at); return n; }, 'Session saved', { area: 'Schedule', summary: 'Session updated: ' + sp.name, entity: id, at: at });
@@ -393,7 +402,7 @@
       ['Expected', s.client ? 'Headcount ' + o.players : o.players + ' players'], ['Register', changed ? '<span class="c-mute">Not needed</span>' : K.link('mgmt-register/' + o.id, reg.state)], ['Age group', esc(o.ageGroup)]
     ], true) });
     /* Staff for this Session: planned before it runs, what actually happened once confirmed */
-    var ended = db.hasEnded(o), done = !!o.delivery;
+    var ended = db.hasEnded(o), done = !!o.delivery, canEdit = db.venueChangeable(o);
     function onTheDay(x) {
       if (x.attended === 'Attended') return K.status('Present');
       if (x.attended === 'Absent') return K.status('Absent') + (x.covering ? ' <small class="sch-why">' + esc(db.coachName(x.covering).split(' ')[0]) + ' covered</small>' : '');
@@ -402,11 +411,11 @@
       return x.cover ? K.pill('Covering ' + db.coachName(x.covers || '').split(' ')[0], 'info') : '<span class="c-mute">Planned</span>';
     }
     var staffT = K.card({ title: 'Staff for this Session', sub: done ? 'What actually happened. Saved for history and coach pay.' : ended ? 'As planned. Confirm what actually happened above.' : 'Planned for this date. Changes here affect this date only.',
-      right: done || changed ? '' : o.staff.length ? K.actBtn('Change coaches', 'sch-staff', { id: o.id }, { size: 'sm', variant: 'secondary' }) : K.actBtn('Add a coach', 'sch-staff', { id: o.id }, { size: 'sm', variant: 'primary' }),
-      body: o.staff.length ? K.table({ cols: '36px minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 150px)', head: ['', 'Coach', { label: 'Role on the day', cls: 'wide' }, { label: done ? 'On the day' : 'Status', cls: 'c-end' }], rows: o.staff.map(function (x) {
+      right: done || changed || ended ? '' : K.actBtn('Add a coach', 'sch-coach', { id: o.id, mode: 'add' }, { size: 'sm', variant: o.staff.length ? 'secondary' : 'primary', icon: 'plus' }),
+      body: o.staff.length ? K.table({ cols: '36px minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 150px)' + (canEdit ? ' 80px' : ''), head: ['', 'Coach', { label: 'Role on the day', cls: 'wide' }, { label: done ? 'On the day' : 'Status', cls: 'c-end' }].concat(canEdit ? [{ label: '', cls: 'c-end' }] : []), rows: o.staff.map(function (x) {
         var planned = K.roleName(x.role || (x.lead ? 'Lead' : 'Coach'));
         return { cells: [ui.avatar(db.coachName(x.coach), 'sm', x.attended === 'Absent' || (x.unavailable && !x.covering) ? 'is-out' : ''), K.cell(esc(db.coachName(x.coach)), x.cover ? 'Covering ' + esc(db.coachName(x.covers || '').split(' ')[0]) : x.extra ? 'Extra coach on the day' : x.added ? 'Added for this date' : 'Planned: ' + esc(planned)),
-          { cls: 'wide c-cell', html: esc(K.roleName(x.actualRole || x.role) || '—') }, { cls: 'c-end', html: onTheDay(x) }] };
+          { cls: 'wide c-cell', html: esc(K.roleName(x.actualRole || x.role) || '—') }, { cls: 'c-end', html: onTheDay(x) }].concat(canEdit ? [{ cls: 'c-end', html: x.cover && x.unavailable ? '' : K.actBtn('Change', 'sch-coach', { id: o.id, coach: x.coach }, { size: 'sm', variant: 'tertiary' }) }] : []) };
       }) }) : ui.notice('danger', 'No coach yet', 'Add a coach or ask for cover before this session starts.') });
     var notes = K.card({ title: 'Operational notes', right: K.actBtn(o.notes ? 'Edit notes' : 'Add notes', 'sch-notes', { id: o.id }, { size: 'sm', variant: 'secondary' }), body: o.notes ? '<p class="sch-notes">' + esc(o.notes) + '</p>' + (o.notesBy ? K.stamp('Updated', o.notesBy, o.notesAt) : '') : '<p class="k-note">No notes for this session.</p>' });
     var change = '';
@@ -459,15 +468,22 @@
       return list;
     }
     var cb = coverBtn(o), working = db.workingStaff(o).map(function (x) { return x.actualRole || x.role; });
-    if (!o.staff.length) list.push({ tone: 'danger', title: 'No coach yet', text: 'This session can’t run without a coach.', primary: cb || K.actBtn('Add a coach', 'sch-staff', { id: o.id }, { variant: 'primary' }), secondary: cb ? K.actBtn('Add a coach', 'sch-staff', { id: o.id }, { variant: 'secondary' }) : '', rules: ['ATT-013', 'ATT-041'] });
-    if (out.length) list.push({ tone: 'danger', title: esc(out.map(function (x) { return db.coachName(x.coach); }).join(' and ')) + ' can’t coach', text: 'Cover is needed before ' + esc(K.dd(o.date)) + ', ' + o.start + '.', primary: cb, secondary: K.actBtn('Change coach', 'sch-staff', { id: o.id }, { variant: 'secondary' }), rules: ['ATT-014', 'ATT-041'] });
-    if (working.length && working.every(function (r) { return r === 'Learning'; })) list.push({ tone: 'warn', title: 'Learning Coach only', text: 'A Learning Coach can’t run a session alone. Add a Lead Coach.', primary: K.actBtn('Add a coach', 'sch-staff', { id: o.id }, { variant: 'primary' }), rules: ['ATT-002'] });
-    else if (working.length && working.indexOf('Lead') < 0) list.push({ tone: 'warn', title: 'No Lead Coach', text: 'Someone needs to lead this session. Make one of the coaches the Lead Coach for this date, or add one.', primary: K.actBtn('Choose a lead', 'sch-staff', { id: o.id }, { variant: 'primary' }), rules: ['ATT-003'] });
+    /* Know who should coach → Change coach / Add a coach. Don't know → Find cover. */
+    if (!o.staff.length) list.push({ tone: 'danger', title: 'No coach yet', text: 'This session can’t run without a coach. Add one if you know who, or find cover.', primary: K.actBtn('Add a coach', 'sch-coach', { id: o.id, mode: 'add' }, { variant: 'primary' }), secondary: cb ? cb.replace('btn--primary', 'btn--secondary') : '', rules: ['ATT-013', 'ATT-041'] });
+    if (out.length) list.push({ tone: 'danger', title: esc(out.map(function (x) { return db.coachName(x.coach); }).join(' and ')) + ' can’t coach', text: 'Change coach if you know who should take it; Find cover asks every eligible coach.', primary: cb, secondary: K.actBtn('Change coach', 'sch-coach', { id: o.id, coach: out[0].coach }, { variant: 'secondary' }), rules: ['ATT-014', 'ATT-041'] });
+    if (working.length && working.every(function (r) { return r === 'Learning'; })) list.push({ tone: 'warn', title: 'Learning Coach only', text: 'A Learning Coach can’t run a session alone. Add a Lead Coach.', primary: K.actBtn('Add a coach', 'sch-coach', { id: o.id, mode: 'add' }, { variant: 'primary' }), rules: ['ATT-002'] });
+    else if (working.length && working.indexOf('Lead') < 0) list.push({ tone: 'warn', title: 'No Lead Coach', text: 'Someone needs to lead this session. Make one of the coaches the Lead Coach for this date, or add one.', primary: K.actBtn('Choose a lead', 'sch-coach', { id: o.id, mode: 'lead' }, { variant: 'primary' }), rules: ['ATT-003'] });
+    db.workingStaff(o).forEach(function (x) {
+      var comp = db.getCoachComplianceSummary ? db.getCoachComplianceSummary(x.coach) : null;
+      if (comp && (comp.state === 'Expired' || comp.state === 'Missing')) list.push({ tone: 'warn', title: esc(db.coachName(x.coach)) + ': ' + esc(comp.text.charAt(0).toLowerCase() + comp.text.slice(1)), text: 'They are on this date. Change the coach, or check their documents.', primary: K.actBtn('Change coach', 'sch-coach', { id: o.id, coach: x.coach }, { variant: 'primary' }), secondary: K.actBtn('Check documents', 'sch-docs', { coach: x.coach }, { variant: 'secondary' }), rules: ['ATT-031'] });
+    });
     var vActs = K.actBtn('Reschedule', 'sch-resched', { id: o.id }, { variant: 'secondary' }) + K.actBtn('Cancel session', 'sch-cancel', { id: o.id }, { variant: 'tertiary' });
     var shut = o.venue ? db.venueClosure(o.venue, o.date) : null;
     if (!o.venue) list.push({ tone: 'danger', title: 'No venue yet', text: 'Choose a venue, or move the session to a date when one is free.', primary: K.actBtn('Change venue', 'sch-venue', { id: o.id }, { variant: 'primary' }), secondary: vActs, rules: ['ATT-018'] });
     else if (shut) list.push({ tone: 'danger', title: esc(db.venueName(o.venue)) + ' is closed on ' + esc(K.dd(o.date)), text: esc(shut.reason) + '. Move this date to another venue, reschedule it, or cancel it.', primary: K.actBtn('Change venue', 'sch-venue', { id: o.id }, { variant: 'primary' }), secondary: vActs, rules: ['ATT-019'] });
     if (db.hasStarted(o) && !regDone) list.push({ tone: 'warn', title: 'Register still needed', text: 'The session has started. The register is ' + reg.state.toLowerCase() + '.', primary: K.goBtn('Open register', 'mgmt-register/' + o.id, { variant: 'primary' }), rules: ['ATT-020'] });
+    /* Urgent first; order within a tone stays as written */
+    list = list.filter(function (x) { return x.tone === 'danger'; }).concat(list.filter(function (x) { return x.tone !== 'danger'; }));
     return list.length ? list : [{ tone: 'ok', title: 'Ready to run', text: 'Coaches, a Lead Coach and the venue are in place. After it runs, confirm what happened here.' }];
   }
   function readinessHtml(list) {
@@ -593,6 +609,116 @@
     var rep = closeThen(function () { return db.rescheduleOccurrence(o.id, to, r, who(), at); }, 'Rescheduled · replacement created', occLog(o, 'Session rescheduled to ' + K.dd(to.date), at, { before: o.date, after: to.date }));
     location.hash = 'mgmt-occurrence/' + rep.id;
   };
+  /* ===================================================== CHANGE COACH
+     One flow for every starting point when Management already knows who should coach:
+     a dated session, staffing banners, Needs attention, the weekly session page, Edit session
+     and the coach profile. Finding someone unknown stays the separate Find cover journey. */
+  var CS = null;
+  Hub.actions['sch-staff'] = function (el) { Hub.actions['sch-coach'](el); };
+  Hub.actions['sch-coach'] = function (el) {
+    var d = el.dataset, o = d.id ? db.getOccurrence(d.id) : null, s = db.getSession(o ? o.sessionId : d.session);
+    var dates = db.venueDates(s.id);
+    if (!dates.length) { Hub.toast('There are no upcoming dates of ' + s.name + ' to change'); return; }
+    var anchor = o && db.venueChangeable(o) ? o : dates[0];
+    if (o && !db.venueChangeable(o)) { Hub.toast('This date has started or run, so its coaches can’t be changed here'); return; }
+    var scope = d.scope || (o ? 'one' : 'onwards');
+    var people = o ? o.staff.filter(function (x) { return !(x.cover && x.unavailable); }).map(function (x) { return x.coach; }) : db.regularStaffOn(s, anchor.date).map(function (x) { return x.coach; });
+    var out = d.coach !== undefined ? d.coach : d.mode === 'add' ? '' : (people[0] || '');
+    if (d.mode === 'lead') { var w = o ? db.workingStaff(o) : []; out = (w.filter(function (x) { return (x.actualRole || x.role) === 'Coach'; })[0] || w[0] || {}).coach || ''; }
+    CS = { session: s.id, anchor: anchor.id, fromDate: !!o };
+    function roleOf(c) { var x = o ? o.staff.filter(function (y) { return y.coach === c; })[0] : db.regularStaffOn(s, anchor.date).filter(function (y) { return y.coach === c; })[0]; return x ? (x.actualRole || x.role) : ''; }
+    var who = [['', 'Nobody: add a coach']].concat(people.map(function (c) { var x = o && o.staff.filter(function (y) { return y.coach === c; })[0]; return [c, db.coachName(c) + ' (' + K.roleName(roleOf(c)) + ')' + (x && x.unavailable ? ' · away' : x && x.cover ? ' · covering' : '')]; }));
+    function radio(name, val, title, sub, on) { return '<label class="sch-scope__opt"><input type="radio" name="' + name + '" value="' + val + '"' + (on ? ' checked' : '') + '><span><b>' + title + '</b>' + (sub ? '<small>' + sub + '</small>' : '') + '</span></label>'; }
+    var roleNow = out ? roleOf(out) : (o && !db.workingStaff(o).some(function (x) { return (x.actualRole || x.role) === 'Lead'; }) ? 'Lead' : 'Coach');
+    if (d.mode === 'lead') roleNow = 'Lead';
+    var dateList = '<div class="sch-vdates" data-cs-show="dates">' + dates.map(function (x) { return '<label class="sch-vdate"><input type="checkbox" name="cDate" value="' + x.id + '"' + (x.id === anchor.id && o ? ' checked' : '') + '><span><b>' + esc(K.dd(x.date)) + ', ' + x.start + '</b><small data-cs-note="' + x.id + '"></small></span></label>'; }).join('') +
+      '<div class="sch-vrange">' + K.field('Tick from', K.select('cFrom', dates.map(function (x) { return [x.date, K.dd(x.date)]; }), anchor.date)) + K.field('to', K.select('cTo', dates.map(function (x) { return [x.date, K.dd(x.date)]; }), anchor.date)) + K.actBtn('Tick these dates', 'sch-coach-range', {}, { size: 'sm', variant: 'secondary' }) + '</div></div>';
+    K.sheet({ overline: '<span class="overline">' + esc(s.name) + (o ? ' · ' + esc(K.dd(o.date)) + ', ' + o.start : '') + '</span>', title: d.mode === 'add' ? 'Add a coach' : 'Change coach',
+      body: '<div data-cs>' + K.form([K.field('Who is changing?', K.select('cOut', who, out)), K.field('Who should coach instead?', '<select class="select" name="cIn" data-cs-in data-pre="' + esc(d.mode === 'lead' ? 'same' : '') + '"></select>', '<span data-cs-fit></span>')], 1) +
+        '<p class="sch-vq">What role should they have?</p><div class="sch-scope sch-scope--row">' + radio('cRole', 'Lead', 'Lead Coach', '', roleNow === 'Lead') + radio('cRole', 'Coach', 'Coach', '', roleNow === 'Coach' || !roleNow) + radio('cRole', 'Learning', 'Learning Coach', '', roleNow === 'Learning') + '</div>' +
+        '<p class="sch-vq">How long should this change apply?</p><div class="sch-scope">' +
+        radio('cScope', 'one', 'This session only', 'Changes ' + esc(K.dd(anchor.date)) + ' only. The regular coaches stay the same.', scope === 'one') + radio('cScope', 'dates', 'Selected dates', 'Choose the individual dates or a date range affected.', scope === 'dates') + radio('cScope', 'onwards', 'From this date onwards', 'Changes the regular coaches for future sessions from the date you choose.', scope === 'onwards') + '</div>' +
+        dateList + '<div data-cs-show="onwards">' + K.field('Starting from', K.select('cStart', dates.map(function (x) { return [x.date, K.dd(x.date)]; }), anchor.date), 'Earlier dates stay as they are.') + '</div>' +
+        K.form([K.field('Why?', K.input('cWhy', '', { placeholder: 'For example: Charlie moving to Saturdays' }), null, true)], 1) +
+        '<section class="sch-vcheck" aria-live="polite"><h3>Check before saving</h3><div id="cSummary"></div></section></div>',
+      foot: sheetFoot('Save change', 'sch-coach-go', {}) });
+    fillIncoming(); coachSummary();
+  };
+  /* The "instead" list: blocked coaches are shown but can't be picked; warnings stay visible */
+  function fillIncoming() {
+    var sel = document.querySelector('#sheet [data-cs-in]'); if (!sel || !CS) return;
+    var o = db.getOccurrence(CS.anchor), out = K.val('cOut'), role = (document.querySelector('#sheet [name=cRole]:checked') || {}).value || 'Coach', keep = sel.value || sel.getAttribute('data-pre') || '';
+    var on = o.staff.filter(function (x) { return !x.unavailable; }).map(function (x) { return x.coach; });
+    var opts = (out ? [['same', db.coachName(out).split(' ')[0] + ': change role only'], ['none', 'Nobody: remove ' + db.coachName(out).split(' ')[0]]] : []).map(function (x) { return '<option value="' + x[0] + '">' + esc(x[1]) + '</option>'; });
+    opts.unshift('<option value="">Choose a coach</option>');
+    db.getCoaches().filter(function (c) { return c.id !== out && on.indexOf(c.id) < 0; }).forEach(function (c) {
+      var f = db.coachFit(c.id, o, role);
+      opts.push('<option value="' + c.id + '"' + (f.block ? ' disabled' : '') + '>' + esc(c.name) + (f.block ? ' · ' + esc(f.block) : f.warn ? ' · ' + esc(f.warn) : ' · free') + '</option>');
+    });
+    sel.innerHTML = opts.join(''); if (keep && sel.querySelector('option[value="' + keep + '"]:not([disabled])')) sel.value = keep;
+    sel.removeAttribute('data-pre');
+  }
+  function readCoach() {
+    var q = function (x) { return document.querySelector('#sheet ' + x); };
+    var scope = (q('[name=cScope]:checked') || {}).value || 'one';
+    var spec = { session: CS.session, out: K.val('cOut') || null, to: K.val('cIn'), role: (q('[name=cRole]:checked') || {}).value || 'Coach', scope: scope, reason: K.val('cWhy').trim() };
+    if (scope === 'one') spec.dates = [CS.anchor];
+    if (scope === 'dates') spec.dates = Array.prototype.map.call(document.querySelectorAll('#sheet [name=cDate]:checked'), function (x) { return x.value; });
+    if (scope === 'onwards') spec.from = K.val('cStart');
+    return spec;
+  }
+  function coachSummary() {
+    var box = document.getElementById('cSummary'); if (!box || !CS) return;
+    var spec = readCoach(), q = function (x) { return document.querySelector('#sheet ' + x); };
+    Array.prototype.forEach.call(document.querySelectorAll('#sheet [data-cs-show]'), function (x) { x.hidden = x.getAttribute('data-cs-show') !== spec.scope; });
+    Array.prototype.forEach.call(document.querySelectorAll('#sheet [data-cs-note]'), function (n) { var o = db.getOccurrence(n.getAttribute('data-cs-note')); n.textContent = spec.out ? (o.staff.some(function (x) { return x.coach === spec.out; }) ? db.staffArrangement(o, spec.out) || '' : db.coachName(spec.out).split(' ')[0] + ' isn’t on this date') : ''; });
+    /* the role picker can't make a Learning Coach the Lead */
+    var lc = spec.to && spec.to !== 'none' ? db.getCoach(spec.to === 'same' ? spec.out : spec.to) : null, lead = q('[name=cRole][value=Lead]');
+    if (lead) { lead.disabled = !!(lc && lc.type === 'learning'); if (lead.disabled && lead.checked) { q('[name=cRole][value=Learning]').checked = true; spec.role = 'Learning'; } }
+    var fit = q('[data-cs-fit]'); if (fit) { var o0 = db.getOccurrence(CS.anchor), f = spec.to && spec.to !== 'same' && spec.to !== 'none' ? db.coachFit(spec.to, o0, spec.role) : null; fit.innerHTML = f && f.warn ? '<span class="co-flag">' + esc(f.warn) + ': they can be chosen, and the document issue stays in Needs attention.</span>' : ''; }
+    if (!spec.to) { box.innerHTML = '<p class="k-note">Choose who should coach instead.</p>'; return; }
+    var plan = db.planStaffChange(spec), s = plan.session, n = plan.targets.length, list = function (a) { return a.map(function (x) { return K.dm((x.o || x).date); }).join(', '); };
+    var outN = spec.out ? db.coachName(spec.out) : '', inN = plan.incoming && spec.to !== 'same' ? db.coachName(plan.incoming) : '';
+    var when = spec.scope === 'one' ? (n ? esc(K.dd(plan.targets[0].date)) + ' only' : 'Nothing to change on this date') : spec.scope === 'dates' ? (n ? n + ' date' + (n === 1 ? '' : 's') + ': ' + esc(list(plan.targets)) : 'Tick at least one date') : 'From ' + esc(K.dd(spec.from)) + ': ' + n + ' upcoming date' + (n === 1 ? '' : 's') + ', and any added later';
+    var rows = [['Session', esc(s.name)]];
+    if (spec.to === 'same') rows.push(['Role change', esc(outN) + ' becomes ' + K.roleName(spec.role)]);
+    else { if (spec.out) rows.push([spec.to === 'none' ? 'Removing' : 'Replacing', esc(outN)]); if (inN) rows.push(['With', esc(inN) + ', as ' + K.roleName(spec.role)]); }
+    rows.push(['Dates', when]);
+    if (plan.replaced.length) rows.push(['Replacing', plan.replaced.map(function (x) { return 'This will replace the existing arrangement for ' + esc(K.dd(x.o.date)) + ' (' + esc(x.why) + ').'; }).join('<br>')]);
+    rows.push(['Staying as they are', plan.kept.map(function (x) { return esc(K.dd(x.o.date)) + ': ' + esc(x.why) + ', kept'; }).concat(plan.absentFrom.length && spec.scope !== 'onwards' ? [esc(list(plan.absentFrom)) + ': ' + esc(outN.split(' ')[0]) + ' isn’t on ' + (plan.absentFrom.length === 1 ? 'that date' : 'those dates')] : []).concat(['Past and confirmed dates aren’t changed', 'The regular coaches ' + (spec.scope === 'onwards' ? 'change from ' + esc(K.dm(spec.from)) + '; ' + (outN && spec.to !== 'same' ? esc(outN.split(' ')[0]) + '’s earlier period is kept in history' : 'earlier dates keep the old set-up') : 'don’t change')]).join('<br>')]);
+    if (K.fin() !== 'none' && spec.to !== 'same' && n) rows.push(['Expected pay', (plan.payOut ? '−' + K.money(plan.payOut) + ' ' + esc(outN.split(' ')[0]) : '') + (plan.payOut && plan.payIn ? ', ' : '') + (plan.payIn ? '+' + K.money(plan.payIn) + ' ' + esc(inN.split(' ')[0]) + ' at their normal rate' : '') + (!plan.payOut && !plan.payIn ? 'No change' : '')]);
+    if (plan.cover.length) rows.push(['Cover', 'Sorts the open cover for ' + esc(list(plan.cover)) + '; coaches offered it are told it’s been filled by Management']);
+    rows.push(['Who is told', esc(plan.told.map(function (c) { return db.coachName(c).split(' ')[0]; }).join(' and ') || 'Nobody') + '. Families see the change in the Hub.']);
+    var warn = (plan.blocked.length ? ui.notice('danger', esc(inN || outN) + ' can’t take ' + esc(list(plan.blocked)), esc(plan.blocked[0].why) + '. Choose someone else, or leave ' + (plan.blocked.length === 1 ? 'that date' : 'those dates') + ' out.') : '') +
+      (plan.warned.length ? ui.notice('warn', esc(inN) + ': ' + esc(plan.warned[0].why), 'They can be chosen. The document issue stays in Needs attention until it’s sorted.') : '') +
+      (plan.gaps.length ? ui.notice('warn', 'This leaves ' + esc(plan.gaps[0].why) + ' on ' + esc(list(plan.gaps)), 'You can still save; Needs attention will show it until it’s fixed.') : '');
+    box.innerHTML = K.kv(rows) + warn;
+  }
+  document.addEventListener('change', function (e) {
+    if (!(e.target.closest && e.target.closest('[data-cs]'))) return;
+    if (e.target.name === 'cOut' || e.target.name === 'cRole') fillIncoming();
+    coachSummary();
+  });
+  Hub.actions['sch-coach-range'] = function () {
+    var f = K.val('cFrom'), t = K.val('cTo'), out = K.val('cOut'); if (t < f) { var x = f; f = t; t = x; }
+    Array.prototype.forEach.call(document.querySelectorAll('#sheet [name=cDate]'), function (c) { var o = db.getOccurrence(c.value); if (!out || !db.staffArrangement(o, out)) c.checked = o.date >= f && o.date <= t; });
+    coachSummary();
+  };
+  Hub.actions['sch-coach-go'] = function () {
+    var spec = readCoach(); if (!spec.to) { Hub.toast('Choose who should coach instead'); return; }
+    if (spec.to === 'same' && !spec.out) { Hub.toast('Choose who is changing'); return; }
+    var plan = db.planStaffChange(spec), at = K.now();
+    if (!plan.targets.length) { Hub.toast(spec.scope === 'dates' ? 'Tick at least one date' : 'Nothing to change on these dates'); return; }
+    if (plan.blocked.length) { Hub.toast((plan.incoming ? db.coachName(plan.incoming) : 'They') + ' can’t take ' + plan.blocked.map(function (x) { return K.dm(x.o.date); }).join(', ') + ': ' + plan.blocked[0].why); return; }
+    if (!spec.reason) { Hub.toast('Say why the coach is changing'); return; }
+    var n = plan.targets.length, s = plan.session;
+    var what = spec.to === 'same' ? db.coachName(spec.out) + ' is now ' + K.roleName(spec.role) : spec.to === 'none' ? db.coachName(spec.out) + ' removed' : (spec.out ? db.coachName(plan.incoming) + ' replaces ' + db.coachName(spec.out) : db.coachName(plan.incoming) + ' added');
+    var msg = what + (spec.scope === 'onwards' ? ' from ' + K.dm(spec.from) + ' (' + n + ' date' + (n === 1 ? '' : 's') + ')' : n === 1 ? ' for ' + K.dd(plan.targets[0].date) : ' for ' + n + ' dates');
+    Hub.closeSheet(true);
+    Hub.mutate(function () { db.changeStaff(spec, who(), at); }, msg, { area: 'Schedule', summary: 'Coach change on ' + s.name + ': ' + what + ' (' + (spec.scope === 'onwards' ? 'from ' + K.dm(spec.from) : plan.targets.map(function (o) { return K.dm(o.date); }).join(', ')) + '): ' + spec.reason, entity: s.id, at: at });
+  };
+  Hub.actions['sch-docs'] = function (el) { Hub.wsTabs['coach-prof'] = 'documents'; location.hash = 'mgmt-coach/' + el.dataset.coach; };
+
   /* ===================================================== CHANGE VENUE
      One flow for every starting point: a dated session, a no-venue or venue-closed banner,
      Needs attention, the venue page (through the date) and the weekly session page. */
@@ -684,29 +810,6 @@
     K.sheet({ title: 'Operational notes', meta: '<p class="k-note">Visible to coaches on this session.</p>', body: K.form([K.field('Notes', K.textarea('notes', o.notes, 'Parking, kit, access or anything coaches should know'), '', true)], 1), foot: sheetFoot('Save notes', 'sch-notes-go', { id: o.id }) });
   };
   Hub.actions['sch-notes-go'] = function (el) { var o = db.getOccurrence(el.dataset.id), n = K.val('notes'), at = K.now(); closeThen(function () { db.setOccurrenceNotes(o.id, n, who(), at); }, 'Notes saved', occLog(o, 'Operational notes updated', at)); };
-  Hub.actions['sch-staff'] = function (el) {
-    var o = db.getOccurrence(el.dataset.id), O = OPT();
-    var coaches = [['', 'Nobody']].concat(db.getCoaches().map(function (c) { return [c.id, c.name]; }));
-    var roles = O.staffRoles.map(function (r) { return [r, K.roleName(r)]; }), onStaff = o.staff.map(function (x) { return x.coach; });
-    var addable = [['', 'Nobody']].concat(db.getCoaches().filter(function (c) { return c.active !== false && onStaff.indexOf(c.id) < 0; }).map(function (c) { return [c.id, c.name]; }));
-    var addRow = '<div class="sch-staffedit"><div class="sch-staffedit__who">' + I('plus', 'icon-sm') + '<b>Add a coach for this date</b></div>' + K.form([K.field('Coach', K.select('sf-add', addable, '')), K.field('Role on the day', K.select('sf-add-role', roles, o.staff.length ? 'Coach' : 'Lead'))], 2) + '</div>';
-    K.sheet({ title: 'Change coaches for this date', meta: '<p class="k-note">' + esc(o.session) + ' · ' + esc(when(o)) + '</p>', body: '<div class="lx-stack">' + o.staff.map(function (x) {
-      return '<div class="sch-staffedit"><div class="sch-staffedit__who">' + ui.avatar(db.coachName(x.coach), 'sm') + '<b>' + esc(db.coachName(x.coach)) + '</b><small class="k-note">Planned: ' + esc(x.role || '') + '</small></div>' + K.form([
-        K.field('Role on the day', K.select('ar-' + x.coach, O.staffRoles.map(function (r) { return [r, K.roleName(r)]; }), x.actualRole || x.role)), K.field('Covered by', K.select('cv-' + x.coach, coaches, x.covering || ''), 'Choose a coach if this person is unavailable.', true)]) + '</div>';
-    }).join('') + addRow + '</div>', foot: sheetFoot('Save coaches', 'sch-staff-go', { id: o.id }) });
-  };
-  Hub.actions['sch-staff-go'] = function (el) {
-    var o = db.getOccurrence(el.dataset.id), at = K.now(), changes = [];
-    o.staff.forEach(function (x) {
-      var p = {}, ar = K.val('ar-' + x.coach), c = K.val('cv-' + x.coach);
-      if (ar && ar !== (x.actualRole || x.role)) p.actualRole = ar; if (c && c !== (x.covering || '')) p.covering = c;
-      if (Object.keys(p).length) changes.push([x.coach, p]);
-    });
-    var add = K.val('sf-add'), addRole = K.val('sf-add-role');
-    if (!changes.length && !add) { Hub.closeSheet(true); Hub.toast('Nothing changed'); return; }
-    closeThen(function () { changes.forEach(function (c) { db.updateOccurrenceStaff(o.id, c[0], c[1], who(), at); }); if (add) db.addOccurrenceStaff(o.id, add, addRole, who(), at); }, 'Coaches updated', occLog(o, 'Staff updated', at));
-  };
-
   /* ===================================================== CANCELLATION OUTCOME */
   Hub.screens['mgmt-occurrence-outcome'] = function (ctx) {
     var o = db.getOccurrence(ctx.param);

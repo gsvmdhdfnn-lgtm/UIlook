@@ -63,7 +63,8 @@
       var ses = db.getSession(o.sessionId);
       if (!o.draft && !o.staff.length && h <= 336) add('ATT-013', 'session_no_coach|occurrence:' + o.id, { hours: h, title: o.session + ' has no coach', detail: occLabel(o) + ' · ' + o.players + ' players', actionLabel: 'Add a coach', route: 'mgmt-occurrence/' + o.id, related: { occurrence: o.id } });
       o.staff.forEach(function (s) { if (s.unavailable && !s.covering && !coverOcc[o.id]) add('ATT-014', 'assigned_coach_unavailable|occurrence:' + o.id + '|coach:' + s.coach, { hours: h, title: db.coachName(s.coach) + ' is unavailable for ' + o.session, detail: occLabel(o) + ' · marked unavailable', actionLabel: 'Find cover', route: 'mgmt-cover', related: { occurrence: o.id, coach: s.coach } }); });
-      if (o.staff.length && staffed.length && staffed.every(function (s) { var c = db.getCoach(s.covering || s.coach); return c && c.type === 'learning'; })) add('ATT-002', 'learning_coach_only|occurrence:' + o.id, { hours: h, title: o.session + ' has only a learning coach', detail: occLabel(o), actionLabel: 'Check coaches', route: 'mgmt-occurrence/' + o.id, related: { occurrence: o.id } });
+      var rolesNow = db.workingStaff(o).map(function (x) { return x.actualRole || x.role; });
+      if (rolesNow.length && rolesNow.every(function (r) { return r === 'Learning'; })) add('ATT-002', 'learning_coach_only|occurrence:' + o.id, { hours: h, title: o.session + ' has only a learning coach', detail: occLabel(o), actionLabel: 'Check coaches', route: 'mgmt-occurrence/' + o.id, related: { occurrence: o.id } });
       if (!o.venue && h <= 336) add('ATT-018', 'venue_missing|occurrence:' + o.id, { hours: h, title: o.session + ' has no venue', detail: K.dd(o.date) + ', ' + o.start + (ses.lifecycle === 'Draft' ? ' · session is a draft' : ''), actionLabel: 'Choose a venue', route: 'mgmt-occurrence/' + o.id, related: { occurrence: o.id } });
       var shut = o.venue && db.venueClosure ? db.venueClosure(o.venue, o.date) : null;
       if (shut && !o.draft) add('ATT-019', 'venue_unavailable|occurrence:' + o.id + '|venue:' + o.venue, { hours: h, title: db.venueName(o.venue) + ' is closed for ' + o.session, detail: K.dd(o.date) + ', ' + o.start + ' · ' + shut.reason, actionLabel: 'Change venue', route: 'mgmt-occurrence/' + o.id, related: { occurrence: o.id } });
@@ -85,7 +86,7 @@
         var c = s.covering || s.coach, list = bad[c]; if (!list || s.unavailable) return;
         var h = hoursUntil(o.date, o.start); if (h > 168) return;
         var what = list.map(function (d) { var n = /^[A-Z][a-z]/.test(d.typeName) ? d.typeName.toLowerCase() : d.typeName; return d.kind === 'expired' ? n + ' has expired' : n + ' is missing'; }).join(' and ');
-        add('ATT-031', 'non_compliant_coach_assigned|occurrence:' + o.id + '|coach:' + c, { hours: h, title: db.coachName(c) + ' is assigned but their ' + what, detail: o.session + ' · ' + occLabel(o), actionLabel: 'Check documents', route: 'mgmt-coach/' + c, related: { coach: c, occurrence: o.id } });
+        add('ATT-031', 'non_compliant_coach_assigned|occurrence:' + o.id + '|coach:' + c, { hours: h, title: db.coachName(c) + ' is assigned but their ' + what, detail: o.session + ' · ' + occLabel(o), actionLabel: 'Change coach or check documents', route: 'mgmt-occurrence/' + o.id, related: { coach: c, occurrence: o.id } });
       });
     });
     docs.forEach(function (d) {

@@ -586,10 +586,11 @@
     var offers = db.getCoverOffersFor(k);
     var offerCards = offers.map(function (x) {
       var o = x.occurrence, f = x.offer, n = x.need, state;
-      if (f.response === 'Filled' || (!f.response && n.state === 'Covered')) state = ui.notice('neutral', 'This cover has been filled', (n.confirmed ? esc(db.coachName(n.confirmed.coach)) + ' is covering. ' : '') + 'Thanks for looking. Nothing more to do.');
+      if (f.response === 'Filled' || (!f.response && n.state === 'Covered')) state = ui.notice('neutral', 'This cover has been filled', (n.confirmed && n.confirmed.coach ? esc(db.coachName(n.confirmed.coach)) + (n.confirmed.direct ? ' is coaching it. ' : ' is covering. ') : '') + 'Thanks for looking. Nothing more to do.');
       else if (!f.response) state = '<div class="k-row-actions">' + K.actBtn('Accept cover', 'ch-cover-accept', { req: x.request.id, need: n.id, offer: f.id }, { variant: 'primary', icon: 'check' }) + K.actBtn('Can’t do it', 'ch-cover-decline', { req: x.request.id, need: n.id, offer: f.id }, { variant: 'secondary' }) + '</div>';
       else if (f.response === 'Declined') state = ui.notice('neutral', 'You declined', esc(f.note || '') + ' ' + stamp('Declined', db.coachName(f.coach), f.respondedAt));
       else if (n.state === 'Covered' && n.confirmed && n.confirmed.coach === k) state = ui.notice('ok', 'Confirmed: you’re on the staff', stamp('Confirmed', n.confirmed.by, n.confirmed.at), { action: K.goBtn('Open session', 'coach-session/' + o.id, { size: 'sm', variant: 'secondary' }) });
+      else if (n.state === 'Covered' && n.confirmed.direct) state = ui.notice('neutral', 'This cover has been filled by Management', 'Thanks for saying yes. Nothing more to do.');
       else if (n.state === 'Covered') state = ui.notice('neutral', 'Covered by someone else', 'Thanks for accepting. ' + esc(db.coachName(n.confirmed.coach)) + ' was confirmed.');
       else state = ui.notice('info', 'Accepted: waiting for the office to confirm', stamp('Accepted', db.coachName(f.coach), f.respondedAt));
       var absent = n.absent ? 'Covering for ' + db.coachName(n.absent) + (x.request.reason ? ': ' + x.request.reason : '') : (x.request.reason || 'No coach assigned yet');
@@ -602,7 +603,7 @@
     var reqCards = reqs.map(function (r) {
       var rows = r.needs.map(function (n) {
         var o = db.getOccurrence(n.occurrence), pending = n.offers.filter(function (f) { return !f.response; }).map(function (f) { return first(db.coachName(f.coach)); });
-        return ui.row({ lead: dateLead(o.date), title: esc(o.session), sub: [esc(o.start + '–' + o.end), n.confirmed ? 'Covered by ' + esc(db.coachName(n.confirmed.coach)) : pending.length ? 'Offered to ' + esc(pending.join(', ')) : n.offers.length ? n.offers.length + ' offer' + (n.offers.length === 1 ? '' : 's') + ' declined' : 'Not offered yet'], trail: K.status(n.state), href: '#coach-session/' + o.id });
+        return ui.row({ lead: dateLead(o.date), title: esc(o.session), sub: [esc(o.start + '–' + o.end), n.confirmed ? (n.confirmed.coach ? (n.confirmed.direct ? esc(db.coachName(n.confirmed.coach)) + ' is coaching' : 'Covered by ' + esc(db.coachName(n.confirmed.coach))) : 'No longer needed') : pending.length ? 'Offered to ' + esc(pending.join(', ')) : n.offers.length ? n.offers.length + ' offer' + (n.offers.length === 1 ? '' : 's') + ' declined' : 'Not offered yet'], trail: K.status(n.state), href: '#coach-session/' + o.id });
       });
       return K.card({ title: r.kind + ' · ' + (r.from === r.to ? K.dd(r.from) : K.dm(r.from) + '–' + K.dm(r.to)), sub: esc(r.reason), right: K.status(db.coverStatus(r)),
         body: (rows.length ? ui.rows(rows, 'rows--lead') : '<p class="k-note">No sessions affected.</p>') + K.details('History', K.timeline(r.history.slice().reverse()), { key: 'ch-cover-hist-' + r.id }) });

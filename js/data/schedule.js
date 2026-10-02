@@ -422,6 +422,116 @@
     if (spec.messageFamilies && db.addNotice) db.addNotice({ title: 'Venue change: ' + s.name, body: plan.targets.map(function (o) { return K.dd(o.date); }).join(', ') + ' will be at ' + name + '.' + (spec.familyNote ? ' ' + spec.familyNote : ''), audience: 'Parents', sessions: [s.id], status: 'Sent', by: who, at: at });
     return plan;
   };
+  /* ---------- Change coach: one set of rules for every starting point ----------
+     spec: { session, out: coach|null, to: coach|'same'|'none', role, scope: 'one'|'dates'|'onwards', dates: [ids], from, reason }
+     Only dates that haven't started change. 'one'/'dates' touch only those dates; 'onwards' changes the
+     regular coaches from a start date (the old assignment kept in history) and future dates still on
+     the regular set-up. A date with its own arrangement (cover, a coach added or away, a different
+     role) keeps it unless it was deliberately ticked. Expected pay follows; normal rates never change. */
+  function cname(c) { return c ? db.coachName(c) : ''; }
+  function entryFor(o, c) { return o.staff.filter(function (x) { return x.coach === c && !x.unavailable; })[0] || o.staff.filter(function (x) { return x.coach === c; })[0]; }
+  function ownArrangement(o, c) {
+    var x = o.staff.filter(function (y) { return y.coach === c; })[0]; if (!x) return '';
+    if (x.unavailable && x.covering) return cname(x.covering).split(' ')[0] + ' is covering ' + cname(c).split(' ')[0] + ' on this date';
+    if (x.unavailable) return cname(c).split(' ')[0] + ' is marked away on this date';
+    if (x.cover) return cname(c).split(' ')[0] + ' is covering on this date';
+    if (x.added || x.changed) return cname(c).split(' ')[0] + ' was added for this date only';
+    if ((x.actualRole || x.role) !== x.role) return cname(c).split(' ')[0] + ' is ' + K.roleName(x.actualRole) + ' on this date';
+    return '';
+  }
+  db.staffArrangement = ownArrangement;
+  /* Can this coach take this date? block = can't be chosen; warn = allowed, shown before saving */
+  db.coachFit = function (c, o, role) {
+    var co = db.getCoach(c), out = { block: '', warn: '' }; if (!co) return { block: 'Unknown coach' };
+    if (co.active === false) out.block = 'Inactive';
+    else if (role === 'Lead' && co.type === 'learning') out.block = 'A Learning Coach can’t be Lead Coach';
+    else {
+      var clash = D.occurrences.filter(function (x) { return x.id !== o.id && x.date === o.date && x.status !== 'Cancelled' && x.start < o.end && x.end > o.start && x.staff.some(function (y) { return y.coach === c && !y.unavailable; }); })[0];
+      if (clash) out.block = 'On ' + clash.session + ' ' + clash.start + '–' + clash.end + ' that day';
+      else if (db.coachAvailableFor) { var av = db.coachAvailableFor(c, o); if (!av.ok) out.block = 'Away: ' + av.reason; }
+    }
+    var comp = db.getCoachComplianceSummary ? db.getCoachComplianceSummary(c) : null;
+    if (comp && (comp.state === 'Expired' || comp.state === 'Missing')) out.warn = comp.text;
+    return out;
+  };
+  db.regularStaffOn = function (s, date) {
+    var list = JSON.parse(JSON.stringify(s.staffBase || s.staff || []));
+    (s.staffChanges || []).filter(function (ch) { return ch.from <= date; }).forEach(function (ch) { list = applyRegular(list, ch); });
+    return list;
+  };
+  function applyRegular(list, ch) {
+    list = list.slice();
+    var i = list.map(function (x) { return x.coach; }).indexOf(ch.out);
+    if (ch.to === 'same' && i >= 0) list[i] = { coach: ch.out, role: ch.role };
+    else if (ch.to === 'none' && i >= 0) list.splice(i, 1);
+    else if (ch.to && ch.to !== 'same' && ch.to !== 'none') { if (i >= 0) list[i] = { coach: ch.to, role: ch.role }; else list.push({ coach: ch.to, role: ch.role }); }
+    return list;
+  }
+  db.planStaffChange = function (spec) {
+    var s = D.session(spec.session), dates = db.venueDates(spec.session), targets = [], kept = [], replaced = [], absentFrom = [];
+    var pool = spec.scope === 'onwards' ? dates.filter(function (o) { return o.date >= spec.from; }) : dates.filter(function (o) { return (spec.dates || []).indexOf(o.id) >= 0; });
+    pool.forEach(function (o) {
+      if (spec.out && !o.staff.some(function (x) { return x.coach === spec.out; })) { absentFrom.push(o); return; }
+      var inc0 = spec.to && spec.to !== 'same' && spec.to !== 'none' ? spec.to : null;
+      if (inc0 && o.staff.some(function (x) { return x.coach === inc0 && !x.unavailable; })) { kept.push({ o: o, why: cname(inc0).split(' ')[0] + ' is already on this date' }); return; }
+      var own = spec.out ? ownArrangement(o, spec.out) : '';
+      if (own && spec.scope === 'onwards') { kept.push({ o: o, why: own }); return; }
+      if (own) replaced.push({ o: o, why: own });
+      targets.push(o);
+    });
+    var incoming = spec.to && spec.to !== 'same' && spec.to !== 'none' ? spec.to : spec.to === 'same' ? spec.out : null;
+    var blocked = [], warned = [], gaps = [], cover = [], payOut = 0, payIn = 0;
+    targets.forEach(function (o) {
+      if (incoming && spec.to !== 'same') { var f = db.coachFit(incoming, o, spec.role); if (f.block) blocked.push({ o: o, why: f.block }); if (f.warn) warned.push({ o: o, why: f.warn }); }
+      if (spec.to === 'same' && spec.role === 'Lead' && db.getCoach(spec.out) && db.getCoach(spec.out).type === 'learning') blocked.push({ o: o, why: 'A Learning Coach can’t be Lead Coach' });
+      /* what the date looks like afterwards */
+      var after = o.staff.filter(function (x) { return !x.unavailable && x.coach !== spec.out && !(spec.out && x.cover && x.covers === spec.out); }).map(function (x) { return x.actualRole || x.role; });
+      if (incoming) after.push(spec.role);
+      if (!after.length) gaps.push({ o: o, why: 'no coach' }); else if (after.indexOf('Lead') < 0) gaps.push({ o: o, why: after.every(function (r) { return r === 'Learning'; }) ? 'only a Learning Coach' : 'no Lead Coach' });
+      var F = db.fin; if (F && F.allocations) F.allocations.forEach(function (a) { if (a.occurrence === o.id && a.state === 'Draft' && (a.coach === spec.out || (spec.out && o.staff.some(function (x) { return x.cover && x.covers === spec.out && x.coach === a.coach; })))) payOut += a.cost; });
+      if (incoming && spec.to !== 'same' && db.coverRate) payIn += db.coverRate(incoming, o).cost;
+      if (db.getCoverRequests) db.getCoverRequests().forEach(function (r) { r.needs.forEach(function (n) { if (n.occurrence === o.id && n.state !== 'Covered' && (n.absent === spec.out || (!n.absent && incoming))) cover.push({ r: r, n: n, o: o }); }); });
+    });
+    var told = {}; if (spec.out) told[spec.out] = 1; if (incoming) told[incoming] = 1;
+    return { session: s, targets: targets, kept: kept, replaced: replaced, absentFrom: absentFrom, blocked: blocked, warned: warned, gaps: gaps, cover: cover, payOut: payOut, payIn: payIn, incoming: incoming, told: Object.keys(told) };
+  };
+  db.changeStaff = function (spec, who, at) {
+    var plan = db.planStaffChange(spec), s = plan.session; if (plan.blocked.length) return null;
+    var inc = plan.incoming, outN = cname(spec.out), inN = cname(inc), first = function (n) { return n.split(' ')[0]; };
+    var what = spec.to === 'same' ? outN + ' now ' + K.roleName(spec.role) : spec.to === 'none' ? outN + ' removed' : spec.out ? inN + ' replaces ' + outN + ' as ' + K.roleName(spec.role) : inN + ' added as ' + K.roleName(spec.role);
+    plan.targets.forEach(function (o) {
+      if (spec.to === 'same') { var e = entryFor(o, spec.out); if (e) { e.actualRole = spec.role; e.lead = spec.role === 'Lead'; F_role(o, spec.out, spec.role); } }
+      else {
+        /* the outgoing coach, and anyone covering for them on this date, come off it with their expected pay */
+        if (spec.out) db.staffTakeOff(o, spec.out, { withCover: true });
+        if (inc) db.staffPlace(o, { coach: inc, role: spec.role, changed: spec.scope !== 'onwards' });
+      }
+      hist(o, 'Coach changed: ' + what + (spec.scope === 'onwards' ? ' (regular from ' + K.dm(spec.from) + ')' : ' for this date only'), who, at, 'warn', spec.reason);
+    });
+    if (spec.scope === 'onwards') {
+      if (!s.staffBase) s.staffBase = JSON.parse(JSON.stringify(s.staff || []));
+      var before = db.regularStaffOn(s, spec.from), was = before.filter(function (x) { return x.coach === spec.out; })[0];
+      var ch = { from: spec.from, out: spec.out, to: spec.to, role: spec.role, reason: spec.reason, by: who, at: at };
+      (s.staffChanges = s.staffChanges || []).push(ch);
+      s.staff = applyRegular(s.staff, ch);
+      s.history.push({ text: 'Regular coaches changed from ' + K.d(spec.from) + ': ' + what, who: who, at: at, tone: 'warn',
+        detail: spec.reason + (was ? '. ' + outN + ' was ' + K.roleName(was.role) + ' until ' + K.d(K.addDays(spec.from, -1)) + '.' : '') + ' ' + plan.targets.length + ' dates updated' + (plan.kept.length ? '; ' + plan.kept.length + ' kept their own arrangements' : '') + '. Earlier dates unchanged.' });
+      if (spec.out && spec.to !== 'same' && db.addFormerAccess) db.addFormerAccess(spec.out, s.id, was ? was.role : 'Coach', spec.from, who, at, spec.reason);
+    }
+    /* a direct change sorts any open cover for those dates */
+    /* A direct change sorts the open cover for those dates only; other dates in the same request stay open */
+    plan.cover.forEach(function (c) {
+      db.closeCoverNeed(c.r.id, c.n.id, { coach: inc || null, direct: true, note: inc ? first(inN) + ' chosen by Management' : 'No longer needed: ' + first(outN) + ' removed from this date', history: 'Sorted by Management for ' + K.dd(c.o.date) + ': ' + what, reason: spec.reason }, who, at);
+    });
+    if (db.notifyCoach) {
+      var dl = plan.targets.map(function (o) { return K.dd(o.date); }).join(', ') + (spec.scope === 'onwards' ? ' (from ' + K.dm(spec.from) + ' onwards)' : '');
+      if (spec.out && spec.to !== 'same') db.notifyCoach(spec.out, 'You’re off ' + s.name, dl + '. ' + (inc ? inN + ' is coaching instead.' : ''), 'coach-schedule', at);
+      if (spec.to === 'same') db.notifyCoach(spec.out, 'Your role on ' + s.name + ' changed', 'You are ' + K.roleName(spec.role) + ': ' + dl + '.', 'coach-schedule', at);
+      else if (inc) db.notifyCoach(inc, 'You’re on ' + s.name, 'As ' + K.roleName(spec.role) + ': ' + dl + '.', plan.targets.length === 1 ? 'coach-session/' + plan.targets[0].id : 'coach-schedule', at);
+    }
+    return plan;
+  };
+  function F_role(o, c, role) { var F = db.fin; if (F && F.allocations) F.allocations.forEach(function (a) { if (a.occurrence === o.id && a.coach === c && a.state === 'Draft') a.role = role; }); }
   db.setOccurrenceVenue = function (id, venue, reason, who, at) {
     var o = D.occ(id), from = o.venueOverride ? o.venueOverride.from : o.venue;
     o.venue = venue; o.venueOverride = { from: from, reason: reason, by: who, at: at }; o.change = 'Venue changed';
@@ -433,11 +543,26 @@
   };
   db.setOccurrenceNotes = function (id, notes, who, at) { var o = D.occ(id); o.notes = notes; o.notesBy = who; o.notesAt = at; hist(o, 'Operational notes updated', who, at); return o; };
   /* Planned staff for one date. Expected pay follows the plan until delivery is confirmed. */
-  function expectPay(o, coach, role) {
+  function expectPay(o, coach, role, agreed) {
     if (!db.addAllocation || !db.coverRate) return;
-    var r = db.coverRate(coach, o), rp = db.fin && db.fin.rateFor ? db.fin.rateFor(coach, o.date) : null;
-    db.addAllocation({ coach: coach, occurrence: o.id, date: o.date, role: role, rate: r.rate, rateProfile: rp && rp.id, units: r.units, override: null, cost: r.cost, rateSource: 'normal', state: 'Draft' });
+    var r = db.coverRate(coach, o), rp = db.fin && db.fin.rateFor ? db.fin.rateFor(coach, o.date) : null, rate = agreed ? agreed.rate : r.rate;
+    return db.addAllocation({ coach: coach, occurrence: o.id, date: o.date, role: role, rate: rate, rateProfile: rp && rp.id, units: r.units, override: null, cost: Math.round(rate * r.units), rateSource: agreed ? 'occurrence' : 'normal', rateNote: agreed ? Object.assign({ normal: r.rate }, agreed.note) : undefined, state: 'Draft', cover: agreed && agreed.cover });
   }
+  /* ---------- Shared staffing steps (Change coach and Cover both use these) ----------
+     staffPlace: a coach joins one date, with expected pay at their normal rate or an agreed rate for that date.
+     staffTakeOff: a coach leaves one date: removed (a direct change) or kept as away with who covers (cover).
+     Expected pay follows; actual pay and normal rates are never touched. */
+  db.staffPlace = function (o, p) {
+    var x = { coach: p.coach, lead: p.role === 'Lead', role: p.role, actualRole: p.role, attended: null };
+    if (p.covers) { x.cover = true; x.covers = p.covers; } else if (p.changed) x.changed = true; else if (p.added) x.added = true;
+    o.staff.push(x); expectPay(o, p.coach, p.role, p.agreed); return x;
+  };
+  db.staffTakeOff = function (o, coach, opts) {
+    opts = opts || {};
+    o.staff.filter(function (x) { return x.coach === coach || (opts.withCover && x.cover && x.covers === coach); }).forEach(function (x) { dropExpected(o, x.coach); });
+    if (opts.keepAway) { o.staff.forEach(function (x) { if (x.coach === coach) { x.unavailable = true; x.covering = opts.coveredBy || null; } }); return; }
+    o.staff = o.staff.filter(function (x) { return !(x.coach === coach || (opts.withCover && x.cover && x.covers === coach)); });
+  };
   function dropExpected(o, coach) { var F = db.fin; if (!F || !F.allocations) return; for (var i = F.allocations.length - 1; i >= 0; i--) { var a = F.allocations[i]; if (a.occurrence === o.id && a.coach === coach && a.state === 'Draft') F.allocations.splice(i, 1); } }
   db.addOccurrenceStaff = function (id, coach, role, who, at) {
     var o = D.occ(id); if (!o || o.delivery || o.staff.some(function (x) { return x.coach === coach && !x.unavailable; })) return null;

@@ -182,15 +182,16 @@
         var r = db.getRole(a.role);
         return { cells: [K.cell(K.link('mgmt-session/' + a.session, a.sessionName), a.days.map(function (d) { return ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][d]; }).join(', ') + ' ' + a.start + '–' + a.end + ' · ' + esc(db.venueName(a.venue))),
           { cls: 'wide', html: st(r.name) }, { cls: 'wide c-cell', html: esc(db.getPermissions().filter(function (p) { return r.perms[p.id]; }).map(function (p) { return p.label; }).join(', ')) },
-          { cls: 'c-end', html: K.actBtn('Remove', 'co-remove', { coach: c.id, session: a.session }, { size: 'sm', variant: 'tertiary' }) }] };
+          { cls: 'c-end', html: K.actBtn('Change', 'sch-coach', { session: a.session, coach: c.id }, { size: 'sm', variant: 'tertiary' }) }] };
       }), empty: 'Not on any session’s regular staff.' }) });
-    var tmp = K.card({ title: 'Temporary role changes', sub: 'A different role on one session for a date range. The regular role returns afterwards.', right: K.actBtn('Add temporary role', 'co-ovr-new', { coach: c.id }, { size: 'sm', variant: 'secondary', icon: 'plus' }), body: K.table({
+    /* Earlier temporary-role notes are kept as history only; they never changed any dates. Role or coach changes now use Change. */
+    var tmp = !ovr.length ? '' : K.details('Earlier temporary role notes', K.table({
       cols: 'minmax(0,1.4fr) minmax(0,1fr) minmax(0,1.6fr) auto', head: ['Session and dates', { label: 'Role', cls: 'wide' }, { label: 'Reason', cls: 'wide' }, ''],
       rows: ovr.map(function (o) {
         var s = db.getSession(o.session), live = !o.ended && o.to >= K.today;
         return { cells: [K.cell(esc(s ? s.name : o.session), K.dm(o.from) + ' – ' + K.dm(o.to) + ' · ' + stamp('Set', o.by, o.at)), { cls: 'wide', html: st(db.getRole(o.role).name) }, { cls: 'wide c-cell', html: esc(o.reason) + (o.ended ? '<br>' + stamp('Ended', o.ended.by, o.ended.at) : '') },
-          { cls: 'c-end', html: live ? K.actBtn('End now', 'co-ovr-end', { id: o.id }, { size: 'sm', variant: 'tertiary' }) : K.pill(o.ended ? 'Ended' : 'Finished', '') }] };
-      }), empty: 'No temporary role changes.' }) });
+          { cls: 'c-end', html: K.pill(o.ended ? 'Ended' : live ? 'Note only' : 'Finished', '') }] };
+      }), empty: '' }), { sub: 'History only: these notes didn’t change any dates. Use Change on a session to change a role.' });
     var former = K.card({ title: 'Former access', sub: 'After removal a ' + one().toLowerCase() + ' keeps read-only access to that session’s players for 21 days, so they can finish feedback.', body: rem.length ? ui.rows(rem.map(function (r) {
       var n = db.accessDaysLeft(r);
       return ui.row({ title: esc(r.sessionName) + ' · was ' + esc(K.roleName(r.role)), sub: [esc(r.reason), stamp('Removed', r.by, r.removedAt)], trail: n > 0 ? K.pill('Access ends in ' + n + ' day' + (n === 1 ? '' : 's') + ' (' + K.dm(r.accessUntil) + ')', 'warn') : K.pill('Access ended ' + K.dm(r.accessUntil), '') });
@@ -525,7 +526,7 @@
   function coverWords(r, n) {
     var yes = n.offers.filter(function (f) { return f.response === 'Accepted' && !f.closed; });
     var waiting = n.offers.filter(function (f) { return !f.response; });
-    if (n.state === 'Covered') return { tone: 'ok', title: db.coachName(n.confirmed.coach) + ' is covering', act: false };
+    if (n.state === 'Covered') return { tone: 'ok', title: n.confirmed.coach ? db.coachName(n.confirmed.coach) + (n.confirmed.direct ? ' is coaching (chosen by Management)' : ' is covering') : 'No longer needed', act: false };
     if (yes.length > 1) return { tone: 'info', title: yes.length + ' coaches said yes: choose who covers', act: true };
     if (yes.length) return { tone: 'info', title: first(db.coachName(yes[0].coach)) + ' said yes: confirm', act: true };
     if (n.state === 'Needs a phone call') return { tone: 'warn', title: 'Needs a phone call', act: true };
@@ -596,7 +597,8 @@
     }
     var sendAll = ok.length ? K.actBtn((n.offers.length ? 'Send to the rest (' : 'Send to all eligible (') + ok.length + ')', 'co-sendall', { req: r.id, need: n.id }, { variant: 'primary', icon: 'megaphone' }) : '';
     var sit;
-    if (n.state === 'Covered') sit = K.situation({ tone: 'ok', title: esc(db.coachName(n.confirmed.coach)) + ' is covering' + (absent ? ' ' + esc(first(absent)) : ''), text: 'Confirmed by ' + esc(n.confirmed.by) + (fin && n.confirmed.rate != null ? ' at ' + K.money(n.confirmed.rate) + ' an hour' : '') + '. Everyone else was told it is filled.' });
+    if (n.state === 'Covered' && n.confirmed.direct) sit = K.situation({ tone: 'ok', title: n.confirmed.coach ? esc(db.coachName(n.confirmed.coach)) + ' is coaching this date' : 'No longer needed', text: esc(n.confirmed.note) + '. Sorted by ' + esc(n.confirmed.by) + ' with Change coach; everyone offered it was told it’s filled.' });
+    else if (n.state === 'Covered') sit = K.situation({ tone: 'ok', title: esc(db.coachName(n.confirmed.coach)) + ' is covering' + (absent ? ' ' + esc(first(absent)) : ''), text: 'Confirmed by ' + esc(n.confirmed.by) + (fin && n.confirmed.rate != null ? ' at ' + K.money(n.confirmed.rate) + ' an hour' : '') + '. Everyone else was told it is filled.' });
     else if (yes.length) sit = K.situation({ tone: 'info', kicker: today ? 'Today' : '', title: yes.length > 1 ? yes.length + ' coaches said yes: choose who covers' : esc(db.coachName(yes[0].coach)) + ' said yes', text: 'Saying yes doesn’t put anyone on the session. You choose; the others are told it’s filled.' });
     else if (waiting.length) sit = K.situation({ tone: today ? 'warn' : 'info', kicker: today ? 'Today' : '', title: today ? 'Cover still required today' : 'Waiting for replies', text: waiting.length + ' coach' + (waiting.length === 1 ? ' has' : 'es have') + ' been asked: ' + esc(waiting.map(function (f) { return first(db.coachName(f.coach)); }).join(', ')) + '. ' + (today ? 'Ring round if no one replies soon.' : 'No action needed yet.'), secondary: today ? K.actBtn('Mark for phone call', 'co-phone', { req: r.id, need: n.id }, { variant: 'secondary', icon: 'phone' }) : '' });
     else if (n.state === 'Needs a phone call') sit = K.situation({ tone: 'warn', title: 'Needs a phone call', text: esc(n.phone.note), primary: sendAll });
@@ -608,7 +610,7 @@
     var asked = n.state === 'Covered' ? n.offers.slice().sort(function (a, b) { return (n.confirmed && b.id === n.confirmed.offer) - (n.confirmed && a.id === n.confirmed.offer); }) : n.offers.filter(function (f) { return !(f.response === 'Accepted' && !f.closed); });
     var askedBlock = asked.length ? '<h3 class="k-h3">Asked</h3>' + ui.rows(asked.map(function (f) {
       var name = db.coachName(f.coach), sim = !f.response && n.state !== 'Covered' ? '<span class="k-row-actions">' + K.actBtn('Prototype: reply as ' + first(name) + ': yes', 'co-respond', { req: r.id, need: n.id, offer: f.id, resp: 'Accepted' }, { size: 'sm', variant: 'tertiary' }) + K.actBtn('No', 'co-respond', { req: r.id, need: n.id, offer: f.id, resp: 'Declined' }, { size: 'sm', variant: 'tertiary' }) + '</span>' : '';
-      var word = f.response === 'Declined' ? 'Can’t do it' + (f.note ? ': “' + esc(f.note) + '”' : '') : f.response === 'Filled' ? 'Didn’t reply · told it’s filled' : f.response === 'Accepted' ? (n.confirmed && n.confirmed.offer === f.id ? 'Chosen to cover' : 'Said yes · told it’s filled') : 'Waiting for a reply';
+      var word = f.response === 'Declined' ? 'Can’t do it' + (f.note ? ': “' + esc(f.note) + '”' : '') : f.response === 'Filled' ? 'Didn’t reply · told it’s filled' + (n.confirmed && n.confirmed.direct ? ' by Management' : '') : f.response === 'Accepted' ? (n.confirmed && n.confirmed.offer === f.id ? 'Chosen to cover' : 'Said yes · told it’s filled') : 'Waiting for a reply';
       return ui.row({ lead: ui.avatar(name, 'sm'), title: esc(name), sub: [word], after: sim });
     }), 'rows--lead') : '';
     var detail = K.details('Details', K.kv([['Session', K.link('mgmt-occurrence/' + o.id, occLabel(o))], ['Coaches on this date', o.staff.length ? ui.staffNames(o.staff) : 'No coach yet'], ['Regular coaches', 'Unchanged: cover applies to this date only'], ['Players expected', String(o.players)]].concat(
@@ -736,26 +738,7 @@
     var r = db.getRole(el.dataset.role), p = el.dataset.perm, on = !r.perms[p], label = db.getPermissions().filter(function (x) { return x.id === p; })[0].label;
     Hub.mutate(function () { db.setRolePermission(r.id, p, on, K.me(), K.now()); }, r.name + ': ' + label + (on ? ' on' : ' off'), log(r.name + ' permission "' + label + '" switched ' + (on ? 'on' : 'off'), r.id, { before: on ? 'Off' : 'On', after: on ? 'On' : 'Off' }));
   };
-  Hub.actions['co-remove'] = function (el) {
-    var d = el.dataset, s = db.getSession(d.session);
-    K.confirm({ overline: '<span class="overline">' + esc(db.coachName(d.coach)) + '</span>', title: 'Remove from ' + s.name + '?', body: '<p class="k-note">' + esc(db.coachName(d.coach)) + ' comes off the regular staff. They keep read-only access to this session’s players for 21 days (until ' + K.d(K.addDays(K.today, 21)) + ') so they can finish feedback. Sessions already staffed are not changed.</p>', label: 'Remove', danger: true, action: 'co-remove-go', data: { 'data-coach': d.coach, 'data-session': d.session } });
-  };
-  Hub.actions['co-remove-go'] = function (el) { var d = el.dataset, s = db.getSession(d.session); Hub.closeSheet(true); Hub.mutate(function () { db.removeAssignment(d.coach, d.session, K.me(), K.now()); }, db.coachName(d.coach) + ' removed from ' + s.name, log(db.coachName(d.coach) + ' removed from ' + s.name + ' (21 days former access)', d.session)); };
-  Hub.actions['co-ovr-new'] = function (el) {
-    var c = db.getCoach(el.dataset.coach);
-    K.sheet({ overline: '<span class="overline">' + esc(c.name) + '</span>', title: 'Temporary role', body: K.form([
-      K.field('Session', K.select('ov-session', db.getSessions().filter(function (s) { return s.lifecycle === 'Active'; }).map(function (s) { return [s.id, s.name]; }), 'SES-01')),
-      K.field('Role', K.select('ov-role', db.getRoles().filter(function (r) { return r.sessionRole; }).map(function (r) { return [r.id, r.name]; }), 'coach')),
-      K.field('From', K.input('ov-from', '2026-10-05', { type: 'date' })), K.field('To', K.input('ov-to', '2026-10-30', { type: 'date' })),
-      K.field('Reason', K.input('ov-reason', ''), null, true)]), foot: sheetFoot('Add temporary role', 'co-ovr-add', { coach: c.id }) });
-  };
-  Hub.actions['co-ovr-add'] = function (el) {
-    var o = { coach: el.dataset.coach, session: K.val('ov-session'), role: K.val('ov-role'), from: K.val('ov-from'), to: K.val('ov-to'), reason: K.val('ov-reason').trim(), by: K.me(), at: K.now() };
-    if (!o.from || !o.to || o.to < o.from) { Hub.toast('Check the dates'); return; }
-    if (!o.reason) { Hub.toast('Add a reason'); return; }
-    Hub.closeSheet(true); Hub.mutate(function () { db.addRoleOverride(o); }, 'Temporary role added', log(db.coachName(o.coach) + ' temporary ' + db.getRole(o.role).name + ' on ' + db.getSession(o.session).name + ' ' + range(o.from, o.to), o.session));
-  };
-  Hub.actions['co-ovr-end'] = function (el) { var id = el.dataset.id; Hub.mutate(function () { db.endRoleOverride(id, K.me(), K.now()); }, 'Temporary role ended', log('Temporary role ' + id + ' ended', id)); };
+
   Hub.actions['co-rate'] = function (el) {
     var c = db.getCoach(el.dataset.coach), from = K.val('rate-from'), ev = pence(K.val('rate-evening')), day = pence(K.val('rate-day')), note = K.val('rate-note').trim(), cur = db.getCurrentRate(c.id);
     if (!from || ev == null || day == null || ev < 0 || day < 0) { Hub.toast('Enter a date and both rates'); return; }
