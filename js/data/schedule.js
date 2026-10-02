@@ -364,7 +364,7 @@
   function expectPay(o, coach, role) {
     if (!db.addAllocation || !db.coverRate) return;
     var r = db.coverRate(coach, o), rp = db.fin && db.fin.rateFor ? db.fin.rateFor(coach, o.date) : null;
-    db.addAllocation({ coach: coach, occurrence: o.id, date: o.date, role: role, rate: r.rate, rateProfile: rp && rp.id, units: r.units, override: null, cost: r.cost, state: 'Draft' });
+    db.addAllocation({ coach: coach, occurrence: o.id, date: o.date, role: role, rate: r.rate, rateProfile: rp && rp.id, units: r.units, override: null, cost: r.cost, rateSource: 'normal', state: 'Draft' });
   }
   function dropExpected(o, coach) { var F = db.fin; if (!F || !F.allocations) return; for (var i = F.allocations.length - 1; i >= 0; i--) { var a = F.allocations[i]; if (a.occurrence === o.id && a.coach === coach && a.state === 'Draft') F.allocations.splice(i, 1); } }
   db.addOccurrenceStaff = function (id, coach, role, who, at) {

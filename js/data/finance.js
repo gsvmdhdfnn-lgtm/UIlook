@@ -144,13 +144,15 @@
     o.staff.forEach(function (s) {
       if (s.unavailable) return;
       var r = F.rateFor(s.coach, o.date), units = hours(o), rate = r ? (o.start < '15:00' ? r.day : r.evening) : 3125;
-      var a = { id: 'ALC-' + String(F.allocations.length + 1001), coach: s.coach, occurrence: o.id, date: o.date, role: s.role, rate: rate, rateProfile: r && r.id, units: units, override: null, cost: Math.round(rate * units), state: o.delivery ? 'Confirmed' : 'Draft' };
+      var a = { id: 'ALC-' + String(F.allocations.length + 1001), coach: s.coach, occurrence: o.id, date: o.date, role: s.role, rate: rate, rateProfile: r && r.id, units: units, override: null, cost: Math.round(rate * units), rateSource: 'normal', state: o.delivery ? 'Confirmed' : 'Draft' };
       /* Expected until the date is confirmed as delivered; then actual */
       F.allocations.push(a);
     });
   });
   var ovr = F.allocations.filter(function (a) { return a.coach === 'tom' && a.date === '2026-09-10'; })[0];
   if (ovr) { ovr.override = { cost: 6000, reason: 'Covered three classes after a staff absence at the school; agreed by Josh', by: 'Josh Evans', at: '2026-09-11T09:30' }; ovr.cost = 6000; }
+  /* Delivered dates carry the frozen record of what was worked and paid */
+  F.allocations.forEach(function (a) { if (a.state !== 'Draft') { var o = D.occ(a.occurrence); a.actual = { coach: a.coach, role: a.role, units: a.units, rate: a.rate, rateSource: a.rateSource, rateProfile: a.rateProfile, cost: a.cost, by: o.delivery ? o.delivery.by : 'David Cole', at: o.delivery ? o.delivery.at : a.date + 'T21:30' }; } });
 
   /* ---------- Parent money ---------- */
   F.familyCharges = [];

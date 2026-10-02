@@ -107,3 +107,31 @@ Every other past date is confirmed as delivered.
 - **Cancel:** coach and venue pay decisions in the cancel step.
 - **Booking access for parents:** Academy offer → accept → pay.
 - **Rate types:** camp, match and custom, plus the missing-rate exception.
+
+## Locked rules check (before Cover)
+**1. Postponed stays a distinct state.**
+- A postponed date is stored as `Postponed` and displays as Postponed everywhere. Its banner says it was postponed, and **Set new date** is offered.
+- It never turns into Awaiting confirmation when its date passes.
+- The full set of dated states:
+  - **stored:** Scheduled, Completed, Postponed, Cancelled, Rescheduled;
+  - **derived:** Staffing issue, Awaiting confirmation, Confirmed, Partially delivered.
+
+**2. Confirmed delivery is fixed against normal editing.**
+- Once a date is confirmed:
+  - **Something changed** and **Change coaches** are no longer offered.
+  - A pay item's own **Confirm** button is removed: pay becomes actual only by confirming the session.
+  - **Adjust pay** works only on expected pay; an actual pay item says "Fixed when the session was confirmed as delivered".
+- Each confirmation keeps a snapshot of the confirmed staffing on the date (`delivery.staff`) and a frozen record on each pay item (`actual`). A later correction can keep the original in history.
+- **Not built yet:** the deliberate **Correct confirmed delivery** action. It will:
+  - require a reason;
+  - keep the original confirmation in history and record who changed it and when;
+  - recalculate actual staff and cost;
+  - flag rather than rewrite a finalised work summary. Finalised pay is never changed silently.
+
+**3. Actual cost uses the actual rate used.**
+- Expected pay uses the coach's normal rate. A normal-rate change now updates expected pay from its effective date; it never touches actual pay.
+- A rate set for one session (`rateSource: 'occurrence'`, with a reason) wins over the normal rate, and a normal-rate change leaves it alone.
+- On confirmation each pay item freezes the actual coach, role, hours, rate used, rate source and final cost.
+- Tested:
+  - a backdated rate change after confirmation left the frozen cost unchanged;
+  - an occurrence rate of £36/h was kept through confirmation.

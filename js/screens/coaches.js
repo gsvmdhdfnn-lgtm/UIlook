@@ -387,16 +387,18 @@
   };
   Hub.actions['co-alloc'] = function (el) {
     var a = db.getAllocation(el.dataset.id); if (!a) return;
-    var o = db.getOccurrence(a.occurrence), canEdit = K.canFin() && a.state !== 'Exported';
+    var o = db.getOccurrence(a.occurrence), canEdit = K.canFin() && a.state === 'Draft';
     var body = K.kv([['Coach', K.link('mgmt-coach/' + a.coach, db.coachName(a.coach))], ['Session', o ? K.link('mgmt-occurrence/' + o.id, occLabel(o)) : esc(a.occurrence)], ['Role', esc(a.role || '—')],
-      ['Rate used', K.money(a.rate) + ' per hour'], ['Hours', a.units + ' hours'], ['Calculated', K.money(Math.round(a.rate * a.units))],
+      ['Rate used', K.money(a.rate) + ' per hour <small class="c-mute">' + (a.rateSource === 'occurrence' ? '(set for this session' + (a.rateNote ? ': ' + esc(a.rateNote.reason) : '') + ')' : '(normal rate on the day)') + '</small>'], ['Hours', a.units + ' hours'], ['Calculated', K.money(Math.round(a.rate * a.units))],
       ['Final cost', '<b>' + K.money(a.cost) + '</b>'], ['State', K.status(a.state) + (a.exported ? ' ' + stamp('Sent for payment', a.exported.by, a.exported.at) : '') + (a.confirmedBy ? ' ' + stamp('Confirmed', a.confirmedBy.by, a.confirmedBy.at) : '')]]) +
       (a.override ? ui.notice('warn', 'Override: ' + K.money(a.override.cost), esc(a.override.reason) + '<br>' + stamp('Set', a.override.by, a.override.at)) : '') +
       (a.overrideHistory || []).map(function (x) { return '<p class="k-note">Earlier adjustment ' + K.money(x.cost) + ' removed · ' + stamp('Removed', x.removedBy, x.removedAt) + '</p>'; }).join('') +
       (canEdit ? '<div class="co-sheetform">' + K.form([K.field('Adjusted pay (£)', K.input('al-cost', pounds(a.cost))), K.field('Reason (required)', K.textarea('al-reason', '', 'Why this pay is different'), null, true)], 1) + '</div>' :
-        a.state === 'Exported' ? '<p class="k-note">' + K.frozen('Sent for payment · frozen') + ' Pay items sent for payment are never edited. Reopen the work summary to correct one.</p>' : '');
+        a.state === 'Exported' ? '<p class="k-note">' + K.frozen('Sent for payment · frozen') + ' Pay items sent for payment are never edited. Reopen the work summary to correct one.</p>' :
+        a.state === 'Confirmed' ? '<p class="k-note">' + K.frozen('Actual pay · fixed') + ' Fixed when the session was confirmed as delivered. It isn’t edited here.</p>' : '') +
+      (a.state === 'Draft' ? '<p class="k-note">Expected pay. It becomes actual when the session is confirmed as delivered.' + (o ? ' ' + K.link('mgmt-occurrence/' + o.id, 'Open the session') : '') + '</p>' : '');
     K.sheet({ overline: '<span class="overline">' + esc(a.id) + '</span>', title: 'Pay item', body: body,
-      foot: ui.btn('Close', { variant: 'tertiary', attrs: { 'data-action': 'close-sheet' } }) + (canEdit && a.state === 'Draft' ? K.actBtn('Confirm', 'co-alloc-confirm', { id: a.id }, { variant: 'secondary' }) : '') + (canEdit && a.override ? K.actBtn('Remove override', 'co-alloc-clear', { id: a.id }, { variant: 'secondary' }) : '') + (canEdit ? K.actBtn('Save override', 'co-alloc-ovr', { id: a.id }, { variant: 'primary' }) : '') });
+      foot: ui.btn('Close', { variant: 'tertiary', attrs: { 'data-action': 'close-sheet' } }) + (canEdit && a.override ? K.actBtn('Remove override', 'co-alloc-clear', { id: a.id }, { variant: 'secondary' }) : '') + (canEdit ? K.actBtn('Save override', 'co-alloc-ovr', { id: a.id }, { variant: 'primary' }) : '') });
   };
   Hub.actions['co-alloc-ovr'] = function (el) {
     var cost = pence(K.val('al-cost')), reason = K.val('al-reason').trim();
@@ -406,7 +408,6 @@
     Hub.mutate(function () { db.overrideAllocation(a.id, cost, reason, K.me(), K.now()); }, 'Pay adjusted: ' + K.money(cost), log('Pay item ' + a.id + ' adjusted: ' + reason, a.id, { before: K.money(was), after: K.money(cost), finance: true }));
   };
   Hub.actions['co-alloc-clear'] = function (el) { var id = el.dataset.id; Hub.closeSheet(true); Hub.mutate(function () { db.clearAllocationOverride(id, K.me(), K.now()); }, 'Adjustment removed', log('Pay item ' + id + ' adjustment removed', id, { finance: true })); };
-  Hub.actions['co-alloc-confirm'] = function (el) { var id = el.dataset.id; Hub.closeSheet(true); Hub.mutate(function () { db.confirmAllocation(id, K.me(), K.now()); }, 'Pay item confirmed', log('Pay item ' + id + ' confirmed', id, { finance: true })); };
 
   /* ============================================================ AVAILABILITY */
   Hub.screens['mgmt-availability'] = function (ctx) {

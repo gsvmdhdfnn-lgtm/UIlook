@@ -416,7 +416,7 @@
     (o.history = o.history || []).push({ text: 'Cover confirmed: ' + db.coachName(f.coach) + (n.absent ? ' for ' + db.coachName(n.absent) : ''), who: who, at: at, tone: 'ok' });
     for (var i = F.allocations.length - 1; i >= 0; i--) { var a = F.allocations[i]; if (n.absent && a.occurrence === o.id && a.coach === n.absent && a.state === 'Draft') F.allocations.splice(i, 1); }
     var rp = F.rateFor(f.coach, o.date), rate = db.coverRate(f.coach, o);
-    db.addAllocation({ coach: f.coach, occurrence: o.id, date: o.date, role: role, rate: rate.rate, rateProfile: rp && rp.id, units: rate.units, override: null, cost: rate.cost, state: 'Draft', cover: r.id });
+    db.addAllocation({ coach: f.coach, occurrence: o.id, date: o.date, role: role, rate: rate.rate, rateProfile: rp && rp.id, units: rate.units, override: null, cost: rate.cost, rateSource: 'normal', state: 'Draft', cover: r.id });
     n.state = 'Covered'; n.confirmed = { coach: f.coach, by: who, at: at };
     r.history.push({ text: 'Cover confirmed: ' + db.coachName(f.coach) + ' on ' + K.dd(o.date), who: who, at: at, tone: 'ok' });
     return n;
@@ -462,11 +462,17 @@
     o.staff.filter(function (x) { return x.attended === 'Attended'; }).forEach(function (w) {
       var a = F.allocations.filter(function (al) { return al.occurrence === o.id && al.coach === w.coach && al.state !== 'Exported'; })[0];
       if (!a) { var rp = F.rateFor(w.coach, o.date), r = db.coverRate(w.coach, o); a = db.addAllocation({ coach: w.coach, occurrence: o.id, date: o.date, role: w.actualRole, rate: r.rate, rateProfile: rp && rp.id, units: full, override: null, cost: r.cost, state: 'Draft', extra: !!w.extra }); }
+      /* Rate used: a rate set for this session wins; otherwise the normal rate in force that day */
+      if (a.rateSource !== 'occurrence') { var rn = db.coverRate(w.coach, o), rpn = F.rateFor(w.coach, o.date); a.rate = rn.rate; a.rateProfile = rpn && rpn.id; a.rateSource = 'normal'; }
       a.role = w.actualRole; a.units = units; if (!a.override) a.cost = Math.round(a.rate * units);
       a.state = 'Confirmed'; a.confirmedBy = { by: who, at: at };
+      /* Frozen record of what was actually worked and paid; later rate changes never touch it */
+      a.actual = { coach: a.coach, role: a.role, units: a.units, rate: a.rate, rateSource: a.rateSource, rateProfile: a.rateProfile, cost: a.cost, by: who, at: at };
     });
     o.status = 'Completed';
-    o.delivery = { state: spec.partial ? 'Partial' : changes.length ? 'Changed' : 'As planned', by: who, at: at, changes: changes, partial: spec.partial || null, note: spec.note || '' };
+    o.delivery = { state: spec.partial ? 'Partial' : changes.length ? 'Changed' : 'As planned', by: who, at: at, changes: changes, partial: spec.partial || null, note: spec.note || '',
+      /* Snapshot of the confirmed staffing, kept even if the delivery is later corrected */
+      staff: o.staff.map(function (x) { return { coach: x.coach, plannedRole: x.role, role: x.actualRole || x.role, attended: x.attended, covers: x.covers || null, extra: !!x.extra }; }) };
     (o.history = o.history || []).push({ text: 'Delivery confirmed: ' + (changes.length ? changes.join('; ') : 'went as planned'), who: who, at: at, tone: 'ok' });
     /* A summary not yet finalised picks the confirmed work up straight away */
     var touched = workers.concat(o.staff.map(function (x) { return x.coach; }));
@@ -492,20 +498,34 @@
     if (prev) { prev.to = K.addDays(o.from, -1); prev.endedBy = who; prev.endedAt = at; }
     var c = db.getCoach(coach);
     var p = { id: 'RP-' + c.code.slice(4) + String.fromCharCode(65 + list.length), coach: coach, from: o.from, to: null, evening: o.evening, day: o.day, by: who, at: at, note: o.note || '' };
-    F.rateProfiles.push(p); return p;
+    F.rateProfiles.push(p);
+    /* Expected pay from the effective date follows the new normal rate. Actual (confirmed) pay
+       and any rate set for one session are never touched. */
+    F.allocations.forEach(function (a) {
+      if (a.coach !== coach || a.state !== 'Draft' || a.date < o.from || a.rateSource === 'occurrence') return;
+      var oc = db.getOccurrence(a.occurrence); if (!oc) return;
+      a.rate = oc.start < '15:00' ? p.day : p.evening; a.rateProfile = p.id; if (!a.override) a.cost = Math.round(a.rate * a.units);
+    });
+    return p;
+  };
+  /* A rate set for one session (for example an enhanced cover rate) wins over the normal rate.
+     Only while the pay is still expected; once delivery is confirmed it is fixed. */
+  db.setOccurrenceRate = function (id, rate, reason, who, at) {
+    var a = pick(F.allocations, id); if (!a || a.state !== 'Draft' || !reason) return null;
+    a.rateNote = { normal: a.rateSource === 'occurrence' && a.rateNote ? a.rateNote.normal : a.rate, reason: reason, by: who, at: at };
+    a.rate = rate; a.rateSource = 'occurrence'; if (!a.override) a.cost = Math.round(rate * a.units); return a;
   };
   /* Allocations */
   db.getAllocation = function (id) { return pick(F.allocations, id); };
   db.overrideAllocation = function (id, cost, reason, who, at) {
-    var a = pick(F.allocations, id); if (!a || a.state === 'Exported' || !reason) return null;
+    var a = pick(F.allocations, id); if (!a || a.state !== 'Draft' || !reason) return null;
     a.override = { cost: cost, was: a.override ? a.override.cost : Math.round(a.rate * a.units), reason: reason, by: who, at: at }; a.cost = cost; return a;
   };
   db.clearAllocationOverride = function (id, who, at) {
-    var a = pick(F.allocations, id); if (!a || a.state === 'Exported' || !a.override) return null;
+    var a = pick(F.allocations, id); if (!a || a.state !== 'Draft' || !a.override) return null;
     a.overrideHistory = (a.overrideHistory || []).concat([Object.assign({ removedBy: who, removedAt: at }, a.override)]);
     a.override = null; a.cost = Math.round(a.rate * a.units); return a;
   };
-  db.confirmAllocation = function (id, who, at) { var a = pick(F.allocations, id); if (a && a.state === 'Draft') { a.state = 'Confirmed'; a.confirmedBy = { by: who, at: at }; } return a; };
 
   /* Work summaries: Finalise / Query / Reopen, each cycle kept */
   function ev(ws, e) { ws.cycles[ws.cycles.length - 1].events.push(e); }
