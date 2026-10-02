@@ -95,6 +95,8 @@
     document.querySelectorAll('[data-pp]').forEach(function (el) { var hit = !ppQuery || el.getAttribute('data-pp').indexOf(ppQuery) >= 0; el.hidden = !hit; if (hit) shown++; });
     var none = document.querySelector('.pp-none'); if (none) none.hidden = shown > 0;
   });
+  /* Badge tone from the engine: urgent only when the player trains soon */
+  function medTone(pid) { var k = db.getAttentionCases().filter(function (x) { return x.ruleId === 'ATT-050' && x.related && x.related.player === pid; })[0]; return k && k.severity === 'Urgent' ? 'danger' : k && k.severity === 'Warning' ? 'warn' : ''; }
   Hub.screens['mgmt-players'] = function (ctx) {
     var c = client();
     var h = K.head({ back: ['mgmt-home', 'Home'], eyebrow: 'Home', title: 'Players & Parents', sub: 'Find a player or parent, then do what you need from their page.',
@@ -105,7 +107,7 @@
     var counts = '<div class="pp-counts">' +
       '<span class="pp-count"><b class="num">' + F.active + '</b> active players' + (F.trial ? ' · ' + F.trial + ' on trial' : '') + '</span>' +
       '<span class="pp-count"><b class="num">' + F.parents + '</b> ' + c.toLowerCase() + 's</span>' +
-      '<button type="button" class="pp-count pp-count--act' + (need ? ' is-on' : '') + '" data-action="attn-area" data-area="Players & Parents"><b class="num">' + need + '</b> need action' + I('arrowRight', 'icon-sm') + '</button></div>';
+      '</div>' + K.areaNeeds(['Players & Parents'], { area: 'Players & Parents', clear: 'No family or player needs you right now.' });
     var tab = K.tab('pp-land', [{ id: 'players' }, { id: 'parents' }]);
     var seg = K.seg('pp-land', [{ id: 'players', label: 'Players' }, { id: 'parents', label: c + 's' }]);
     var search = '<label class="search pp-search"><span class="visually-hidden">Search</span>' + I('search') + '<input class="input" data-pp-search placeholder="' + (tab === 'players' ? 'Search players by name, age group or school' : 'Search ' + c.toLowerCase() + 's by name or child') + '" value="' + esc(ppQuery) + '"></label>';
@@ -115,7 +117,7 @@
       rows = db.getPlayers(function (p) { return p.status !== 'Inactive'; }).map(function (p) {
         var where = db.getPlayerMemberships(p.id).filter(function (m) { return m.state !== 'Ended'; }).map(function (m) { return db.getSession(m.session).name; });
         key = (p.name + ' ' + p.ageGroup + ' ' + p.school + ' ' + where.join(' ')).toLowerCase();
-        var flags = (p.status === 'Trial' ? K.pill('Trial', 'info') : '') + (p.medical === 'not_confirmed' ? K.pill('Medical to confirm', 'warn') : '');
+        var flags = (p.status === 'Trial' ? K.pill('Trial', 'info') : '') + (p.medical === 'not_confirmed' ? K.pill('Medical to confirm', medTone(p.id)) : '');
         return ui.row({ lead: ui.avatar(p.name, 'md'), title: esc(p.name), sub: [esc(p.ageGroup || 'Age group to set'), esc(where.join(', ') || 'Not on a session yet')], href: '#mgmt-player/' + p.id, trail: flags })
           .replace('<a ', '<a data-pp="' + esc(key) + '"' + (match(key) ? '' : ' hidden') + ' ');
       });

@@ -5,9 +5,18 @@
 (function () {
   var K = Hub.kit, db = Hub.db, ui = Hub.ui, I = Hub.icon, esc = ui.esc;
   var SEVWORD = { Urgent: 'Urgent', Warning: 'Warning', Normal: 'To do' };
-  function sevTone(s) { return { Urgent: 'danger', Warning: 'warn', Normal: 'info' }[s] || ''; }
+  function sevTone(s) { return { Urgent: 'danger', Warning: 'warn', Normal: '' }[s] || ''; }
   function today() { return db.getTodayOccurrences().slice().sort(function (a, b) { return a.start < b.start ? -1 : 1; }); }
   function tomorrow() { return db.getOccurrences(function (o) { return o.date === '2026-10-02'; }).sort(function (a, b) { return a.start < b.start ? -1 : 1; }); }
+  /* A date's badge on Home: only when the engine has something for it, in the engine's tone.
+     A healthy date has no badge; waiting cover reads "Finding cover", quietly. */
+  var SHORT = { 'ATT-019': 'Venue closed', 'ATT-018': 'No venue', 'ATT-003': 'No Lead Coach', 'ATT-002': 'Learning Coach only', 'ATT-031': 'Documents to check', 'ATT-032': 'No pay rate', 'ATT-022': 'Awaiting confirmation', 'ATT-020': 'Register to finish' };
+  function dayPill(o) {
+    var st = K.dateStanding(o); if (!st) return '';
+    var k = st.lead, label = st.waiting ? 'Finding cover' : /ATT-01[34]|ATT-041/.test(k.ruleId) ? staffState(o)[0] : SHORT[k.ruleId] || 'Needs attention';
+    var tone = K.sevTone(st.sev, st.waiting);
+    return K.pill(label, tone === 'danger' ? 'danger' : tone === 'warn' ? 'warn' : '');
+  }
   function staffState(o) {
     var st = db.occState(o), why = db.staffIssue(o);
     if (st === 'Awaiting confirmation') return ['Awaiting confirmation', 'warn'];
@@ -30,7 +39,7 @@
   }
   function areaCard(o) {
     return '<a class="lx-area" href="#' + o.route + '"><span class="lx-area__top"><span class="lx-area__icon">' + I(o.icon) + '</span>' + I('arrowRight', 'icon-sm lx-area__go') + '</span><span class="lx-area__title">' + esc(o.title) + '</span>' +
-      '<span class="lx-area__value"><b class="num">' + o.value + '</b><small>' + esc(o.label) + '</small>' + (o.need ? '<span class="hm-areas__need">' + esc(o.need) + '</span>' : '') + '</span></a>';
+      '<span class="lx-area__value"><b class="num">' + o.value + '</b><small>' + esc(o.label) + '</small>' + (o.need ? '<span class="hm-areas__need ' + (o.needCls || '') + '">' + esc(o.need) + '</span>' : '') + '</span></a>';
   }
   function schedRow(o) {
     var ss = staffState(o), r = db.getRegister(o.id), client = !!db.getSession(o.sessionId).client;
@@ -38,7 +47,7 @@
     return '<a class="hx-sched" href="#mgmt-occurrence/' + o.id + '"><span class="hx-sched__bar hx-tone--' + (ss[1] === 'ok' ? 'ok' : 'warn') + '"></span>' +
       '<span class="hx-sched__time num">' + o.start + '<small>' + o.end + '</small></span>' +
       '<span class="hx-sched__main"><b>' + esc(o.session) + '</b><small>' + esc(db.venueName(o.venue)) + ' · ' + (o.staff.length ? o.staff.map(function (s) { var n = db.coachName(s.covering || s.coach).split(' ')[0]; return s.unavailable && !s.covering ? '<s>' + esc(n) + '</s>' : esc(n); }).join(', ') : 'No coach') + '</small>' +
-      '<span class="hm-chips">' + K.pill(ss[0], ss[1]) + K.pill(reg[0], reg[1]) + '</span></span>' +
+      '<span class="hm-chips">' + dayPill(o) + (db.hasStarted(o) && r.state !== 'Completed' ? K.pill(reg[0], '') : '') + '</span></span>' +
       '<span class="hx-sched__count num">' + I('users', 'icon-sm') + o.players + (client ? '' : '') + '</span>' + I('chevron', 'icon-sm hx-chev') + '</a>';
   }
   function attentionPanel(state) {
@@ -63,15 +72,23 @@
     var players = db.getPlayers(function (p) { return p.status === 'Active'; }).length;
     var fin = K.fin() !== 'none', owed = fin ? db.fin.receivables().total : 0;
     var NC = attnNow().active;
-    function waiting(cats) { var n = NC.filter(function (g) { return g.issues.some(function (k) { return cats.indexOf(k.category) >= 0; }); }).length; return n ? n + ' need' + (n === 1 ? 's' : '') + ' you' : ''; }
+    /* Area cards: a neutral count, red only when that area has something urgent */
+    function areaNeed(cats) {
+      var gs = NC.filter(function (g) { return g.issues.some(function (k) { return cats.indexOf(k.category) >= 0; }); }), u = gs.filter(function (g) { return g.severity === 'Urgent'; }).length, n = gs.length;
+      return { need: !n ? '' : u ? u + ' urgent' + (n - u ? ' · ' + (n - u) + ' to do' : '') : n + ' to do', needCls: u ? 'is-urgent' : 'is-calm' };
+    }
     var areas = '<div class="lx-areas lx-areas--stat hm-areas" aria-label="Your four areas">' +
-      areaCard({ route: 'mgmt-schedule', icon: 'calendar', title: 'Schedule & Sessions', value: empty ? 0 : T.length, label: 'today', need: waiting(['Sessions & Venues', 'Staffing & Cover']) }) +
-      areaCard({ route: 'mgmt-coaches', icon: 'coaches', title: 'Coaches', value: active, label: 'active', need: waiting(['Coaches & Compliance', 'Staffing & Cover']) }) +
-      areaCard({ route: 'mgmt-players', icon: 'players', title: 'Players & Parents', value: players, label: 'active players', need: waiting(['Players & Parents']) }) +
-      areaCard({ route: 'mgmt-finance', icon: 'finance', title: 'Financials', value: fin ? K.money(owed).replace(/\.\d\d$/, '') : '—', label: fin ? 'owed to us' : 'ask for Finance access', need: fin ? waiting(['Finance']) : '' }) + '</div>';
+      areaCard({ route: 'mgmt-schedule', icon: 'calendar', title: 'Schedule & Sessions', value: empty ? 0 : T.length, label: 'today', needCls: areaNeed(['Sessions & Venues', 'Staffing & Cover']).needCls, need: areaNeed(['Sessions & Venues', 'Staffing & Cover']).need }) +
+      areaCard({ route: 'mgmt-coaches', icon: 'coaches', title: 'Coaches', value: active, label: 'active', needCls: areaNeed(['Coaches & Compliance']).needCls, need: areaNeed(['Coaches & Compliance']).need }) +
+      areaCard({ route: 'mgmt-players', icon: 'players', title: 'Players & Parents', value: players, label: 'active players', needCls: areaNeed(['Players & Parents']).needCls, need: areaNeed(['Players & Parents']).need }) +
+      areaCard({ route: 'mgmt-finance', icon: 'finance', title: 'Financials', value: fin ? K.money(owed).replace(/\.\d\d$/, '') : '—', label: fin ? 'owed to us' : 'ask for Finance access', needCls: areaNeed(['Finance']).needCls, need: fin ? areaNeed(['Finance']).need : '' }) + '</div>';
     var UN = attnNow(), urgent = UN.active.filter(function (g) { return g.severity === 'Urgent'; }).map(function (g) { return g.lead; }), c = UN.counts;
-    var urgentSum = empty || !urgent.length ? '' : '<section class="hm-urgent" aria-label="Urgent actions"><a class="hm-urgent__head" href="#hm-attn"><span class="hm-urgent__k">' + ui.sev('Urgent') + '<b class="num">' + urgent.length + ' urgent</b><span class="num">· ' + c.Warning + ' warning · ' + c.Normal + ' to do</span></span><span class="hm-urgent__go">Review' + I('arrowRight', 'icon-sm') + '</span></a>' +
-      urgent.map(function (k) { return '<a class="hm-urgent__row" data-case-key="' + esc(k.caseKey) + '" href="#' + esc(k.route || 'mgmt-attention') + '"><b>' + esc(k.title) + '</b><small>' + esc(k.when) + ' · ' + esc(k.actionLabel || 'Open') + '</small></a>'; }).join('') + '</section>';
+    /* Needs attention on Home: the counts, and only what is genuinely urgent, by name */
+    var counts = [c.Warning ? c.Warning + ' warning' : '', c.Normal ? c.Normal + ' to do' : ''].filter(Boolean).join(' · ');
+    var urgentSum = empty ? '' : '<section class="hm-urgent' + (urgent.length ? '' : ' is-calm') + '" id="hm-attn" aria-label="Needs attention"><a class="hm-urgent__head" href="#mgmt-attention"><span class="hm-urgent__k"><span class="hm-urgent__t">Needs attention</span>' +
+      (urgent.length ? ui.sev('Urgent') + '<b class="num">' + urgent.length + ' urgent</b>' + (counts ? '<span class="num">· ' + counts + '</span>' : '') : '<span class="num">' + (counts || 'All clear') + '</span>') + '</span><span class="hm-urgent__go">Review' + I('arrowRight', 'icon-sm') + '</span></a>' +
+      (urgent.length ? urgent.map(function (k) { return '<a class="hm-urgent__row" data-case-key="' + esc(k.caseKey) + '" href="#' + esc(k.route || 'mgmt-attention') + '"><b>' + esc(k.title) + '</b><small>' + esc(k.when) + ' · ' + esc(k.actionLabel || 'Open') + '</small></a>'; }).join('')
+        : '<p class="hm-urgent__calm">Nothing urgent.' + (UN.waiting.length ? ' ' + UN.waiting.length + ' waiting on others.' : '') + '</p>') + '</section>';
     var sched = '<section class="hx-card hm-sched" id="hx-today"><div class="hx-card__head"><div><h2>Today’s schedule</h2><small class="hx-sub">' + (empty ? 'No sessions' : T.length + ' sessions · ' + expected + ' players expected') + '</small></div><a class="hx-link" href="#mgmt-calendar">View full day' + I('arrowRight', 'icon-sm') + '</a></div>' +
       (empty ? ui.empty('calendar', 'Nothing scheduled today', 'Tomorrow has ' + tomorrow().length + ' sessions.') : '<div class="hx-list">' + T.map(schedRow).join('') + '</div>') + '</section>';
     var week = [['Mon', 28, '2026-09-28'], ['Tue', 29, '2026-09-29'], ['Wed', 30, '2026-09-30'], ['Thu', 1, '2026-10-01'], ['Fri', 2, '2026-10-02'], ['Sat', 3, '2026-10-03'], ['Sun', 4, '2026-10-04']];
@@ -79,13 +96,13 @@
       '<div class="hx-week" role="group" aria-label="Choose a day">' + week.map(function (d, i) { return '<a class="hx-week__day' + (i === 3 ? ' is-today' : '') + '" href="#mgmt-occurrences/' + d[2] + '"' + (i === 3 ? ' aria-current="date"' : '') + '><small>' + d[0] + '</small><b>' + d[1] + '</b></a>'; }).join('') + '</div>' +
       '<p class="hm-cal__sum num">' + (empty ? 'No sessions today' : T.length + ' sessions · first ' + (T[0] || {}).start + ' · last ends ' + (T[T.length - 1] || {}).end) + '</p></section>';
     var tm = tomorrow();
-    var tom = '<section class="hx-card hx-card--rail"><div class="hx-card__head"><div><h2>Tomorrow</h2><small class="hx-sub">Friday 2 October</small></div></div><div class="hx-list">' + (tm.length ? tm.map(function (o) { var ss = staffState(o); return '<a class="hm-mini" href="#mgmt-occurrence/' + o.id + '"><span class="num">' + o.start + '</span><span><b>' + esc(o.session) + '</b><small>' + esc(db.venueName(o.venue)) + '</small></span>' + K.pill(ss[0], ss[1]) + '</a>'; }).join('') : '<p class="hx-sub">Nothing scheduled.</p>') + '</div></section>';
+    var tom = '<section class="hx-card hx-card--rail"><div class="hx-card__head"><div><h2>Tomorrow</h2><small class="hx-sub">Friday 2 October</small></div></div><div class="hx-list">' + (tm.length ? tm.map(function (o) { var ss = staffState(o); return '<a class="hm-mini" href="#mgmt-occurrence/' + o.id + '"><span class="num">' + o.start + '</span><span><b>' + esc(o.session) + '</b><small>' + esc(db.venueName(o.venue)) + '</small></span>' + dayPill(o) + '</a>'; }).join('') : '<p class="hx-sub">Nothing scheduled.</p>') + '</div></section>';
     var appr = db.getApprovalsWaiting().filter(function (a) { return a.count; });
     var approvals = '<section class="hx-card hx-card--rail"><div class="hx-card__head"><div><h2>Approvals waiting</h2><small class="hx-sub">' + K.sum(appr, 'count') + ' to decide</small></div><a class="hx-link" href="#mgmt-approvals">All' + I('arrowRight', 'icon-sm') + '</a></div><div class="hx-list">' + appr.map(function (a) { return '<a class="hm-mini" href="#mgmt-' + a.id + '"><span class="hm-mini__icon">' + I(a.icon, 'icon-sm') + '</span><span><b>' + esc(a.label) + '</b><small>' + esc(a.sub) + '</small></span>' + K.pill(a.count + ' waiting', 'info') + '</a>'; }).join('') + '</div></section>';
     var changes = '<section class="hx-card hx-card--rail"><div class="hx-card__head"><div><h2>Since you last looked</h2><small class="hx-sub">Last visit ' + esc(db.getLastVisit()) + '</small></div><a class="hx-link" href="#mgmt-audit">History' + I('arrowRight', 'icon-sm') + '</a></div><div class="hx-activity">' +
       db.getChanges().map(function (ch, i) { var tone = ['warn', 'ok', 'blue'][i % 3], icon = ['calendar', 'shield', 'inbox'][i % 3]; var target = ch.key ? ' data-action="case" data-key="' + esc(ch.key) + '"' : ''; return '<' + (ch.key ? 'button type="button"' : 'a href="' + (ch.href || '#mgmt-audit') + '"') + ' class="hx-act hm-act"' + target + '><span class="hx-act__icon hx-tone--' + tone + '">' + I(icon, 'icon-sm') + '</span><span><b>' + esc(ch.text) + '</b><small>' + esc(ch.time) + '</small></span></' + (ch.key ? 'button' : 'a') + '>'; }).join('') + '</div></section>';
     /* Approvals are Needs Attention items now, so there is one list of decisions */
-    return shell(urgentSum + areas + '<div class="hm__pair">' + attentionPanel(ctx.state) + sched + '</div>', tom + cal);
+    return shell(urgentSum + areas + sched, tom + cal);
   };
 
   /* ------------------------------------------------------ NEEDS ATTENTION

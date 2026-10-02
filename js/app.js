@@ -93,8 +93,10 @@
     var child = ar ? '<a class="nav-child" href="#' + ar.id + '"' + (S.route === ar.id ? ' aria-current="page"' : '') + '><span>' + esc(ar.label) + '</span></a>'
       : '<a class="nav-child" href="#' + S.route + '" aria-current="page"><span>' + esc(pageTitle()) + '</span></a>';
     var c = D.attention.summary.counts;
-    var status = '<a class="side-status" href="#mgmt-attention"><span class="side-status__k">' + ui.sev('Urgent') + 'Needs attention</span>' +
-      '<b class="num">' + c.Urgent + ' urgent</b><small class="num">' + c.Warning + ' warning \u00b7 ' + c.Normal + ' to do</small><span class="side-status__go">Review' + I('arrowRight', 'icon-sm') + '</span></a>';
+    /* Red only when something is urgent; otherwise a quiet count */
+    var rest = [c.Warning ? c.Warning + ' warning' : '', c.Normal ? c.Normal + ' to do' : ''].filter(Boolean).join(' \u00b7 ');
+    var status = '<a class="side-status' + (c.Urgent ? '' : ' is-calm') + '" href="#mgmt-attention"><span class="side-status__k">' + (c.Urgent ? ui.sev('Urgent') : '') + 'Needs attention</span>' +
+      (c.Urgent ? '<b class="num">' + c.Urgent + ' urgent</b><small class="num">' + rest + '</small>' : '<b class="num">' + (rest || 'All clear') + '</b>') + '<span class="side-status__go">Review' + I('arrowRight', 'icon-sm') + '</span></a>';
     return '<aside class="sidebar" aria-label="Management navigation">' +
       '<a class="rv-brand" href="#mgmt-home" aria-label="Relvor home">' + Hub.relvorLogo + '<span>Relvor</span></a>' +
       '<button type="button" class="org-card" data-action="org-switch" aria-label="Switch organisation"><span class="org-card__mark">' + esc(ui.initials(Hub.brand.orgName)) + '</span><span class="org-card__text"><b>' + esc(Hub.brand.orgFull || Hub.brand.orgName) + '</b><small>Management hub</small></span>' + I('chevron', 'icon-sm') + '</button>' +

@@ -59,10 +59,13 @@
   }
 
   /* ============================================================ DIRECTORY */
+  /* Directory badges: nothing for a coach who's fine; problems take their tone from the engine */
+  function urgentIn(cats) { return db.getAttentionCards().some(function (g) { return !g.waiting && g.severity === 'Urgent' && g.issues.some(function (k) { return cats.indexOf(k.category) >= 0; }); }); }
   function dirPills(c) {
-    var comp = db.getCoachComplianceSummary(c.id), out = [K.pill(comp.text, comp.tone)];
-    var t = today(c.id); if (t) out.push(K.pill(t.type === 'Different hours' ? 'Different hours today' : 'Unavailable today', t.type === 'Different hours' ? 'warn' : 'danger'));
-    var h = holidaySoon(c.id); if (h && h !== t) out.push(K.pill('Holiday ' + range(h.from, h.to), 'warn'));
+    var comp = db.getCoachComplianceSummary(c.id), gs = K.groupStanding('coach:' + c.id), out = [];
+    if (comp.state !== 'Current') out.push(K.pill(comp.text, gs && gs.sev === 'Urgent' ? 'danger' : 'warn'));
+    var t = today(c.id); if (t) out.push(K.pill(t.type === 'Different hours' ? 'Different hours today' : 'Unavailable today', ''));
+    var h = holidaySoon(c.id); if (h && h !== t) out.push(K.pill('Holiday ' + range(h.from, h.to), ''));
     if (!c.active) out.push(K.pill('Inactive', ''));
     return out;
   }
@@ -76,9 +79,9 @@
     var reqs = cover.map(function (x) { return x.request; }).filter(function (v, i, a) { return a.indexOf(v) === i; });
     var glance = K.section('At a glance', '', K.stats([
       { label: 'Active ' + word().toLowerCase(), value: all.filter(function (c) { return c.active; }).length, sub: all.length + ' on file · ' + all.filter(function (c) { return c.type === 'learning'; }).length + ' learning' },
-      { label: 'Open cover', value: cover.length, sub: cover.length ? cover.length + ' date' + (cover.length === 1 ? '' : 's') + ' across ' + reqs.length + ' request' + (reqs.length === 1 ? '' : 's') : 'Nothing open', route: 'mgmt-cover', tone: cover.length ? 'warn' : '' },
+      { label: 'Open cover', value: cover.length, sub: cover.length ? cover.length + ' date' + (cover.length === 1 ? '' : 's') + ' across ' + reqs.length + ' request' + (reqs.length === 1 ? '' : 's') : 'Nothing open', route: 'mgmt-cover', tone: urgentIn(['Staffing & Cover']) ? 'danger' : '' },
       { label: 'Work summaries', value: ready.length, sub: ready.length ? ready.map(function (w) { return first(db.coachName(w.coach)); }).join(', ') + ' to read or answer' : 'Nothing waiting', route: 'mgmt-work-summaries' },
-      { label: 'Documents', value: issues.length, sub: 'Expiring, missing or awaiting check', route: 'mgmt-documents', tone: issues.length ? 'warn' : '' }
+      { label: 'Documents', value: issues.length, sub: 'Expiring, missing or awaiting check', route: 'mgmt-documents', tone: urgentIn(['Coaches & Compliance']) ? 'danger' : '' }
     ]));
     var more = K.moreIn('More in Coaches', [
       ['Cover and time off', [{ route: 'mgmt-cover', icon: 'swap', title: 'Cover', desc: 'Who is away and who is covering', count: cover.length },
@@ -101,7 +104,7 @@
         '<span class="lx-person__pills">' + dirPills(c).join('') + '<span class="lx-person__n num">' + db.getCoachWeekCount(c.id) + ' this week</span></span></a>';
     }).join('');
     var anyShown = list.some(function (c) { return !dirQuery || (c.name + ' ' + c.role + ' ' + c.code).toLowerCase().indexOf(dirQuery) >= 0; });
-    return page(h, K.areaNeeds(['Coaches & Compliance', 'Staffing & Cover'], { area: 'Coaches', clear: 'Every coach is up to date and every session is covered.' }) + glance +
+    return page(h, K.areaNeeds(['Coaches & Compliance'], { area: 'Coaches & Compliance', clear: 'Every coach is up to date.' }) + glance +
       K.section('Find a coach', 'Open a coach for their sessions, time off and cover, documents, and pay and work.', bar + '<div class="lx-people co-dir">' + cards + '</div>' +
         '<p class="k-note co-dir__none"' + (anyShown ? ' hidden' : '') + '>No ' + esc(word().toLowerCase()) + ' match this search and filter.</p>') + more);
   };
@@ -120,7 +123,7 @@
     var comp = db.getCoachComplianceSummary(c.id), openCover = db.getOpenCover().filter(function (x) { return x.absent === c.id; }).length;
     var tabs = TABS.map(function (t) {
       var m = Object.assign({}, t);
-      if (t.id === 'documents') { m.meta = comp.state === 'Current' ? 'Current' : comp.state; m.state = comp.tone === 'danger' ? 'Urgent' : comp.tone === 'warn' ? 'Warning' : null; }
+      if (t.id === 'documents') { m.meta = comp.state === 'Current' ? 'Current' : comp.state; var gs = K.groupStanding('coach:' + c.id); m.state = gs && !gs.waiting && gs.sev !== 'Normal' ? gs.sev : null; }
       if (t.id === 'availability' && openCover) { m.meta = openCover + ' cover open'; m.state = 'Warning'; }
       return m;
     });
@@ -151,7 +154,7 @@
       })) });
     var upcoming = K.card({ title: 'Coming up', sub: 'Next dates this ' + one().toLowerCase() + ' is on.', body: up.length ? ui.rows(up.map(function (o) {
       var me = o.staff.filter(function (s) { return s.coach === c.id; })[0];
-      return ui.row({ title: esc(o.session), sub: [K.dd(o.date) + ', ' + o.start + '–' + o.end, esc(db.venueName(o.venue))], trail: me && me.unavailable ? K.pill(me.covering ? 'Covered by ' + first(db.coachName(me.covering)) : 'Unavailable', me.covering ? 'info' : 'danger') : st(me ? me.role : ''), href: '#mgmt-occurrence/' + o.id });
+      return ui.row({ title: esc(o.session), sub: [K.dd(o.date) + ', ' + o.start + '–' + o.end, esc(db.venueName(o.venue))], trail: me && me.unavailable ? K.pill(me.covering ? 'Covered by ' + first(db.coachName(me.covering)) : 'Away', me.covering ? 'info' : '') : st(me ? me.role : ''), href: '#mgmt-occurrence/' + o.id });
     })) : '<p class="k-note">No upcoming dates.</p>' });
     /* Overview first: anything needing action for this coach (the same items as Needs attention), then the answers to where, when and how they are doing */
     var cs = db.getCoachComplianceSummary(c.id), sess = db.getAssignments ? db.getAssignments(c.id) : [];
@@ -162,16 +165,18 @@
       ['Available', exc ? esc(exc.type) + ' ' + esc(K.dm(exc.from)) + (exc.to !== exc.from ? '–' + esc(K.dm(exc.to)) : '') : 'Usual week', exc ? esc(exc.reason || '') : 'Nothing booked off'],
       ['Documents and pay', cs.state === 'Current' ? 'Documents up to date' : esc(cs.text), 'September: ' + sep.length + ' sessions' + (K.canFin() || K.fin() === 'view' ? ' · ' + K.money(K.sum(sep, 'cost')) : '')]
     ]);
-    /* Is this coach okay, and is anything needed? */
-    var fn = first(c.name), list = db.getCoachCompliance(c.id), bad = list.filter(function (x) { return x.state === 'Expired' || x.state === 'Missing'; })[0];
-    var pend = list.filter(function (x) { return x.pending; })[0], soon = list.filter(function (x) { return x.state === 'Expiring'; })[0];
-    var sit = !c.active ? K.situation({ tone: 'info', title: fn + ' is inactive', text: 'Inactive coaches are not offered sessions or cover.' })
-      : bad ? K.situation({ tone: 'danger', title: esc(bad.type.name) + (bad.state === 'Expired' ? ' expired' : ' missing'), text: esc(fn) + ' should not be staffed until ' + (bad.state === 'Expired' ? 'it is replaced' : 'one is on file') + '.' + (pend && pend.type.id === bad.type.id ? ' A new one has been uploaded and is waiting to be checked.' : ''), primary: pend && pend.type.id === bad.type.id ? K.goBtn('Check the new ' + bad.type.name.toLowerCase(), 'mgmt-document/' + pend.pending.id, { variant: 'primary' }) : K.actBtn('Review documents', 'co-tab', { tab: 'documents' }, { variant: 'primary' }) })
-      : pend ? K.situation({ tone: 'warn', title: 'New ' + esc(pend.type.name.toLowerCase()) + ' uploaded', text: 'Check the original document before approving.', primary: K.goBtn('Review document', 'mgmt-document/' + pend.pending.id, { variant: 'primary' }) })
-      : t ? K.situation({ tone: 'warn', title: (t.type === 'Different hours' ? 'Different hours today' : fn + ' is unavailable today'), text: esc(t.reason || '') })
-      : soon ? K.situation({ tone: 'warn', title: esc(soon.type.name) + ' expires ' + esc(K.dm(soon.doc.expires)), text: 'Ask ' + esc(fn) + ' for a new one before then.', primary: K.actBtn('Review documents', 'co-tab', { tab: 'documents' }, { variant: 'secondary' }) })
-      : K.situation({ tone: 'ok', title: fn + ' is all set', text: 'Documents current, nothing booked off and no cover open.' });
-    return sit + K.needsFor(function (k) { return K.relatesTo(k, 'coach', c.id) && k.ruleId !== 'ATT-011' && k.ruleId !== 'ATT-042'; }, { title: 'Also needs you' }) + snap + K.grid([upcoming, compCard], 2) + K.details('Profile and contact', profile, { sub: 'Contact details, role, active status and its history' });
+    /* One place for each problem: the engine's most important issue for this coach leads, the rest are quiet.
+       Urgent ones always stay as banners. A coach who's fine gets one quiet line. */
+    var fn = first(c.name), mine = db.getAttentionCases().filter(function (k) { return !k.waiting && K.relatesTo(k, 'coach', c.id); });
+    var go = function (k, v) { return K.goBtn(k.actionLabel, k.route, { variant: v || 'primary', attrs: { 'data-case-key': k.caseKey } }); };
+    var big = mine.filter(function (k, i) { return i === 0 || k.severity === 'Urgent'; }), small = mine.filter(function (k) { return big.indexOf(k) < 0; });
+    var awayLine = t ? '<p class="k-okline">' + I('clock') + '<b>' + esc(t.type === 'Different hours' ? 'Different hours today' : fn + ' is unavailable today') + '</b><span>' + esc(t.reason || '') + '</span></p>' : '';
+    var sit = !c.active ? K.situation({ tone: 'neutral', title: fn + ' is inactive', text: 'Inactive coaches are not offered sessions or cover.' })
+      : mine.length ? big.map(function (k) { return K.situation({ tone: K.sevTone(k.severity), title: esc(k.title), text: esc(k.why || ''), primary: go(k) }); }).join('') + awayLine +
+        K.alsoList((function () { var gr = []; small.forEach(function (k) { var g = gr.filter(function (x) { return x.k.title === k.title; })[0]; if (g) g.n++; else gr.push({ k: k, n: 1 }); });
+          return gr.map(function (g) { var k = g.k; return { sev: k.severity, title: esc(k.title), sub: (g.n > 1 ? g.n + ' sessions · first ' : '') + esc(k.when || ''), action: '<a href="#' + esc(k.route) + '" data-case-key="' + esc(k.caseKey) + '">' + esc(k.actionLabel) + ' →</a>' }; }); })())
+      : awayLine || '<p class="k-okline">' + I('checkCircle') + '<b>' + esc(fn) + ' is all set</b><span>Documents current, nothing booked off and no cover open.</span></p>';
+    return sit + snap + K.grid([upcoming, compCard], 2) + K.details('Profile and contact', profile, { sub: 'Contact details, role, active status and its history' });
   }
 
   function permsList(role) {

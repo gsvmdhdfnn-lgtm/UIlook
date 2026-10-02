@@ -270,3 +270,31 @@ a.hx-attn, a.hm-urgent__row { text-decoration: none; color: inherit; }
   .lx-also li { grid-template-columns: auto minmax(0, 1fr); }
   .lx-also__go { grid-column: 2; }
 }
+
+/* ---------- Calm hierarchy: Urgent strong, Warning calmer, To do ordinary, Waiting quiet ---------- */
+.k-sit--neutral { border-left-color: var(--line-strong); }
+.k-sit--neutral .k-sit__icon { color: var(--text-3); }
+.k-sit--quiet { border-left-color: var(--line); box-shadow: none; background: transparent; padding: 12px 16px; }
+.k-sit--quiet .k-sit__icon { color: var(--text-4); }
+.k-sit--quiet .k-sit__title { font-size: 15px; font-weight: 600; }
+/* A healthy state: one quiet line, no banner */
+.k-okline { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 0 0 18px; font-size: 14px; color: var(--text-3); }
+.k-okline .icon { width: 16px; height: 16px; color: var(--ok); flex: none; }
+.k-okline b { font-weight: 600; color: var(--text-2); }
+.k-okline .btn { margin-left: auto; }
+/* Secondary issues under the main one */
+.k-also { margin: -6px 0 18px; padding: 4px 16px 6px; border-radius: 14px; background: color-mix(in oklab, var(--text) 3%, transparent); }
+.k-also__h { list-style: none; cursor: pointer; padding: 8px 0; font-size: 12.5px; font-weight: 650; letter-spacing: .04em; text-transform: uppercase; color: var(--text-3); }
+.k-also__h::-webkit-details-marker { display: none; }
+.k-also__row { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-top: 1px solid var(--line-soft); }
+.k-also__t { flex: 1; min-width: 0; display: grid; gap: 1px; font-size: 14px; font-weight: 600; color: var(--text); }
+.k-also__t small { font-size: 12.5px; font-weight: 400; color: var(--text-3); }
+.k-also__wait { font-size: 11px; font-weight: 650; letter-spacing: .06em; text-transform: uppercase; color: var(--text-3); }
+.k-also__row a { white-space: nowrap; font-size: 13px; font-weight: 600; color: var(--link); text-decoration: none; }
+@media (max-width: 560px) { .k-also__row { flex-wrap: wrap; } .k-also__row > .btn, .k-also__row > a { margin-left: 24px; } }
+/* To do in the queue is ordinary work, not an alert */
+.lx-issue--normal::before { background: var(--line-strong); }
+/* Area cards on Home: a red dot only when something is urgent */
+.hm-areas__need.is-calm { color: var(--text-3); font-weight: 500; }
+.hm-areas__need.is-calm::before { display: none; }
+.hm-areas__need.is-urgent { color: var(--danger); }

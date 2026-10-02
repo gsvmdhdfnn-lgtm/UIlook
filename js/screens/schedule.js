@@ -62,7 +62,11 @@
      Partially delivered, Cancelled, Rescheduled (or Postponed), with the reason for a staffing issue */
   function occStatus(o) {
     var st = db.occState(o), r = risk(o);
-    return st === 'Draft' ? K.pill('Draft') : K.status(st) + (r ? ' <small class="sch-why">' + esc(r) + '</small>' : '');
+    if (st === 'Draft') return K.pill('Draft');
+    /* A problem date takes its tone from the engine; waiting cover reads quietly */
+    var sd = o.status === 'Scheduled' && !o.delivery ? K.dateStanding(o) : null;
+    if (sd && (st === 'Staffing issue' || st === 'Awaiting confirmation' || sd.waiting)) { var tn = K.sevTone(sd.sev, sd.waiting); return K.pill(sd.waiting ? 'Finding cover' : st, tn === 'danger' ? 'danger' : tn === 'warn' ? 'warn' : '') + (r && !sd.waiting ? ' <small class="sch-why">' + esc(r) + '</small>' : ''); }
+    return K.status(st) + (r ? ' <small class="sch-why">' + esc(r) + '</small>' : '');
   }
   function regState(o) { return db.getRegister(o.id).state; }
   function sortOcc(list, desc) { return list.slice().sort(function (a, b) { var x = a.date + a.start, y = b.date + b.start; return (x < y ? -1 : x > y ? 1 : 0) * (desc ? -1 : 1); }); }
@@ -97,7 +101,7 @@
       empty: 'Nothing else this week.' });
     var feature = '<section class="lx-feature"><div class="lx-feature__text"><h2>All sessions</h2><p>Open a session to see its dates, coaches and players, or to change, cancel or reschedule a date.</p>' +
       '<p class="lx-feature__facts num"><span><b>' + active.length + '</b> sessions running</span><span><b>' + week.length + '</b> this week</span>' +
-      (need.length ? '<span class="is-alert"><b>' + need.length + '</b> need a coach this week</span>' : '') + '</p></div>' +
+      (need.length ? '<span' + (need.some(function (o) { var d = K.dateStanding(o); return d && d.sev === 'Urgent' && !d.waiting; }) ? ' class="is-alert"' : '') + '><b>' + need.length + '</b> need a coach this week</span>' : '') + '</p></div>' +
       '<button type="button" class="lx-feature__btn" data-action="go" data-route="mgmt-sessions">Open all sessions' + I('arrowRight', 'icon-sm') + '</button></section>';
     var cards = '<div class="lx-links">' +
       K.tile({ route: 'mgmt-calendar', icon: 'calendar', title: 'Calendar', desc: 'Every session by day, week or month.' }) +
@@ -435,7 +439,7 @@
       if (x.attended === 'Attended') return K.status('Present');
       if (x.attended === 'Absent') return K.status('Absent') + (x.covering ? ' <small class="sch-why">' + esc(db.coachName(x.covering).split(' ')[0]) + ' covered</small>' : '');
       if (x.attended === 'Not required' || x.attended === 'Moved') return '<span class="c-mute">' + esc(x.attended) + '</span>';
-      if (x.unavailable) return x.covering ? K.pill('Covered by ' + db.coachName(x.covering).split(' ')[0], 'info') : K.pill('Cover needed', 'danger');
+      if (x.unavailable) return x.covering ? K.pill('Covered by ' + db.coachName(x.covering).split(' ')[0], 'info') : K.pill('Away', '');
       return x.cover ? K.pill('Covering ' + db.coachName(x.covers || '').split(' ')[0], 'info') : '<span class="c-mute">Planned</span>';
     }
     var staffT = K.card({ title: 'Staff for this Session', sub: done ? 'What actually happened. Saved for history and coach pay.' : ended ? 'As planned. Confirm what actually happened above.' : 'Planned for this date. Changes here affect this date only.',
@@ -499,7 +503,7 @@
     var regDone = reg.state === 'Completed', regIssue = { tone: 'warn', title: 'Register still needed', text: 'The register is ' + reg.state.toLowerCase() + '.', primary: K.goBtn('Open register', 'mgmt-register/' + o.id, { variant: 'primary' }), rules: ['ATT-020'] };
     if (o.status === 'Cancelled' || o.status === 'Postponed' || o.status === 'Rescheduled') {
       if (o.outcome) return [{ tone: 'ok', title: 'This session was ' + o.status.toLowerCase(), text: esc(o.cancelReason || '') + ' Refunds and credits have been decided.' }];
-      return [{ tone: 'warn', title: 'This session was ' + o.status.toLowerCase(), text: 'Families, the venue and coaches are waiting to hear what happens next.', primary: K.goBtn('Decide refunds and credits', 'mgmt-occurrence-outcome/' + o.id, { variant: 'primary' }), rules: ['ATT-024'] }];
+      return [{ tone: 'warn', sev: (db.getAttentionCase('outcome_missing|occurrence:' + o.id) || { severity: 'Warning' }).severity, title: 'This session was ' + o.status.toLowerCase(), text: 'Families, the venue and coaches are waiting to hear what happens next.', primary: K.goBtn('Decide refunds and credits', 'mgmt-occurrence-outcome/' + o.id, { variant: 'primary' }), rules: ['ATT-024'] }];
     }
     if (o.delivery) {
       var d = o.delivery;
@@ -508,7 +512,7 @@
           : (d.changes && d.changes.length ? esc(d.changes.join('. ')) + '. ' : '') + 'Who coached, and their pay, are saved for history. ' + K.stamp('Confirmed', d.by, d.at)),
         secondary: K.canFin() ? K.actBtn('Correct delivery', 'sch-correct', { id: o.id }, { variant: 'tertiary', size: 'sm' }) : '' });
       if (!regDone) list.push(regIssue);
-      return list;
+      return engineSev(o, list);
     }
     if (db.hasEnded(o) && !o.draft) {
       var names = db.workingStaff(o).map(function (x) { return esc(db.coachName(x.coach).split(' ')[0]) + ' (' + esc(K.roleName(x.actualRole || x.role)) + ')'; }).join(', ');
@@ -519,13 +523,15 @@
         primary: gap ? K.actBtn('Record what happened', 'sch-changed', { id: o.id }, { variant: 'primary' }) : K.actBtn('Went as planned', 'sch-went', { id: o.id }, { variant: 'primary', icon: 'check' }),
         secondary: gap ? '' : K.actBtn('Something changed', 'sch-changed', { id: o.id }, { variant: 'secondary' }), rules: ['ATT-022', 'ATT-013', 'ATT-014', 'ATT-041'] });
       if (!regDone) list.push(regIssue);
-      return list;
+      return engineSev(o, list);
     }
     /* Before it runs: the same issues Needs Attention sees, from the one shared engine */
-    if (o.draft) return [{ tone: 'warn', title: 'This session is still a draft', text: 'Finish setting it up so its dates can run and families can book.', primary: K.goBtn('Finish setting up', 'mgmt-session-edit/' + o.sessionId, { variant: 'primary' }), rules: ['ATT-016'] }];
+    if (o.draft) return [{ tone: 'warn', sev: 'Normal', title: 'This session is still a draft', text: 'Finish setting it up so its dates can run and families can book.', primary: K.goBtn('Finish setting up', 'mgmt-session-edit/' + o.sessionId, { variant: 'primary' }), rules: ['ATT-016'] }];
     var iss = db.dateIssues(o), seen = {}, leftNotes = [];
     var vActs = K.actBtn('Reschedule', 'sch-resched', { id: o.id }, { variant: 'secondary' }) + K.actBtn('Cancel session', 'sch-cancel', { id: o.id }, { variant: 'tertiary' });
-    iss.open.forEach(function (k) {
+    /* Each banner carries its issue's severity from the engine; its tone is set from that, never locally */
+    iss.open.forEach(function (k) { var n0 = list.length; addIssue(k); if (list.length > n0) Object.assign(list[list.length - 1], { sev: k.severity, waiting: k.waiting, key: k.caseKey }); });
+    function addIssue(k) {
       var who = k.related && k.related.coach || null;
       if (k.ruleId === 'ATT-013' || k.ruleId === 'ATT-014' || k.ruleId === 'ATT-041') { if (seen[who]) return; seen[who] = 1; list.push(Object.assign(coverBanner(o, who), { rules: ['ATT-013', 'ATT-014', 'ATT-041'] })); }
       else if (k.ruleId === 'ATT-002') list.push({ tone: 'warn', title: 'Learning Coach only', text: esc(k.why) + ' Add a Lead Coach.', primary: K.actBtn('Add a coach', 'sch-coach', { id: o.id, mode: 'add' }, { variant: 'primary' }), rules: ['ATT-002'] });
@@ -534,19 +540,32 @@
       else if (k.ruleId === 'ATT-032') list.push({ tone: 'warn', title: esc(k.title), text: esc(k.why), primary: K.goBtn('Set a pay rate', k.route, { variant: 'primary' }), rules: ['ATT-032'] });
       else if (k.ruleId === 'ATT-018') list.push({ tone: 'danger', title: 'No venue yet', text: esc(k.why) + ' Choose a venue, or move the session to a date when one is free.', primary: K.actBtn('Change venue', 'sch-venue', { id: o.id }, { variant: 'primary' }), secondary: vActs, rules: ['ATT-018'] });
       else if (k.ruleId === 'ATT-019') { var shut = db.venueClosure(o.venue, o.date); list.push({ tone: 'danger', title: esc(db.venueName(o.venue)) + ' is closed on ' + esc(K.dd(o.date)), text: esc(shut.reason) + '. Move this date to another venue, reschedule it, or cancel it.', primary: K.actBtn('Change venue', 'sch-venue', { id: o.id }, { variant: 'primary' }), secondary: vActs, rules: ['ATT-019'] }); }
-    });
+    }
     /* Deliberate exceptions stay visible on the date, with who, when and why */
     iss.left.forEach(function (k) { var e = k.exception; leftNotes.push({ tone: 'ok', kicker: 'Left as it is', title: esc(k.title), text: esc(e.reason) + (e.scope && e.scope.label ? ' · ' + esc(e.scope.label) : '') + '. ' + K.stamp('Agreed', e.by, e.at) + ' It comes back if anything changes on this date.', secondary: K.actBtn('Reopen', 'attn-reopen', { id: e.id }, { variant: 'tertiary', size: 'sm' }), rules: [k.ruleId] }); });
-    if (db.hasStarted(o) && !regDone) list.push({ tone: 'warn', title: 'Register still needed', text: 'The session has started. The register is ' + reg.state.toLowerCase() + '.', primary: K.goBtn('Open register', 'mgmt-register/' + o.id, { variant: 'primary' }), rules: ['ATT-020'] });
+    if (db.hasStarted(o) && !regDone) list.push({ tone: 'warn', sev: 'Normal', title: 'Register still needed', text: 'The session has started. The register is ' + reg.state.toLowerCase() + '.', primary: K.goBtn('Open register', 'mgmt-register/' + o.id, { variant: 'primary' }), rules: ['ATT-020'] });
     /* Urgent first; order within a tone stays as written */
-    list = list.filter(function (x) { return x.tone === 'danger'; }).concat(list.filter(function (x) { return x.tone !== 'danger'; }));
     return (list.length ? list : [{ tone: 'ok', title: 'Ready to run', text: 'Coaches, a Lead Coach and the venue are in place. After it runs, confirm what happened here.' }]).concat(leftNotes);
   }
+  /* After the session: confirmation and register take their severity from the engine too */
+  function engineSev(o, list) {
+    var di = db.dateIssues(o).open, of = function (r) { return di.filter(function (k) { return k.ruleId === r; })[0]; };
+    list.forEach(function (x) { var k = x.rules && x.rules.indexOf('ATT-022') >= 0 ? of('ATT-022') : x.rules && x.rules.indexOf('ATT-020') >= 0 ? of('ATT-020') : null; if (x.tone !== 'ok') x.sev = k ? k.severity : 'Normal'; });
+    return list;
+  }
+  /* The most important issue first, as the banner. Other Urgent issues stay as banners (never folded);
+     everything else sits quietly underneath. Healthy states are one quiet line. */
   function readinessHtml(list) {
-    var first = list[0], rest = list.slice(1);
-    return K.situation(first) + (rest.length ? '<div class="k-sit-more" aria-label="Also before this session runs">' + rest.map(function (x) {
-      return '<div class="k-sit-more__row">' + ui.sev(x.tone === 'danger' ? 'Urgent' : x.tone === 'ok' ? 'Normal' : 'Warning') + '<span><b>' + (x.kicker && x.tone === 'ok' ? esc(x.kicker) + ': ' : '') + x.title + '</b><small>' + x.text + '</small></span>' + (x.primary || x.secondary || '').replace('btn--primary', 'btn--secondary').replace('class="btn ', 'class="btn btn--sm ') + '</div>';
-    }).join('') + '</div>' : '');
+    var R = { Urgent: 0, Warning: 1, Normal: 2 };
+    var left = list.filter(function (x) { return x.kicker === 'Left as it is'; }), ok = list.filter(function (x) { return x.tone === 'ok' && x.kicker !== 'Left as it is'; });
+    var act = list.filter(function (x) { return x.tone !== 'ok'; }).map(function (x, i) { return { x: x, i: i }; })
+      .sort(function (a, b) { return ((a.x.waiting ? 3 : R[a.x.sev || 'Normal']) - (b.x.waiting ? 3 : R[b.x.sev || 'Normal'])) || a.i - b.i; }).map(function (y) { return y.x; });
+    act.forEach(function (x) { var t = K.sevTone(x.sev || 'Normal', x.waiting); x.tone = t === 'quiet' ? 'neutral' : t; });
+    var banners = act.filter(function (x, i) { return i === 0 || x.sev === 'Urgent'; }), rest = act.filter(function (x) { return banners.indexOf(x) < 0; });
+    var okHtml = ok.map(function (x) { return '<p class="k-okline">' + I('checkCircle') + '<b>' + (x.kicker ? esc(x.kicker) + ' · ' : '') + x.title + '</b>' + (act.length ? '' : '<span>' + x.text + '</span>') + (x.secondary || '') + '</p>'; }).join('');
+    var rows = rest.map(function (x) { return { sev: x.sev, waiting: x.waiting, title: x.title, action: K.quietAct(x.primary || x.secondary) }; })
+      .concat(left.map(function (x) { return { sev: 'Normal', title: 'Left as it is: ' + x.title, sub: x.text, action: K.quietAct(x.secondary) }; }));
+    return banners.map(K.situation).join('') + (act.length ? '' : okHtml) + K.alsoList(rows) + (act.length ? okHtml : '');
   }
   /* Find cover from the date: the Hub offers it to every eligible coach at once and you land on its cover page */
   Hub.actions['sch-findcover'] = function (el) {

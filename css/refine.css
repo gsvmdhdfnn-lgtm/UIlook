@@ -37,8 +37,8 @@
 .hx-arrows .icon-btn { width: 30px; height: 30px; border-radius: 9px; }
 
 /* ---------- Needs attention first: compact urgent summary above the areas ---------- */
-/* Desktop shows the summary line only (the panel below lists the items); phones also list the urgent items */
-@media (min-width: 900px) { .hm-urgent__row { display: none !important; } .hm-urgent { margin-bottom: 4px; } }
+/* Needs attention on Home: counts plus only the urgent items by name, on every screen size */
+@media (min-width: 900px) { .hm-urgent { margin-bottom: 4px; } }
 @media all {
   .hm-urgent {
     display: grid; border-radius: 14px; overflow: hidden; background: var(--hx-surface-solid);
@@ -54,6 +54,9 @@
   .hm-urgent__row small { font-size: 12.5px; color: color-mix(in oklab, var(--danger) 75%, var(--text-3)); }
   .hm-urgent__row:active { background: var(--hx-row-hover); }
   #hm-attn { scroll-margin-top: 80px; }
+  .hm-urgent__t { font-weight: 650; color: var(--text); margin-right: 4px; }
+  .hm-urgent.is-calm { box-shadow: var(--hx-shadow), inset 3px 0 0 var(--line-strong); }
+  .hm-urgent__calm { margin: 0; padding: 0 16px 12px; font-size: 13px; color: var(--text-3); }
   .hm__rail .hm-cal__sum { display: none; }
 }
 

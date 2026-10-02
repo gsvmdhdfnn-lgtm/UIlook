@@ -163,20 +163,45 @@
       '<span class="lx-area__desc">' + esc(o.desc || '') + '</span>' + (o.badge ? '<span class="k-tile__badge">' + o.badge + '</span>' : '') + '</a>';
   };
   /* ---------- Area landing pieces (Management) ---------- */
+  /* ---------- Calm by default: every tone comes from the shared Needs Attention engine ----------
+     Urgent → danger (strong), Warning → warn (calmer), To do → neutral (ordinary work),
+     Waiting on others → quiet. Healthy states get no badge or banner at all. */
+  K.sevTone = function (sev, waiting) { return waiting ? 'quiet' : sev === 'Urgent' ? 'danger' : sev === 'Warning' ? 'warn' : 'neutral'; };
+  /* One dated session's standing in the engine: { sev, waiting } or null when nothing is wrong */
+  K.dateStanding = function (o) {
+    var iss = Hub.db.dateIssues ? Hub.db.dateIssues(o).open : []; if (!iss.length) return null;
+    var act = iss.filter(function (k) { return !k.waiting; }), R = { Urgent: 3, Warning: 2, Normal: 1 };
+    if (!act.length) return { sev: 'Normal', waiting: true, lead: iss[0] };
+    var top = act.slice().sort(function (a, b) { return R[b.severity] - R[a.severity]; })[0];
+    return { sev: top.severity, waiting: false, lead: top };
+  };
+  /* A coach's (or any group's) standing from the engine's cards */
+  K.groupStanding = function (key) { var g = Hub.db.getAttentionCards().filter(function (x) { return x.key === key; })[0]; return g ? { sev: g.severity, waiting: g.waiting, card: g } : null; };
+  /* Secondary issues, quietly: one line each with its own action. Open on desktop, folded on phones. */
+  K.alsoList = function (rows, o) {
+    o = o || {}; if (!rows.length) return '';
+    var open = typeof window === 'undefined' || window.innerWidth >= 760;
+    return '<details class="k-also"' + (open ? ' open' : '') + '><summary class="k-also__h">' + esc(o.title || 'Also needs attention') + ' · ' + rows.length + '</summary>' + rows.map(function (r) {
+      return '<div class="k-also__row">' + (r.waiting ? '<span class="k-also__wait">Waiting</span>' : ui.sev(r.sev || 'Normal')) + '<span class="k-also__t">' + r.title + (r.sub ? '<small>' + r.sub + '</small>' : '') + '</span>' + (r.action || '') + '</div>';
+    }).join('') + '</details>';
+  };
+  /* Turn a banner's button into a quiet link-style action for the "also" list */
+  K.quietAct = function (html) { return String(html || '').replace(/btn--(primary|secondary|tertiary|danger)/g, 'btn--tertiary').replace('class="btn ', 'class="btn btn--sm '); };
   /* What needs Management in one area: Needs Attention cases for the given
      categories, each opening the actual task. */
   K.areaNeeds = function (cats, o) {
     o = o || {};
-    /* The same cards as Needs Attention: one per date or coach, waiting on others left out */
+    /* Concise: the counts, every urgent item, otherwise just the single most important one. Same cards as Needs Attention. */
     var list = Hub.db.getAttentionCards().filter(function (g) { return !g.waiting && g.issues.some(function (k) { return cats.indexOf(k.category) >= 0; }); });
-    var word = { Urgent: 'Urgent', Warning: 'Warning', Normal: 'To do' };
-    var rows = list.slice(0, o.limit || 5).map(function (g) {
+    if (!list.length) return '<p class="k-okline">' + I('checkCircle') + '<b>' + esc(o.clear || 'Nothing here needs you right now.') + '</b></p>';
+    var c = { Urgent: 0, Warning: 0, Normal: 0 }; list.forEach(function (g) { c[g.severity]++; });
+    var urgent = list.filter(function (g) { return g.severity === 'Urgent'; }), show = urgent.length ? urgent : list.slice(0, 1);
+    var counts = [c.Urgent ? c.Urgent + ' urgent' : '', c.Warning ? c.Warning + ' warning' : '', c.Normal ? c.Normal + ' to do' : ''].filter(Boolean).join(' · ');
+    var rows = show.map(function (g) {
       var k = g.lead, more = g.issues.length - 1;
-      return ui.row({ lead: ui.sev(g.severity), title: esc(k.title), sub: [esc(word[g.severity]), esc(k.when || '')].concat(k.why ? [esc(k.why)] : []).concat(more ? ['+' + more + ' more'] : []), href: '#' + (k.route || 'mgmt-attention'), trail: '<span class="k-needs__act">' + esc(k.actionLabel || 'Open') + '</span>' }).replace('<a ', '<a data-case-key="' + esc(k.caseKey) + '" ');
+      return ui.row({ lead: ui.sev(g.severity), title: esc(k.title), sub: [esc(k.when || '')].concat(more ? ['+' + more + ' more'] : []), href: '#' + (k.route || 'mgmt-attention'), trail: '<span class="k-needs__act">' + esc(k.actionLabel || 'Open') + '</span>' }).replace('<a ', '<a data-case-key="' + esc(k.caseKey) + '" ');
     });
-    var body = list.length ? K.list(rows) + (list.length > rows.length ? '<p class="k-note">' + (list.length - rows.length) + ' more in Needs attention</p>' : '')
-      : '<div class="k-needs__clear">' + I('checkCircle', 'icon-sm') + '<span>' + esc(o.clear || 'Nothing here needs you right now.') + '</span></div>';
-    return K.section('Needs you', list.length ? list.length + ' item' + (list.length === 1 ? '' : 's') + ' from Needs attention, most urgent first' : '', body, list.length && o.area ? K.actBtn('See all ' + list.length, 'attn-area', { area: o.area }, { size: 'sm', variant: 'secondary' }) : '');
+    return K.section('Needs attention', counts + (list.length > show.length ? ' · most important first' : ''), K.list(rows), o.area ? K.actBtn('See all ' + list.length, 'attn-area', { area: o.area }, { size: 'sm', variant: 'secondary' }) : '');
   };
   /* Needs Attention items about one thing (a coach, player, family or session
      date). Same items as the master list, so fixing one clears it everywhere.
@@ -184,21 +209,20 @@
   K.needsFor = function (test, o) {
     o = o || {};
     var list = Hub.db.getAttentionCases().filter(function (k) { return !k.waiting && test(k); });
-    if (!list.length) return o.quiet === false ? '<div class="k-needs__clear">' + I('checkCircle', 'icon-sm') + '<span>Nothing needs you here.</span></div>' : '';
-    /* The same problem on several dates reads as one line with a count */
+    if (!list.length) return o.quiet === false ? '<p class="k-okline">' + I('checkCircle') + '<b>Nothing needs you here.</b></p>' : '';
+    /* The same problem on several dates reads as one line with a count; quiet, one line each */
     var groups = [];
     list.forEach(function (k) { var g = groups.filter(function (x) { return x.title === k.title; })[0]; if (g) g.n++; else groups.push({ title: k.title, k: k, n: 1 }); });
-    var rows = groups.map(function (g) { var k = g.k;
-      return '<a class="k-needsfor__row" data-case-key="' + esc(k.caseKey) + '" href="#' + esc(k.route || 'mgmt-attention') + '">' + ui.sev(k.severity) + '<span><b>' + esc(k.title) + '</b><small>' + (g.n > 1 ? g.n + ' sessions · first ' : '') + esc(k.when || '') + '</small></span><span class="k-needs__act">' + esc(k.actionLabel || 'Open') + I('arrowRight', 'icon-sm') + '</span></a>';
-    }).join('');
-    return '<section class="k-needsfor" aria-label="Needs you"><h2>' + esc(o.title || 'Needs you') + '</h2>' + rows + '</section>';
+    return K.alsoList(groups.map(function (g) { var k = g.k;
+      return { sev: k.severity, title: esc(k.title), sub: (g.n > 1 ? g.n + ' sessions · first ' : '') + esc(k.when || ''), action: '<a href="#' + esc(k.route || 'mgmt-attention') + '" data-case-key="' + esc(k.caseKey) + '">' + esc(k.actionLabel || 'Open') + ' →</a>' };
+    }), { title: o.title || 'Also needs attention' });
   };
   K.snap = function (items) { return '<div class="k-snap">' + items.map(function (i) { return '<div><span>' + esc(i[0]) + '</span><b>' + i[1] + '</b>' + (i[2] ? '<small>' + i[2] + '</small>' : '') + '</div>'; }).join('') + '</div>'; };
   K.relatesTo = function (k, kind, id) { return !!((k.related && k.related[kind] === id) || (k.route && k.route.split('/')[1] === id)); };
   /* The situation: what is happening and, if needed, the one next action.
      tone: 'danger' | 'warn' | 'info' | 'ok' (ok = calm, no action panel). */
   K.situation = function (o) {
-    var icon = { danger: 'alertCircle', warn: 'alertCircle', info: 'info', ok: 'checkCircle' }[o.tone || 'info'];
+    var icon = { danger: 'alertCircle', warn: 'alertCircle', info: 'info', ok: 'checkCircle', neutral: 'info', quiet: 'clock' }[o.tone || 'info'] || 'info';
     return '<section class="k-sit k-sit--' + (o.tone || 'info') + '" aria-live="polite">' + I(icon, 'k-sit__icon') + '<div class="k-sit__text">' + (o.kicker ? '<span class="k-sit__k">' + esc(o.kicker) + '</span>' : '') +
       '<h2 class="k-sit__title">' + o.title + '</h2>' + (o.text ? '<p>' + o.text + '</p>' : '') + '</div>' +
       (o.primary || o.secondary ? '<div class="k-sit__act">' + (o.primary || '') + (o.secondary || '') + '</div>' : '') + '</section>';

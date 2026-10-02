@@ -85,9 +85,10 @@
     var tools = K.moreIn('More in Financials', TOOLS.map(function (g) { return [g[0], g[1].map(function (t) { return { route: t[0], title: t[1], desc: t[2], icon: t[3] }; })]; }));
     var od = overdueList(), odSum = K.sum(od, function (i) { return F.balance(i); });
     var sit = cash.low < cash.threshold ? K.situation({ tone: 'danger', kicker: 'September 2026', title: 'Cash drops below the safety level on ' + K.dm(cash.lowDate), text: cashWords(cash) + ' Profit ' + M(t.profit) + ' this month.', primary: K.goBtn('View cash flow', 'mgmt-fin-cash', { variant: 'primary' }) }) :
-      od.length ? K.situation({ tone: 'warn', kicker: 'September 2026', title: M(odSum) + ' overdue · chase ' + esc(od[0].number), text: 'Otherwise on track: profit ' + M(t.profit) + ' this month. ' + cashWords(cash), primary: ui.btn('Open ' + esc(od[0].number), { variant: 'primary', href: '#mgmt-fin-invoice/' + od[0].id }) }) :
-      K.situation({ tone: 'ok', kicker: 'September 2026', title: 'On track', text: 'Profit ' + M(t.profit) + ' this month. Nothing overdue. ' + cashWords(cash) });
-    return K.page(h, sit + bar + kpis + K.section('Today', 'What needs you and what is about to go out.', '<div class="lx-pair">' + attn + upcoming + '</div>') + band + K.section('Where the money is', '', areas) + tools, 'fin');
+      /* The month at a glance stays calm; anything overdue is in Needs attention just below */
+      od.length ? K.situation({ tone: 'neutral', kicker: 'September 2026', title: 'Profit ' + M(t.profit) + ' this month', text: cashWords(cash) + ' ' + M(odSum) + ' is overdue: see Needs attention below.' }) :
+      K.situation({ tone: 'quiet', kicker: 'September 2026', title: 'On track', text: 'Profit ' + M(t.profit) + ' this month. Nothing overdue. ' + cashWords(cash) });
+    return K.page(h, sit + K.areaNeeds(['Finance'], { area: 'Financials', clear: 'Nothing overdue, unsent or waiting to be invoiced.' }) + bar + kpis + upcoming + band + K.section('Where the money is', '', areas) + tools, 'fin');
   };
 
   /* ================================================================ MONEY IN */

@@ -420,3 +420,5 @@ a.lx-stat:hover, button.lx-stat:hover { transform: translateY(-2px); box-shadow:
 .lx-tile { justify-content: flex-start; }
 .lx-tile__icon { position: static; margin-bottom: auto; }
 .lx-tile b { margin-top: 18px; }
+/* Sidebar: a quiet count unless something is urgent */
+.side-status.is-calm b { font-size: 15px; font-weight: 600; color: var(--spine-text); }
