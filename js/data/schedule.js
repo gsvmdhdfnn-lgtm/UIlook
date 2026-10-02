@@ -288,8 +288,64 @@
     if (o.staff.length !== regular.length) return false;
     return o.staff.every(function (x, i) { var r = regular[i]; return r && x.coach === r.coach && x.role === r.role && (x.actualRole || x.role) === x.role && !x.unavailable && !x.covering && !x.cover && !x.added && !x.extra; });
   }
+  /* ---------- A session's dates follow its schedule (one source of truth) ----------
+     Selected dates: exactly those dates. Weekly: its weekdays from the start date to the end date,
+     created up to the rolling horizon (as when the timetable was first generated), skipping breaks.
+     Only future dates that haven't started or been confirmed are ever added or removed. */
+  var GEN_HORIZON = '2026-10-23';
+  db.genHorizon = GEN_HORIZON;
+  function sortedDates(list) { return (list || []).slice().sort().filter(function (d, i, a) { return d && a.indexOf(d) === i; }); }
+  function plannedDates(s) {
+    var spec = { pattern: s.pattern, dates: sortedDates(s.dates), days: s.days, startDate: s.startDate, endDate: s.endDate, start: s.start, end: s.end, breaks: db.getScheduleBreaksFor(s.id) };
+    if (spec.pattern !== 'Selected dates') spec.endDate = !spec.endDate || spec.endDate > GEN_HORIZON ? GEN_HORIZON : spec.endDate;
+    return db.previewOccurrences(spec).filter(function (p) { return !p.skipped; }).map(function (p) { return p.date; });
+  }
+  db.plannedDates = function (id) { return plannedDates(D.session(id)); };
+  /* Anything decided for one date alone */
+  function ownArrangement(o, s) {
+    if (o.venueOverride) return 'its own venue';
+    if (o.capacityOverride) return 'its own number of places';
+    if (o.start !== s.start || o.end !== s.end) return 'its own time';
+    if (o.staff.some(function (x) { return x.unavailable || x.cover || x.added || x.extra || x.changed || (x.actualRole || x.role) !== x.role; })) return 'its own coach arrangements';
+    if (db.coverNeedsFor && db.coverNeedsFor(o.id).length) return 'cover being arranged';
+    return '';
+  }
+  /* What saving a changed schedule would do. A live session's date with bookings, a client, or its own
+     arrangements is never removed here: it has to be cancelled or rescheduled from the date itself. */
+  db.planSessionDates = function (id, patch) {
+    var s = D.session(id), next = Object.assign({}, s, patch || {});
+    if (next.pattern === 'Selected dates') { next.dates = sortedDates(next.dates); if (next.dates.length) { next.startDate = next.dates[0]; next.endDate = next.dates[next.dates.length - 1]; } }
+    var want = plannedDates(next).filter(function (d) { return d >= K.today; });
+    var mine = D.occurrences.filter(function (o) { return o.sessionId === id; }), live = s.lifecycle !== 'Draft';
+    var add = want.filter(function (d) { return !mine.some(function (o) { return o.date === d; }); }), remove = [], blocked = [];
+    mine.forEach(function (o) {
+      if (o.status !== 'Scheduled' || o.delivery || db.hasStarted(o) || o.replacementOf || want.indexOf(o.date) >= 0) return;
+      var why = '';
+      if (live) { var n = s.client ? 0 : D.expectedPlayers(o).length, own = ownArrangement(o, s); why = s.client ? 'the client has been given this date' : n ? n + ' player' + (n === 1 ? ' is' : 's are') + ' booked' : own ? 'it has ' + own : ''; }
+      if (why) blocked.push({ o: o, why: why }); else remove.push(o);
+    });
+    return { add: add, remove: remove, blocked: blocked, session: next };
+  };
+  function scheduleTouched(s, patch) {
+    if (!patch) return false;
+    return ['pattern', 'days', 'startDate', 'endDate'].some(function (k) { return k in patch && JSON.stringify(patch[k]) !== JSON.stringify(s[k]); }) ||
+      ('dates' in patch && JSON.stringify(sortedDates(patch.dates)) !== JSON.stringify(sortedDates(s.dates)));
+  }
+  function addPlannedDate(s, date, who, at) {
+    var o = makeOcc(s, date, { venue: db.usualVenueOn(s, date), staff: db.regularStaffOn(s, date).map(function (x) { return { coach: x.coach, lead: x.role === 'Lead', role: x.role, actualRole: x.role, attended: null }; }) });
+    if (!o.draft) o.staff.forEach(function (x) { expectPay(o, x.coach, x.role); });
+    hist(o, 'Added when the session’s dates were changed', who, at, 'info'); return o;
+  }
+  function removeDate(o, who, at) {
+    if (db.closeCoverForDate) db.closeCoverForDate(o, 'removed', 'Date removed from the session', who, at);
+    o.staff.forEach(function (x) { dropExpected(o, x.coach); });
+    D.occurrences.splice(D.occurrences.indexOf(o), 1); delete D.registers[o.id];
+  }
   db.updateSession = function (id, patch, who, at) {
     var s = D.session(id); if (!s) return null;
+    /* Dates first: a booked date on a live session must be sorted from the date itself before saving */
+    var plan = scheduleTouched(s, patch) ? db.planSessionDates(id, patch) : null;
+    if (plan && plan.blocked.length) return { error: 'dates', blocked: plan.blocked };
     var before = { start: s.start, end: s.end, venue: s.venue, capacity: s.capacity, staff: JSON.parse(JSON.stringify(s.staff || [])), name: s.name, ageGroup: s.ageGroup, programme: s.programme };
     Object.assign(s, patch);
     var timeChanged = before.start !== s.start || before.end !== s.end, capChanged = before.capacity !== s.capacity, venueChanged = before.venue !== s.venue;
@@ -312,9 +368,16 @@
       }
       if (did.length) { changed++; hist(o, 'Session set-up changed: ' + did.join(', '), who, at, 'info'); }
     });
+    var datesText = '';
+    if (plan) {
+      plan.remove.forEach(function (o) { removeDate(o, who, at); });
+      if (s.pattern === 'Selected dates') { s.dates = plan.session.dates; s.startDate = plan.session.startDate; s.endDate = plan.session.endDate; }
+      var added = plan.add.map(function (d) { return addPlannedDate(s, d, who, at); });
+      datesText = [added.length ? added.length + ' date' + (added.length === 1 ? '' : 's') + ' added (' + plan.add.map(function (d) { return K.dm(d); }).join(', ') + ')' : '', plan.remove.length ? plan.remove.length + ' removed (' + plan.remove.map(function (o) { return K.dm(o.date); }).join(', ') + ')' : ''].filter(Boolean).join('; ');
+    }
     var keptText = [kept.time ? kept.time + ' kept their own time' : '', kept.venue ? kept.venue + ' kept their own venue' : '', kept.capacity ? kept.capacity + ' kept their own capacity' : '', kept.staff ? kept.staff + ' kept their own coach arrangements' : ''].filter(Boolean).join('; ');
-    s.history.push({ text: 'Session details updated', who: who, at: at, tone: 'info', detail: changed + ' future dates updated' + (timeChanged ? '; time ' + before.start + ' → ' + s.start : '') + (keptText ? '. ' + keptText : '') });
-    return { changed: changed, kept: kept };
+    s.history.push({ text: 'Session details updated', who: who, at: at, tone: 'info', detail: changed + ' future dates updated' + (timeChanged ? '; time ' + before.start + ' → ' + s.start : '') + (datesText ? '; ' + datesText : '') + (keptText ? '. ' + keptText : '') });
+    return { changed: changed, kept: kept, added: plan ? plan.add : [], removed: plan ? plan.remove.length : 0 };
   };
   /* A time change moves expected (not actual) pay for that date */
   function retimePay(o) {

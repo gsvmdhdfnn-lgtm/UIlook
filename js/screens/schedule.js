@@ -28,8 +28,25 @@
   K.route('mgmt-attendance', { title: function () { var p = K.param() && db.getPlayer(K.param()); return p ? 'Attendance · ' + p.name : 'Attendance'; }, parent: 'home' });
 
   /* ---------- Small shared pieces ---------- */
+  /* The schedule in plain words, from the session's own dates */
+  function schedWords(s) {
+    if (s.pattern === 'Selected dates') {
+      var ds = (s.dates || []).slice().sort();
+      return { line: (ds.length === 1 ? esc(K.dd(ds[0])) : ds.length + ' selected dates') + ' · ' + s.start + '–' + s.end, sub: ds.length > 1 ? ds.slice(0, 8).map(function (d) { return esc(K.dd(d)); }).join(' · ') + (ds.length > 8 ? ' and ' + (ds.length - 8) + ' more' : '') : '' };
+    }
+    var full = { 0: 'Sunday', 1: 'Monday', 2: 'Tuesday', 3: 'Wednesday', 4: 'Thursday', 5: 'Friday', 6: 'Saturday' };
+    return { line: 'Every ' + esc((s.days || []).map(function (d) { return full[d]; }).join(' and ') || '—') + ' · ' + s.start + '–' + s.end, sub: 'From ' + esc(K.d(s.startDate)) + ' · ' + (s.endDate ? 'until ' + esc(K.d(s.endDate)) : 'no end date') };
+  }
+  /* The usual venue only when one has actually been set; never inferred from the dates */
+  function usualVenueHtml(s) {
+    var occ = db.getSessionOccurrences(s.id).filter(function (o) { return o.date >= K.today && o.status === 'Scheduled'; }), base = occ.length ? occ[0].date : K.today;
+    var v = db.usualVenueOn(s, base), later = (s.venuePeriods || []).filter(function (p) { return p.from > base; }), own = occ.filter(function (o) { return o.venueOverride; }).length;
+    return (v ? K.link('mgmt-venue/' + v, db.venueName(v)) : 'None set<br><small class="k-note">Choose one with Change venue, or set a venue on each date.</small>') +
+      later.map(function (p) { return '<br><small class="k-note">From ' + esc(K.dd(p.from)) + ': ' + esc(db.venueName(p.venue)) + '</small>'; }).join('') +
+      (own ? '<br><small class="k-note">' + own + ' date' + (own === 1 ? ' has its' : 's have their') + ' own venue</small>' : '');
+  }
   function dayNames(s) {
-    if (s.pattern === 'Selected dates') return (s.dates || []).length + ' dates';
+    if (s.pattern === 'Selected dates') { var n = (s.dates || []).length; return n + ' selected date' + (n === 1 ? '' : 's'); }
     var map = {}; OPT().dows.forEach(function (d) { map[d[0]] = d[1]; });
     return (s.days || []).map(function (d) { return map[d]; }).join(' & ') || '—';
   }
@@ -121,23 +138,24 @@
   /* ===================================================== SESSION DETAIL */
   Hub.screens['mgmt-session'] = function (ctx) {
     var s = db.getSession(ctx.param);
-    var h = K.head({ back: ['mgmt-sessions', 'All sessions'], eyebrow: 'Session', title: s ? s.name : 'Session not found', sub: s ? esc(s.programme) + ' · ' + esc(s.ageGroup) + ' · ' + esc(dayNames(s)) + ' ' + s.start + '–' + s.end : '',
+    var h = K.head({ back: ['mgmt-sessions', 'All sessions'], eyebrow: 'Session', title: s ? s.name : 'Session not found', sub: s ? esc(s.programme) + ' · ' + esc(s.ageGroup) + ' · ' + schedWords(s).line : '',
       actions: s ? K.actBtn('Change venue', 'sch-venue', { session: s.id }, { variant: 'secondary', icon: 'pin' }) + K.actBtn('Change status', 'sch-lifecycle', { id: s.id }, { variant: 'secondary' }) + K.goBtn('Edit session', 'mgmt-session-edit/' + s.id, { variant: 'primary', icon: 'settings' }) : '' });
     var g = K.guard(ctx, h, { empty: ['calendar', 'No details yet', 'This session has no details to show yet.'] }); if (g) return g;
     if (!s) return K.page(h, ui.notice('warn', 'This session could not be found', 'It may have been removed. Open All sessions to choose another.', { action: K.goBtn('All sessions', 'mgmt-sessions', { size: 'sm' }) }));
     Hub.crumbTail = s.id;
     var client = s.client && db.getClient ? db.getClient(s.client) : null;
     var details = K.card({ title: 'Details', body: K.kv([
-      ['Programme', esc(s.programme)], ['Delivery area', esc(s.area)], ['Age group', esc(s.ageGroup)], ['Venue', (function () { var now = db.usualVenueOn(s, K.today), next = (s.venuePeriods || []).filter(function (p) { return p.from > K.today; });
-        return (now ? K.link('mgmt-venue/' + now, db.venueName(now)) : K.pill('No venue yet', 'warn')) + next.map(function (p) { return '<br><small class="k-note">' + esc(db.venueName(p.venue)) + ' from ' + esc(K.dd(p.from)) + '</small>'; }).join(''); })()],
+      ['Programme', esc(s.programme)], ['Delivery area', esc(s.area)], ['Age group', esc(s.ageGroup)],
+      ['Schedule', (function () { var w = schedWords(s); return w.line + (w.sub ? '<br><small class="k-note">' + w.sub + '</small>' : ''); })()], ['Usual venue', usualVenueHtml(s)], ['Places', s.capacity + ' per date'],
       ['Client', client ? K.link('mgmt-fin-client/' + client.id, client.name) : 'None (parent session)'], ['Funded by', esc(s.commercial)], ['Who can book', esc(s.booking)], ['Charged', esc(s.billing)],
-      ['Default day', esc(dayNames(s))], ['Default time', s.start + '–' + s.end], ['Default capacity', String(s.capacity)], ['Price', moneyOk() ? K.money(s.price) + (s.billing === 'Monthly subscription' ? ' a month' : '') : '<span class="c-mute">Finance access only</span>'],
-      ['Repeats', esc(s.pattern)], ['Start date', K.d(s.startDate)], ['End date', K.d(s.endDate)], ['Meeting point', esc(s.meetingPoint || '—')]
+      ['Price', moneyOk() ? K.money(s.price) + (s.billing === 'Monthly subscription' ? ' a month' : '') : '<span class="c-mute">Finance access only</span>'],
+      ['Meeting point', esc(s.meetingPoint || '—')]
     ], true) });
     var breaks = db.getScheduleBreaksFor(s.id);
     var sched = K.card({ title: 'Schedule breaks', sub: 'Dates with no session.', body: breaks.length ? K.list(breaks.map(function (b) { return ui.row({ lead: '<span class="row__icon">' + I('calendar', 'icon-sm') + '</span>', title: esc(b.type), sub: [esc(b.from === b.to ? K.d(b.from) : K.dm(b.from) + ' – ' + K.d(b.to)), esc(b.note || '')] }); })) : '<p class="k-note">No breaks set for this session.</p>' });
     var occ = db.getSessionOccurrences(s.id), next = occ.filter(function (o) { return o.date >= K.today; }).slice(0, 6);
-    var occT = K.card({ title: 'Upcoming dates', sub: 'Open a date to change its coaches, cancel or reschedule it, or take the register.', right: K.actBtn('All ' + occ.length + ' dates', 'sch-occ-for', { id: s.id }, { size: 'sm', variant: 'secondary' }),
+    var toCome = occ.filter(function (o) { return o.date >= K.today && o.status === 'Scheduled'; }).length;
+    var occT = K.card({ title: 'Dates', sub: occ.length + ' date' + (occ.length === 1 ? '' : 's') + ' · ' + toCome + ' still to come. Open a date to change its coaches, cancel or reschedule it, or take the register.', right: K.actBtn('All ' + occ.length + ' date' + (occ.length === 1 ? '' : 's'), 'sch-occ-for', { id: s.id }, { size: 'sm', variant: 'secondary' }),
       body: K.table({ cols: '110px minmax(0, 1fr) minmax(0, 140px)', head: ['Date', 'Venue', { label: 'Status', cls: 'c-end' }], rows: next.map(function (o) {
         return { cells: [timeCell(o, true), K.cell(esc(venueOf(o)), staffText(o)), { cls: 'c-end', html: occStatus(o) }], route: 'mgmt-occurrence/' + o.id };
       }), empty: 'No upcoming dates.' }) });
@@ -254,8 +272,16 @@
     var sp = spec(), prev = db.previewOccurrences(sp), make = prev.filter(function (p) { return !p.skipped; });
     var future = wiz.id ? db.getSessionOccurrences(wiz.id).filter(function (o) { return o.date > K.today && o.status === 'Scheduled'; }).length : 0;
     var summary = K.card({ title: 'Review', body: K.kv([['Session', esc(sp.name)], ['Programme', esc(sp.programme) + ' · ' + esc(sp.ageGroup)], ['Client', sp.client ? esc((db.getClient(sp.client) || {}).name || sp.client) : 'None'], ['Commercial', esc(sp.commercial) + ' · ' + esc(sp.billing)],
-      ['Booking access', esc(sp.booking)], ['Price', K.money(sp.price)], ['Repeats', sp.pattern === 'Weekly' ? esc(dayNames(sp)) + ' ' + sp.start + '–' + sp.end : sp.dates.length + ' selected dates, ' + sp.start + '–' + sp.end], ['Runs', K.d(sp.startDate) + ' to ' + K.d(sp.endDate)],
-      ['Venue', esc(db.venueName(sp.venue))], ['Capacity', String(sp.capacity)], ['Coaches', (function () { var st = wiz.id ? db.regularStaffOn(db.getSession(wiz.id), K.today) : sp.staff; return st.length ? esc(st.map(function (x) { return db.coachName(x.coach) + ' (' + K.roleName(x.role) + ')'; }).join(', ')) : K.pill('None yet', 'warn'); })()], ['Status', K.status(sp.lifecycle)]], true) });
+      ['Booking access', esc(sp.booking)], ['Price', K.money(sp.price)], ['Schedule', (function () { var w = schedWords(sp); return w.line + (w.sub ? '<br><small class="k-note">' + w.sub + '</small>' : ''); })()],
+      ['Usual venue', sp.venue ? esc(db.venueName(sp.venue)) : 'None set'], ['Places', sp.capacity + ' per date'], ['Coaches', (function () { var st = wiz.id ? db.regularStaffOn(db.getSession(wiz.id), K.today) : sp.staff; return st.length ? esc(st.map(function (x) { return db.coachName(x.coach) + ' (' + K.roleName(x.role) + ')'; }).join(', ')) : K.pill('None yet', 'warn'); })()], ['Status', K.status(sp.lifecycle)]], true) });
+    /* Editing: exactly what saving does to the dates. A booked date is never removed here. */
+    if (wiz.id) {
+      var plan = db.planSessionDates(wiz.id, wizPatch(sp, db.getSession(wiz.id))), dl = function (list) { return list.map(function (d) { return esc(K.dd(d)); }).join(' · '); };
+      var lines = [plan.add.length ? ['Added', dl(plan.add)] : null, plan.remove.length ? ['Removed', dl(plan.remove.map(function (o) { return o.date; })) + ' <small class="k-note">(nothing booked on ' + (plan.remove.length === 1 ? 'it' : 'them') + ')</small>'] : null].filter(Boolean);
+      var blockedHtml = plan.blocked.map(function (b) { return ui.notice('warn', esc(K.dd(b.o.date)) + ' can’t be removed here', 'It’s no longer in the schedule, but ' + esc(b.why) + '. Cancel or reschedule it from the date first, so families are told and refunds are decided. Then save again.', { action: K.goBtn('Open ' + K.dd(b.o.date), 'mgmt-occurrence/' + b.o.id, { size: 'sm', variant: 'secondary' }) }); }).join('');
+      return summary + K.card({ title: 'Dates', sub: (lines.length || plan.blocked.length ? 'What saving does to the dates. ' : 'No dates are added or removed. ') + 'Past, started and confirmed dates never change, and dates with their own time, venue, places or coaches keep them.',
+        body: (lines.length ? K.kv(lines) : '') + blockedHtml + (!lines.length && !plan.blocked.length ? '<p class="k-note">' + future + ' upcoming date' + (future === 1 ? '' : 's') + ' follow this set-up.</p>' : '') });
+    }
     var pv = K.card({ title: wiz.id ? 'Dates from this timetable' : 'Create dates', sub: wiz.id ? 'Saving applies only what you changed to the ' + future + ' upcoming dates that still follow the usual set-up. Dates with their own time, venue, capacity or coach arrangements keep them; past dates never change.' : make.length + ' dates will be created · ' + (prev.length - make.length) + ' skipped for breaks',
       body: '<ol class="sch-preview">' + prev.map(function (p) { return '<li class="' + (p.skipped ? 'is-skipped' : '') + '"><b class="num">' + esc(K.dd(p.date)) + '</b><span class="num">' + p.start + '–' + p.end + '</span>' + (p.skipped ? K.pill('Skipped · ' + p.skipped, 'warn') : K.pill(wiz.id ? 'In pattern' : 'Will be created', 'ok')) + '</li>'; }).join('') + '</ol>' + (prev.length ? '' : '<p class="k-note">This pattern produces no dates.</p>') });
     return summary + pv;
@@ -288,13 +314,15 @@
     v.custom.push({ type: v.brkType, from: v.brkFrom, to: v.brkTo && v.brkTo >= v.brkFrom ? v.brkTo : v.brkFrom, note: v.brkNote }); v.brkFrom = v.brkTo = v.brkNote = ''; Hub.render(); Hub.toast('Break added');
   };
   Hub.actions['sch-wiz-delbreak'] = function (el) { harvest(); wiz.v.custom.splice(+el.dataset.i, 1); Hub.render(); };
+  function wizPatch(sp, s) { return { name: sp.name, programme: sp.programme, area: sp.area, ageGroup: sp.ageGroup, client: sp.client, commercial: sp.commercial, booking: sp.booking, billing: sp.billing, price: sp.price, pattern: sp.pattern, days: sp.days, dates: sp.pattern === 'Selected dates' ? sp.dates : s.dates, start: sp.start, end: sp.end, startDate: sp.startDate, endDate: sp.endDate, capacity: sp.capacity, meetingPoint: sp.meetingPoint }; }
   Hub.actions['sch-wiz-finish'] = function () {
     harvest(); for (var i = 0; i < 4; i++) { var err = validate(i); if (err) { wiz.step = i; Hub.render(); Hub.toast(err); return; } }
     var sp = spec(), at = K.now();
     if (wiz.id) {
       var id = wiz.id, s = db.getSession(id);
-      var patch = { name: sp.name, programme: sp.programme, area: sp.area, ageGroup: sp.ageGroup, client: sp.client, commercial: sp.commercial, booking: sp.booking, billing: sp.billing, price: sp.price, pattern: sp.pattern, days: sp.days, dates: sp.pattern === 'Selected dates' ? sp.dates : s.dates, start: sp.start, end: sp.end, startDate: sp.startDate, endDate: sp.endDate, capacity: sp.capacity, meetingPoint: sp.meetingPoint };
-      var lcChange = sp.lifecycle !== s.lifecycle;
+      var patch = wizPatch(sp, s);
+      var lcChange = sp.lifecycle !== s.lifecycle, plan = db.planSessionDates(id, patch);
+      if (plan.blocked.length) { wiz.step = STEPS.length - 1; Hub.render(); Hub.toast(K.dd(plan.blocked[0].o.date) + ' can’t be removed here: ' + plan.blocked[0].why + '. Cancel or reschedule it from the date first.'); return; }
       wiz = null;
       Hub.mutate(function () { var n = db.updateSession(id, patch, who(), at); if (lcChange) db.setSessionLifecycle(id, sp.lifecycle, 'Changed in Edit session', who(), at); return n; }, 'Session saved', { area: 'Schedule', summary: 'Session updated: ' + sp.name, entity: id, at: at });
       location.hash = 'mgmt-session/' + id; return;
