@@ -135,3 +135,55 @@ Every other past date is confirmed as delivered.
 - Tested:
   - a backdated rate change after confirmation left the frozen cost unchanged;
   - an occurrence rate of £36/h was kept through confirmation.
+
+## Correct confirmed delivery
+A deliberate correction of a date's **delivery record**, not only cover. On a confirmed date, **Correct delivery** (people with Finance access) opens "Correct confirmed delivery":
+- For each coach on the confirmed record: *Worked?*, *Role*, *Hours*, *Rate (£ an hour)*.
+- *Someone else actually worked* (folded): coach, role, who they covered for, hours, rate (their normal rate if left blank).
+- A **reason** is required.
+
+What happens:
+- **Original kept.** The original confirmation, with staff and pay, is kept in History as "Original confirmation", with who replaced it, when and why. The banner says "Corrected 1 Oct" with the reason.
+- **Actual staffing updated.** Actual staff, role, hours and rate are replaced, and actual cost is recalculated. A changed rate is recorded as a rate for this date, with the reason.
+- **Pay not yet sent** is corrected in place, and its earlier frozen record is kept (`actualHistory`). A coach who didn't work loses the item.
+- **Pay already sent for payment or in a finalised summary** is never rewritten. The difference becomes a separate **adjustment pay item**, labelled "Correction: reason", and that coach's summary is flagged. Needs attention shows "…summary needs reopening: delivered work changed after it was finalised", with **Reopen summary**.
+- **Summaries in review** pick the correction up straight away.
+
+Tested:
+- Tom covered, not Charlie: Charlie's pay was removed and Tom's added at £35/h; both summaries in review were updated.
+- Jack's finalised hour became 1.5 hours: a +£15.63 adjustment was added and his summary flagged.
+- A correction with no reason is refused.
+
+## Cover
+- **One cover need per date**, grouped by absence for convenience. Each date moves on its own.
+- **Sent to everyone eligible by default.**
+  - A new absence (Record time off, "I can't make this", time off with cover) goes to every eligible coach for each date, by Hub and email, in one step.
+  - Otherwise **Send to all eligible (N)** / **Send to the rest (N)** is the main button.
+  - "Ask … only" stays as the exception, inside the eligible list.
+- **Eligibility.** Inactive coaches, coaches already on an overlapping session, unavailable coaches, Learning Coaches and coaches with expired or missing documents stay excluded. Also excluded now:
+  - coaches who **already said yes to cover at the same time** elsewhere;
+  - coaches who already said yes to this date.
+
+  Coaches **working within 30 minutes before or after** are shown with a flag ("Working 17:30–18:30 just after"), not excluded.
+- **Responses are per date. Saying yes doesn't assign anyone.** The coach sees **Accept cover / Can't do it** and "the office chooses who covers".
+- **Management chooses.** Everyone who said yes is listed with their own **Choose**. The state reads "2 coaches said yes: choose who covers". The confirm sheet shows:
+  - the normal rate, hours and expected cost;
+  - the **agreed rate for this session** (a reason is needed if it differs from normal);
+  - what happens next.
+- **On confirm:**
+  - the chosen coach joins **this date only** as cover; the **session's regular staff never change**;
+  - the absent coach's expected pay is withdrawn;
+  - the cover's pay carries the **agreed rate as this date's rate**, so a later normal-rate change leaves it alone, and it becomes actual at the same rate when delivery is confirmed;
+  - **every other offer closes**: no reply becomes "told it's filled", a yes that wasn't chosen becomes "said yes, told it's filled";
+  - **everyone is told**: the chosen coach ("Cover confirmed"), the others ("Cover filled") and the absent coach ("Josh is covering for you");
+  - a late reply is refused.
+- **Escalation:**
+  - urgent within **24 hours**;
+  - on the day, "**Cover still required today**", always urgent, with "Ring round" and "Mark for phone call";
+  - Needs attention words each state: "Cover needed", "Jack said yes: confirm cover", "2 coaches said yes: choose who covers", "Cover still required today".
+- **Notifications** no longer say "First to accept". A stale work-summary notice was also corrected.
+
+Checks:
+- Every route is clean in light, dark and Josh Evans, desktop and phone.
+- All journeys and all 66 walkthrough steps pass.
+- The seeded figures are unchanged.

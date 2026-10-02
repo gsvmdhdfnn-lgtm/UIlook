@@ -586,13 +586,14 @@
     var offers = db.getCoverOffersFor(k);
     var offerCards = offers.map(function (x) {
       var o = x.occurrence, f = x.offer, n = x.need, state;
-      if (!f.response) state = '<div class="k-row-actions">' + K.actBtn('Accept cover', 'ch-cover-accept', { req: x.request.id, need: n.id, offer: f.id }, { variant: 'primary', icon: 'check' }) + K.actBtn('Can’t do it', 'ch-cover-decline', { req: x.request.id, need: n.id, offer: f.id }, { variant: 'secondary' }) + '</div>';
+      if (f.response === 'Filled' || (!f.response && n.state === 'Covered')) state = ui.notice('neutral', 'This cover has been filled', (n.confirmed ? esc(db.coachName(n.confirmed.coach)) + ' is covering. ' : '') + 'Thanks for looking. Nothing more to do.');
+      else if (!f.response) state = '<div class="k-row-actions">' + K.actBtn('Accept cover', 'ch-cover-accept', { req: x.request.id, need: n.id, offer: f.id }, { variant: 'primary', icon: 'check' }) + K.actBtn('Can’t do it', 'ch-cover-decline', { req: x.request.id, need: n.id, offer: f.id }, { variant: 'secondary' }) + '</div>';
       else if (f.response === 'Declined') state = ui.notice('neutral', 'You declined', esc(f.note || '') + ' ' + stamp('Declined', db.coachName(f.coach), f.respondedAt));
       else if (n.state === 'Covered' && n.confirmed && n.confirmed.coach === k) state = ui.notice('ok', 'Confirmed: you’re on the staff', stamp('Confirmed', n.confirmed.by, n.confirmed.at), { action: K.goBtn('Open session', 'coach-session/' + o.id, { size: 'sm', variant: 'secondary' }) });
       else if (n.state === 'Covered') state = ui.notice('neutral', 'Covered by someone else', 'Thanks for accepting. ' + esc(db.coachName(n.confirmed.coach)) + ' was confirmed.');
       else state = ui.notice('info', 'Accepted: waiting for the office to confirm', stamp('Accepted', db.coachName(f.coach), f.respondedAt));
       var absent = n.absent ? 'Covering for ' + db.coachName(n.absent) + (x.request.reason ? ': ' + x.request.reason : '') : (x.request.reason || 'No coach assigned yet');
-      return K.card({ title: o.session, sub: esc(when(o)) + ' · ' + esc(venueName(o)), right: K.status(f.response || 'Offered'),
+      return K.card({ title: o.session, sub: esc(when(o)) + ' · ' + esc(venueName(o)), right: K.status(f.response === 'Filled' ? 'Filled' : n.state === 'Covered' && n.confirmed && n.confirmed.coach === k ? 'Confirmed' : f.response || 'Offered'),
         body: K.kv([['Why', esc(absent)], ['Expected', isClient(o) ? o.players + ' (headcount)' : db.getExpectedPlayers(o).length + ' players'], ['Your pay', '<b class="num">' + K.money(f.cost) + '</b> <small>(' + K.money(f.rate) + ' an hour)</small>'], ['Offered', stamp('Offered', f.sentBy, f.sentAt)]]) + state });
     });
     var offerSec = K.section('Offered to you', offers.length ? offers.filter(function (x) { return !x.offer.response; }).length + ' waiting for your reply' : '',
@@ -609,7 +610,7 @@
     var reqSec = K.section('Your cover requests', 'The office finds cover; each date moves on its own.', reqs.length ? reqCards : '<div class="zone-inset">' + ui.empty('calendar', 'No cover requests', 'Mark dates you can’t make in Availability and ask for cover there.') + '</div>');
     var waitingOffers = offers.filter(function (x) { return !x.offer.response; });
     var openNeeds = []; reqs.forEach(function (r) { r.needs.forEach(function (n) { if (!n.confirmed) openNeeds.push(n); }); });
-    var sit = waitingOffers.length ? K.situation({ tone: 'warn', title: waitingOffers.length === 1 ? 'You’ve been offered cover' : 'You’ve been offered cover for ' + waitingOffers.length + ' sessions', text: esc(waitingOffers[0].occurrence.session) + ', ' + esc(when(waitingOffers[0].occurrence)) + '. Accept or decline below.' }) :
+    var sit = waitingOffers.length ? K.situation({ tone: 'warn', title: waitingOffers.length === 1 ? 'You’ve been offered cover' : 'You’ve been offered cover for ' + waitingOffers.length + ' sessions', text: esc(waitingOffers[0].occurrence.session) + ', ' + esc(when(waitingOffers[0].occurrence)) + '. Say yes or that you can’t; the office chooses who covers.' }) :
       openNeeds.length ? K.situation({ tone: 'info', title: 'The office is finding cover', text: openNeeds.length + ' of your session' + (openNeeds.length === 1 ? '' : 's') + ' still need' + (openNeeds.length === 1 ? 's' : '') + ' a coach. No action needed from you.' }) :
       K.situation({ tone: 'ok', title: 'Nothing needs you', text: 'No cover offers waiting, and your dates are all covered.' });
     return page(h, sit + offerSec + reqSec);
@@ -885,7 +886,7 @@
   /* Cover */
   A['ch-cover-accept'] = function (el) {
     var d = el.dataset;
-    act(function (at) { return db.respondCoverOffer(d.req, d.need, d.offer, 'Accepted', '', at); }, 'Accepted: the office will confirm', 'Cover accepted (' + d.req + ')', d.req, { area: 'Coaches' });
+    act(function (at) { return db.respondCoverOffer(d.req, d.need, d.offer, 'Accepted', '', at); }, 'You said yes. The office chooses who covers and will let you know', 'Cover accepted (' + d.req + ')', d.req, { area: 'Coaches' });
   };
   A['ch-cover-decline'] = function (el) {
     var d = el.dataset;

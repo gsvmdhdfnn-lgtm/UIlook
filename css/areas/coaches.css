@@ -66,3 +66,4 @@
 .co-scan b { color: var(--text); font-size: 15px; }
 .co-scan small { font-size: 12.5px; }
 .co-offer-acts { justify-content: flex-start; margin-top: 10px; }
+.co-flag { color: var(--warn, #b26b00); font-weight: 600; }

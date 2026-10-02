@@ -523,12 +523,13 @@
   var NEED_ORDER = ['Open', 'Needs a phone call', 'Offered', 'Accepted', 'Covered'];
   /* Cover: what does each date mean and what is the next step */
   function coverWords(r, n) {
-    var acc = n.offers.filter(function (f) { return f.response === 'Accepted'; }).slice(-1)[0];
+    var yes = n.offers.filter(function (f) { return f.response === 'Accepted' && !f.closed; });
     var waiting = n.offers.filter(function (f) { return !f.response; });
     if (n.state === 'Covered') return { tone: 'ok', title: db.coachName(n.confirmed.coach) + ' is covering', act: false };
-    if (n.state === 'Accepted' && acc) return { tone: 'info', title: db.coachName(acc.coach) + ' can cover: confirm', act: true };
+    if (yes.length > 1) return { tone: 'info', title: yes.length + ' coaches said yes: choose who covers', act: true };
+    if (yes.length) return { tone: 'info', title: first(db.coachName(yes[0].coach)) + ' said yes: confirm', act: true };
     if (n.state === 'Needs a phone call') return { tone: 'warn', title: 'Needs a phone call', act: true };
-    if (waiting.length) return { tone: 'info', title: 'Waiting for ' + waiting.map(function (f) { return first(db.coachName(f.coach)); }).join(' and ') + ' to reply', act: false };
+    if (waiting.length) return { tone: 'info', title: 'Waiting for ' + waiting.length + ' repl' + (waiting.length === 1 ? 'y' : 'ies'), act: false };
     if (n.offers.length) return { tone: 'danger', title: 'No one has said yes yet', act: true };
     return { tone: 'warn', title: 'Cover still needed', act: true };
   }
@@ -576,40 +577,45 @@
      then the best options, then who was already asked. Details and the
      calculation sit behind a collapsed section. */
   function needCard(r, n) {
-    var o = db.getOccurrence(n.occurrence), w = coverWords(r, n), fin = K.fin() !== 'none';
+    var o = db.getOccurrence(n.occurrence), fin = K.fin() !== 'none', today = o.date === K.today;
     var absent = r.coach ? db.coachName(r.coach) : null;
     var when = esc(K.dd(o.date)) + ' · ' + o.start + '–' + o.end + ' · ' + esc(db.venueName(o.venue)) + ' · ' + o.players + ' players';
     var cands = n.state === 'Covered' ? [] : db.getCoverCandidates(r.id, n.id), ok = cands.filter(function (x) { return x.eligible; }), no = cands.filter(function (x) { return !x.eligible; });
-    var acc = n.offers.filter(function (f) { return f.response === 'Accepted'; }).slice(-1)[0];
+    var yes = n.offers.filter(function (f) { return f.response === 'Accepted' && !f.closed; });
     var waiting = n.offers.filter(function (f) { return !f.response; });
-    function opt(x, primary) {
-      var nm = first(x.coach.name);
-      return '<div class="k-opt">' + ui.avatar(x.coach.name, 'md') + '<div><b>' + esc(x.coach.name) + '</b><small>Available ' + esc(x.available.reason) + (x.compliance.state !== 'Current' ? ' · ' + esc(x.compliance.text) : '') + (fin ? (x.cost ? ' · expected cost ' + K.money(x.cost) : ' · no extra cost') : '') + '</small></div>' +
-        '<div class="k-opt__acts">' + K.actBtn('Ask ' + nm, 'co-offer', { req: r.id, need: n.id, coach: x.coach.id }, { size: 'sm', variant: primary ? 'primary' : 'secondary' }) + '</div></div>';
+    function flag(t) { return t ? ' · <span class="co-flag">' + esc(t) + '</span>' : ''; }
+    function opt(x) {
+      return '<div class="k-opt">' + ui.avatar(x.coach.name, 'md') + '<div><b>' + esc(x.coach.name) + '</b><small>Available ' + esc(x.available.reason) + (x.compliance.state !== 'Current' ? ' · ' + esc(x.compliance.text) : '') + (fin ? (x.cost ? ' · expected cost ' + K.money(x.cost) : ' · no extra cost') : '') + flag(x.flag) + '</small></div>' +
+        '<div class="k-opt__acts">' + K.actBtn('Ask ' + first(x.coach.name) + ' only', 'co-offer', { req: r.id, need: n.id, coach: x.coach.id }, { size: 'sm', variant: 'tertiary' }) + '</div></div>';
     }
-    var options = ok.length ? '<div class="k-opts">' + ok.slice(0, 3).map(function (x, i) { return opt(x, i === 0 && w.act && !acc); }).join('') + '</div>' +
-        (ok.length > 3 || no.length ? K.details('More coaches', (ok.length > 3 ? '<div class="k-opts">' + ok.slice(3).map(function (x) { return opt(x, false); }).join('') + '</div>' : '') + (no.length ? ui.rows(no.map(function (x) { return ui.row({ title: esc(x.coach.name), sub: x.reasons.map(esc) }); })) : ''), { sub: (ok.length > 3 ? (ok.length - 3) + ' more available · ' : '') + no.length + ' not suitable, and why' }) : '')
-      : '<p class="k-note">No one else is free and suitable for this session.</p>';
+    /* Everyone who said yes, each with their own Choose */
+    function yesRow(f, i) {
+      var c = db.getCoach(f.coach);
+      return '<div class="k-opt">' + ui.avatar(c.name, 'md') + '<div><b>' + esc(c.name) + '</b><small>Said yes ' + K.dm(f.respondedAt.slice(0, 10)) + (f.note ? ': “' + esc(f.note) + '”' : '') + (fin ? ' · ' + K.money(f.rate) + ' an hour' : '') + '</small></div>' +
+        '<div class="k-opt__acts">' + K.actBtn((yes.length > 1 ? 'Choose ' : 'Confirm ') + first(c.name), 'co-confirm', { req: r.id, need: n.id, offer: f.id }, { size: 'sm', variant: i === 0 ? 'primary' : 'secondary' }) + '</div></div>';
+    }
+    var sendAll = ok.length ? K.actBtn((n.offers.length ? 'Send to the rest (' : 'Send to all eligible (') + ok.length + ')', 'co-sendall', { req: r.id, need: n.id }, { variant: 'primary', icon: 'megaphone' }) : '';
     var sit;
-    if (n.state === 'Covered') sit = K.situation({ tone: 'ok', title: esc(db.coachName(n.confirmed.coach)) + ' is covering' + (absent ? ' ' + esc(first(absent)) : ''), text: 'Confirmed by ' + esc(n.confirmed.by) + '. Nothing more to do.' });
-    else if (n.state === 'Accepted' && acc) sit = K.situation({ tone: 'info', title: esc(db.coachName(acc.coach)) + ' can cover this session', text: 'Confirm to put ' + esc(first(db.coachName(acc.coach))) + ' on the session' + (fin ? ' at ' + K.money(acc.cost) : '') + '.', primary: K.actBtn('Confirm ' + first(db.coachName(acc.coach)), 'co-confirm', { req: r.id, need: n.id }, { variant: 'primary' }) });
-    else if (waiting.length) sit = K.situation({ tone: 'info', title: 'Waiting for replies', text: esc(waiting.map(function (f) { return first(db.coachName(f.coach)); }).join(' and ')) + (waiting.length === 1 ? ' has' : ' have') + ' been asked. No action needed yet.' });
-    else if (n.state === 'Needs a phone call') sit = K.situation({ tone: 'warn', title: 'Needs a phone call', text: esc(n.phone.note) });
-    else if (n.offers.length) sit = K.situation({ tone: 'danger', title: 'No one has said yes yet', text: 'Everyone asked so far declined. Ask someone else, or mark it for a phone call.', secondary: K.actBtn('Mark for phone call', 'co-phone', { req: r.id, need: n.id }, { variant: 'secondary', icon: 'phone' }) });
-    else sit = K.situation({ tone: 'warn', title: 'Cover still needed', text: (absent ? esc(first(absent)) + ' can’t coach. ' : 'No coach yet. ') + 'Ask one of the best options below.' });
-    var asked = n.offers.length ? '<h3 class="k-h3">Already asked</h3>' + ui.rows(n.offers.map(function (f) {
-      var name = db.coachName(f.coach);
-      var sim = f.response ? '' : '<div class="k-row-actions co-offer-acts"><span class="k-note">Prototype: reply as ' + esc(first(name)) + '</span>' + K.actBtn('Yes', 'co-respond', { req: r.id, need: n.id, offer: f.id, resp: 'Accepted' }, { size: 'sm', variant: 'tertiary' }) + K.actBtn('No', 'co-respond', { req: r.id, need: n.id, offer: f.id, resp: 'Declined' }, { size: 'sm', variant: 'tertiary' }) + '</div>';
-      return ui.row({ lead: ui.avatar(name, 'sm'), title: esc(name), sub: [f.response === 'Declined' ? 'Declined' + (f.note ? ': “' + esc(f.note) + '”' : '') : f.response === 'Accepted' ? 'Said yes' : 'Waiting for a reply'], after: sim });
+    if (n.state === 'Covered') sit = K.situation({ tone: 'ok', title: esc(db.coachName(n.confirmed.coach)) + ' is covering' + (absent ? ' ' + esc(first(absent)) : ''), text: 'Confirmed by ' + esc(n.confirmed.by) + (fin && n.confirmed.rate != null ? ' at ' + K.money(n.confirmed.rate) + ' an hour' : '') + '. Everyone else was told it is filled.' });
+    else if (yes.length) sit = K.situation({ tone: 'info', kicker: today ? 'Today' : '', title: yes.length > 1 ? yes.length + ' coaches said yes: choose who covers' : esc(db.coachName(yes[0].coach)) + ' said yes', text: 'Saying yes doesn’t put anyone on the session. You choose; the others are told it’s filled.' });
+    else if (waiting.length) sit = K.situation({ tone: today ? 'warn' : 'info', kicker: today ? 'Today' : '', title: today ? 'Cover still required today' : 'Waiting for replies', text: waiting.length + ' coach' + (waiting.length === 1 ? ' has' : 'es have') + ' been asked: ' + esc(waiting.map(function (f) { return first(db.coachName(f.coach)); }).join(', ')) + '. ' + (today ? 'Ring round if no one replies soon.' : 'No action needed yet.'), secondary: today ? K.actBtn('Mark for phone call', 'co-phone', { req: r.id, need: n.id }, { variant: 'secondary', icon: 'phone' }) : '' });
+    else if (n.state === 'Needs a phone call') sit = K.situation({ tone: 'warn', title: 'Needs a phone call', text: esc(n.phone.note), primary: sendAll });
+    else if (n.offers.length) sit = K.situation({ tone: 'danger', kicker: today ? 'Today' : '', title: today ? 'Cover still required today' : 'No one has said yes yet', text: 'Everyone asked so far said they can’t.' + (ok.length ? ' ' + ok.length + ' other eligible coach' + (ok.length === 1 ? ' hasn’t' : 'es haven’t') + ' been asked.' : ' No one else is free and suitable.'), primary: sendAll, secondary: K.actBtn('Mark for phone call', 'co-phone', { req: r.id, need: n.id }, { variant: 'secondary', icon: 'phone' }) });
+    else sit = K.situation({ tone: today ? 'danger' : 'warn', kicker: today ? 'Today' : '', title: today ? 'Cover still required today' : 'Cover still needed', text: (absent ? esc(first(absent)) + ' can’t coach. ' : 'No coach yet. ') + (ok.length ? 'Send it to every eligible coach at once, by Hub and email.' : 'No one is free and suitable. Mark it for a phone call.'), primary: sendAll || K.actBtn('Mark for phone call', 'co-phone', { req: r.id, need: n.id }, { variant: 'primary', icon: 'phone' }) });
+    var yesBlock = yes.length && n.state !== 'Covered' ? '<h3 class="k-h3">' + (yes.length > 1 ? 'Said yes: choose one' : 'Said yes') + '</h3><div class="k-opts">' + yes.map(yesRow).join('') + '</div>' : '';
+    var options = ok.length ? '<div class="k-opts">' + ok.map(opt).join('') + '</div>' : '<p class="k-note">No one else is free and suitable for this session.</p>';
+    var optionsBlock = n.state === 'Covered' ? '' : K.details(n.offers.length ? 'Not asked yet (' + ok.length + ')' : 'Eligible coaches (' + ok.length + ')', options + (no.length ? '<h3 class="k-h3">Not suitable</h3>' + ui.rows(no.map(function (x) { return ui.row({ title: esc(x.coach.name), sub: x.reasons.map(esc) }); })) : ''), { sub: 'Best first' + (no.length ? '; ' + no.length + ' not suitable, with reasons' : '') });
+    var asked = n.state === 'Covered' ? n.offers.slice().sort(function (a, b) { return (n.confirmed && b.id === n.confirmed.offer) - (n.confirmed && a.id === n.confirmed.offer); }) : n.offers.filter(function (f) { return !(f.response === 'Accepted' && !f.closed); });
+    var askedBlock = asked.length ? '<h3 class="k-h3">Asked</h3>' + ui.rows(asked.map(function (f) {
+      var name = db.coachName(f.coach), sim = !f.response && n.state !== 'Covered' ? '<span class="k-row-actions">' + K.actBtn('Prototype: reply as ' + first(name) + ': yes', 'co-respond', { req: r.id, need: n.id, offer: f.id, resp: 'Accepted' }, { size: 'sm', variant: 'tertiary' }) + K.actBtn('No', 'co-respond', { req: r.id, need: n.id, offer: f.id, resp: 'Declined' }, { size: 'sm', variant: 'tertiary' }) + '</span>' : '';
+      var word = f.response === 'Declined' ? 'Can’t do it' + (f.note ? ': “' + esc(f.note) + '”' : '') : f.response === 'Filled' ? 'Didn’t reply · told it’s filled' : f.response === 'Accepted' ? (n.confirmed && n.confirmed.offer === f.id ? 'Chosen to cover' : 'Said yes · told it’s filled') : 'Waiting for a reply';
+      return ui.row({ lead: ui.avatar(name, 'sm'), title: esc(name), sub: [word], after: sim });
     }), 'rows--lead') : '';
-    var showOptions = n.state !== 'Covered' && !(n.state === 'Accepted' && acc);
-    var optionsBlock = !showOptions ? (n.state === 'Accepted' ? K.details('Ask someone else instead', options) : '')
-      : waiting.length ? K.details('Ask someone else as well', options, { sub: 'Best options for this session' }) : '<h3 class="k-h3">Best options</h3>' + options;
-    var detail = K.details('Details', K.kv([['Session', K.link('mgmt-occurrence/' + o.id, occLabel(o))], ['Coaches now', o.staff.length ? ui.staffNames(o.staff) : 'No coach yet'], ['Players expected', String(o.players)]].concat(
-      n.offers.map(function (f) { return ['Offer to ' + first(db.coachName(f.coach)), stamp('Sent', f.sentBy, f.sentAt) + (fin ? ' · ' + K.money(f.rate) + '/h, ' + K.money(f.cost) : '') + (f.respondedAt ? '<br>' + stamp(f.response, db.coachName(f.coach), f.respondedAt) : '')]; })).concat(
+    var detail = K.details('Details', K.kv([['Session', K.link('mgmt-occurrence/' + o.id, occLabel(o))], ['Coaches on this date', o.staff.length ? ui.staffNames(o.staff) : 'No coach yet'], ['Regular coaches', 'Unchanged: cover applies to this date only'], ['Players expected', String(o.players)]].concat(
+      n.offers.map(function (f) { return ['Offer to ' + first(db.coachName(f.coach)), stamp('Sent', f.sentBy, f.sentAt) + (fin ? ' · ' + K.money(f.rate) + '/h, ' + K.money(f.cost) : '') + (f.respondedAt ? '<br>' + stamp(f.response === 'Filled' ? 'Closed' : f.response, db.coachName(f.coach), f.respondedAt) : '')]; })).concat(
       n.phone ? [['Phone call', esc(n.phone.note) + '<br>' + stamp('Flagged', n.phone.by, n.phone.at)]] : []), true) +
-      (n.state !== 'Covered' && n.state !== 'Needs a phone call' && !(n.offers.length && !waiting.length && !acc) ? '<div class="k-bar">' + K.actBtn('Mark for phone call', 'co-phone', { req: r.id, need: n.id }, { size: 'sm', variant: 'tertiary', icon: 'phone' }) + '</div>' : ''));
-    return '<article class="co-need"><h2 class="co-need__t">' + esc(o.session) + '</h2><p class="co-need__w">' + when + '</p>' + sit + (n.state === 'Covered' ? '' : optionsBlock + asked) + detail + '</article>';
+      (n.state !== 'Covered' && n.state !== 'Needs a phone call' ? '<div class="k-bar">' + K.actBtn('Mark for phone call', 'co-phone', { req: r.id, need: n.id }, { size: 'sm', variant: 'tertiary', icon: 'phone' }) + '</div>' : ''));
+    return '<article class="co-need"><h2 class="co-need__t">' + esc(o.session) + '</h2><p class="co-need__w">' + when + '</p>' + sit + yesBlock + (n.state === 'Covered' ? askedBlock : askedBlock + optionsBlock) + detail + '</article>';
   }
   Hub.screens['mgmt-cover-request'] = function (ctx) {
     var r = db.getCoverRequest(ctx.param);
@@ -637,7 +643,37 @@
     var d = el.dataset, n = db.getCoverNeed(d.req, d.need), f = n.offers.filter(function (x) { return x.id === d.offer; })[0], name = db.coachName(f.coach), note = K.val('dec-note').trim();
     Hub.closeSheet(true); Hub.mutate(function () { db.respondCoverOffer(d.req, d.need, d.offer, 'Declined', note, K.now()); }, name + ' declined: pick another ' + one().toLowerCase(), log(name + ' declined cover (' + d.need + ')', d.req, { who: name }));
   };
-  Hub.actions['co-confirm'] = function (el) { var d = el.dataset; Hub.mutate(function () { db.confirmCover(d.req, d.need, K.me(), K.now()); }, 'Cover confirmed', log('Cover confirmed (' + d.need + ')', d.req)); };
+  Hub.actions['co-sendall'] = function (el) {
+    var d = el.dataset, sent;
+    Hub.mutate(function () { sent = db.offerAllEligible(d.req, d.need, K.me(), K.now()); }, null, log('Cover sent to every eligible coach (' + d.need + ')', d.req));
+    Hub.toast(sent && sent.length ? 'Sent to ' + sent.length + ' coach' + (sent.length === 1 ? '' : 'es') + ' by Hub and email' : 'No one else to ask');
+  };
+  /* Management chooses who covers: agreed rate for this date, and what happens next */
+  Hub.actions['co-confirm'] = function (el) {
+    var d = el.dataset, n = db.getCoverNeed(d.req, d.need), f = n.offers.filter(function (x) { return x.id === d.offer; })[0], o = db.getOccurrence(n.occurrence), r = db.getCoverRequest(d.req);
+    var c = first(db.coachName(f.coach)), normal = db.coverRate(f.coach, o), fin = K.fin() !== 'none';
+    var others = n.offers.filter(function (x) { return x !== f && (!x.response || (x.response === 'Accepted' && !x.closed)); }).map(function (x) { return first(db.coachName(x.coach)); });
+    K.sheet({ overline: '<span class="overline">' + esc(o.session) + ' · ' + esc(K.dd(o.date)) + '</span>', title: 'Confirm ' + esc(c) + ' as cover',
+      body: (fin ? K.kv([['Normal rate', K.money(normal.rate) + ' an hour'], ['Hours', normal.units + (normal.units === 1 ? ' hour' : ' hours')], ['Expected cost', K.money(Math.round(f.rate * normal.units)) + ' at the offered rate']]) +
+        K.form([K.field('Agreed rate for this session (£ an hour)', K.input('cv-rate', (f.rate / 100).toFixed(2))), K.field('Reason, if different from the normal rate', K.input('cv-why', '', { placeholder: 'For example: late notice, travel' }))], 1) : '') +
+        '<p class="k-note">Once confirmed:</p><ul class="k-list-plain"><li>' + esc(c) + ' is on this date as cover' + (r.coach ? ' for ' + esc(first(db.coachName(r.coach))) : '') + '. The session’s regular coaches don’t change.</li>' +
+        (others.length ? '<li>' + esc(others.join(', ')) + (others.length === 1 ? ' is' : ' are') + ' told it’s filled and the offer closes.</li>' : '') + (r.coach ? '<li>' + esc(first(db.coachName(r.coach))) + ' is told ' + esc(c) + ' is covering.</li>' : '') +
+        (fin ? '<li>The agreed rate is used for this date’s pay; a later change to ' + esc(c) + '’s normal rate won’t alter it.</li>' : '') + '</ul>',
+      foot: sheetFoot('Confirm ' + c, 'co-confirm-go', { req: d.req, need: d.need, offer: d.offer }) });
+  };
+  Hub.actions['co-confirm-go'] = function (el) {
+    var d = el.dataset, n = db.getCoverNeed(d.req, d.need), f = n.offers.filter(function (x) { return x.id === d.offer; })[0], o = db.getOccurrence(n.occurrence);
+    var opts = { offer: d.offer };
+    if (K.fin() !== 'none') {
+      var v = parseFloat(String(K.val('cv-rate')).replace(/[£,\s]/g, '')), why = K.val('cv-why').trim(), normal = db.coverRate(f.coach, o).rate;
+      if (isNaN(v) || v < 0) { Hub.toast('Check the rate'); return; }
+      opts.rate = Math.round(v * 100);
+      if (opts.rate !== normal && !why) { Hub.toast('Add a reason for a rate different from the normal ' + K.money(normal)); return; }
+      if (why) opts.reason = why;
+    }
+    Hub.closeSheet(true);
+    Hub.mutate(function () { db.confirmCover(d.req, d.need, K.me(), K.now(), opts); }, first(db.coachName(f.coach)) + ' confirmed as cover. Everyone has been told', log('Cover confirmed: ' + db.coachName(f.coach) + ' (' + d.need + ')', d.req, { finance: true }));
+  };
   Hub.actions['co-phone'] = function (el) {
     var d = el.dataset;
     K.sheet({ overline: '<span class="overline">Cover</span>', title: 'Needs a phone call', body: K.form([K.field('Note for whoever rings round', K.textarea('ph-note', 'No one free in the Hub. Ring round the reserve list.'), null, true)], 1) + '<p class="k-note">The date stays open and is flagged on the cover workspace. You can still send offers from here.</p>', foot: sheetFoot('Flag for a phone call', 'co-phone-go', { req: d.req, need: d.need }) });

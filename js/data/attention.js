@@ -16,7 +16,7 @@
     { id: 'ATT-014', name: 'Assigned coach unavailable', category: 'Staffing & Cover', enabled: true, base: 'Warning', warnHours: null, urgentHours: 48, locked: 'Warning' },
     { id: 'ATT-002', name: 'Learning coach only', category: 'Staffing & Cover', enabled: true, base: 'Warning', warnHours: null, urgentHours: 24, locked: null },
     { id: 'ATT-003', name: 'No Lead Coach', category: 'Staffing & Cover', enabled: true, base: 'Warning', warnHours: null, urgentHours: 48, locked: null },
-    { id: 'ATT-041', name: 'Cover open', category: 'Staffing & Cover', enabled: true, base: 'Normal', warnHours: 168, urgentHours: 48, locked: null },
+    { id: 'ATT-041', name: 'Cover still needed', category: 'Staffing & Cover', enabled: true, base: 'Normal', warnHours: 168, urgentHours: 24, locked: null },
     { id: 'ATT-011', name: 'Compliance document expiring or missing', category: 'Coaches & Compliance', enabled: true, base: 'Normal', warnHours: 720, urgentHours: 168, locked: null },
     { id: 'ATT-031', name: 'Non-compliant coach assigned', category: 'Coaches & Compliance', enabled: true, base: 'Warning', warnHours: null, urgentHours: 48, locked: 'Warning' },
     { id: 'ATT-042', name: 'Document awaiting verification', category: 'Coaches & Compliance', enabled: true, base: 'Normal', warnHours: null, urgentHours: null, locked: null },
@@ -92,7 +92,17 @@
       if (d.kind === 'pending') add('ATT-042', 'verification_pending|doc:' + d.doc, { whenText: 'Uploaded ' + K.dm(d.date), title: d.title, detail: 'Check the document and verify or reject it', actionLabel: 'Check document', route: route, related: { coach: d.coach } });
     });
     var cover = typeof db.getOpenCover === 'function' ? db.getOpenCover() : [];
-    cover.forEach(function (c) { var o = db.getOccurrence(c.occurrence) || {}; if (!c.absent && o.staff && !o.staff.length) return; var who = c.absent ? db.coachName(c.absent) : 'a coach'; add('ATT-041', 'cover_open|' + c.request + '|' + c.need, { hours: o.date ? hoursUntil(o.date, o.start) : null, title: 'Cover needed: ' + (o.session || 'session') + ' (' + who + ' away)', detail: (o.date ? occLabel(o) : '') + (c.state ? ' · ' + c.state : ''), actionLabel: 'Arrange cover', route: 'mgmt-cover-request/' + c.request, related: c.absent ? { coach: c.absent } : null }); });
+    /* Cover: one item per date still to sort. Urgent within 24 hours and on the day itself. */
+    cover.forEach(function (c) {
+      var o = db.getOccurrence(c.occurrence) || {}; if (!c.absent && o.staff && !o.staff.length) return;
+      var n = db.getCoverNeed(c.request, c.need), yes = n ? n.offers.filter(function (f) { return f.response === 'Accepted' && !f.closed; }) : [];
+      var waiting = n ? n.offers.filter(function (f) { return !f.response; }).length : 0, today = o.date === K.today, who = c.absent ? db.coachName(c.absent) : 'a coach';
+      var title = yes.length > 1 ? yes.length + ' coaches said yes: choose who covers ' + o.session : yes.length ? db.coachName(yes[0].coach).split(' ')[0] + ' said yes: confirm cover for ' + o.session
+        : today ? 'Cover still required today: ' + o.session : 'Cover needed: ' + (o.session || 'session') + ' (' + who + ' away)';
+      add('ATT-041', 'cover_open|' + c.request + '|' + c.need, { hours: o.date ? hoursUntil(o.date, o.start) : null, forceSev: today ? 'Urgent' : null, forceWhy: today ? 'The session is today' : '', title: title,
+        detail: (o.date ? occLabel(o) : '') + (yes.length ? '' : waiting ? ' · waiting for ' + waiting + ' repl' + (waiting === 1 ? 'y' : 'ies') : c.state === 'Needs a phone call' ? ' · needs a phone call' : ' · nobody asked yet'),
+        actionLabel: yes.length > 1 ? 'Choose who covers' : yes.length ? 'Confirm cover' : 'Arrange cover', route: 'mgmt-cover-request/' + c.request, related: c.absent ? { coach: c.absent } : null });
+    });
     var sums = typeof db.getSummariesReady === 'function' ? db.getSummariesReady() : [];
     sums.forEach(function (w) { add('ATT-045', 'work_summary_ready|' + w.id, { whenText: 'Period ended 30 Sep', title: w.stale && w.state !== 'Needs review' ? db.coachName(w.coach) + '’s ' + (w.monthLabel || 'September') + ' summary needs reopening: delivered work changed after it was finalised' : w.state === 'Queried' ? db.coachName(w.coach) + ' queried their ' + (w.monthLabel || 'September') + ' summary' : db.coachName(w.coach) + '’s ' + (w.monthLabel || 'September') + ' summary needs reading', detail: w.state === 'Queried' && w.query ? w.query.text : (w.lines ? w.lines.length + ' sessions · ' : '') + (w.total != null ? K.money(w.total) : ''), actionLabel: w.stale && w.state !== 'Needs review' ? 'Reopen summary' : w.state === 'Queried' ? 'Answer query' : 'Read and finalise', route: 'mgmt-work-summary/' + w.id, related: { coach: w.coach } }); });
     /* Registers */

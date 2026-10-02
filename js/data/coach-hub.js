@@ -41,7 +41,7 @@
   /* ---------- Seeded cover, through the shared cover helpers ---------- */
   var ngFri = db.findOccurrence('SES-06', '2026-10-02');
   if (ngFri && db.addCoverRequest) {
-    var pr = db.addCoverRequest({ coach: 'priya', kind: 'Unavailable', from: '2026-10-02', to: '2026-10-02', reason: 'Supervising a Year 6 school trip' }, 'Priya Nair', '2026-09-29T16:40');
+    var pr = db.addCoverRequest({ coach: 'priya', kind: 'Unavailable', from: '2026-10-02', to: '2026-10-02', noAutoSend: true, reason: 'Supervising a Year 6 school trip' }, 'Priya Nair', '2026-09-29T16:40');
     var pn = pr.needs[0];
     if (pn) {
       var po = db.sendCoverOffer(pr.id, pn.id, 'jack', 'David Cole', '2026-09-29T17:05');
@@ -61,11 +61,11 @@
   var incReg = db.findOccurrence('SES-03', '2026-09-24');
   H.globalOwner = { 'NTF-101': 'charlie' };
   H.notifications = [
-    { id: 'CHN-01', coach: 'charlie', title: 'Cover offered to you', body: 'U13/14 Development, Fri 2 Oct, 18:00 at Hollins Park School. First to accept.', route: 'coach-cover', at: '2026-10-01T12:31', read: false },
+    { id: 'CHN-01', coach: 'charlie', title: 'Cover offered to you', body: 'U13/14 Development, Fri 2 Oct, 18:00 at Hollins Park School. Say yes or no; the office chooses who covers.', route: 'coach-cover', at: '2026-10-01T12:31', read: false },
     { id: 'CHN-02', coach: 'charlie', title: 'Register still open', body: 'U12 Academy, Thu 24 Sep: four players marked, the rest still to do.', route: incReg ? 'coach-register/' + incReg.id : 'coach-schedule', at: '2026-09-25T08:00', read: false },
-    { id: 'CHN-03', coach: 'charlie', title: 'September work summary confirmed', body: 'You confirmed it; the office finalises it for the 7 Oct payment.', route: 'coach-work-summary', at: '2026-10-01T08:12', read: true, readAt: '2026-10-01T08:12' },
+    { id: 'CHN-03', coach: 'charlie', title: 'September work summary prepared', body: 'The office checks it and finalises it for the 7 Oct payment. You can query it once it’s finalised.', route: 'coach-work-summary', at: '2026-10-01T06:00', read: true, readAt: '2026-10-01T08:12' },
     { id: 'CHN-11', coach: 'jack', title: 'Your Enhanced DBS expires on 13 Oct', body: 'Upload the new certificate so the office can verify it before then.', route: 'coach-documents', at: '2026-09-13T08:00', read: false },
-    { id: 'CHN-12', coach: 'jack', title: 'Cover offered to you', body: 'U13/14 Development, Fri 2 Oct, 18:00 at Hollins Park School. First to accept.', route: 'coach-cover', at: '2026-10-01T12:30', read: false },
+    { id: 'CHN-12', coach: 'jack', title: 'Cover offered to you', body: 'U13/14 Development, Fri 2 Oct, 18:00 at Hollins Park School. Say yes or no; the office chooses who covers.', route: 'coach-cover', at: '2026-10-01T12:30', read: false },
     { id: 'CHN-13', coach: 'jack', title: 'Cover confirmed', body: 'You are on Northgate After-School, Fri 2 Oct, 15:45, covering Priya Nair.', route: ngFri ? 'coach-session/' + ngFri.id : 'coach-schedule', at: '2026-09-29T18:45', read: true, readAt: '2026-09-29T19:02' },
     { id: 'CHN-14', coach: 'jack', title: 'September work summary finalised', body: 'Sent for the 7 Oct coach payment.', route: 'coach-work-summary', at: '2026-10-01T09:40', read: true, readAt: '2026-10-01T10:05' },
     { id: 'CHN-21', coach: 'ellie', title: 'Feedback sent for sign-off', body: 'Ava Price: your lead coach signs it off before the office reviews it.', route: 'coach-feedback/PLY-0003', at: '2026-09-30T17:55', read: true, readAt: '2026-09-30T17:56' },
@@ -227,6 +227,11 @@
     return changed;
   };
 
+  /* New notifications raised by the Hub (cover offered, filled, confirmed) */
+  db.notifyCoach = function (coach, title, body, route, at) {
+    var n = { id: 'CHN-' + (900 + H.notifications.length), coach: coach, title: title, body: body, route: route || 'coach-home', at: at, read: false };
+    H.notifications.push(n); return n;
+  };
   /* Notifications: the coach's own plus the shared coach list */
   db.getCoachHubNotifications = function (coach) {
     var shared = db.getNotifications('coach').filter(function (n) { var o = H.globalOwner[n.id]; return !o || o === coach; });
