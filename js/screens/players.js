@@ -101,7 +101,7 @@
       actions: K.actBtn('Add a player or family', 'pp-add', {}, { variant: 'primary', icon: 'plus' }) });
     var g = K.guard(ctx, h, { empty: ['players', 'No players yet', 'Players appear here once families sign up or are moved across.'] }); if (g) return g;
     var F = db.getPlayerFigures();
-    var need = db.getAttentionCases().filter(function (k) { return k.category === 'Players & Parents'; }).length;
+    var need = db.getAttentionCards().filter(function (g) { return !g.waiting && g.issues.some(function (k) { return k.category === 'Players & Parents'; }); }).length;
     var counts = '<div class="pp-counts">' +
       '<span class="pp-count"><b class="num">' + F.active + '</b> active players' + (F.trial ? ' · ' + F.trial + ' on trial' : '') + '</span>' +
       '<span class="pp-count"><b class="num">' + F.parents + '</b> ' + c.toLowerCase() + 's</span>' +
@@ -596,6 +596,9 @@
     var g = K.guard(ctx, h, { empty: ['inbox', 'No session requests', 'Requests to join a session appear here.'] }); if (g) return g;
     var list = db.getSessionRequests();
     var waiting = list.filter(function (r) { return r.status === 'Open' || r.status === 'In review'; });
+    /* Opened for one request (e.g. from Needs Attention): open it straight away, once */
+    if (ctx.param && on && Hub.wsTabs['req-link'] !== ctx.param && list.some(function (r) { return r.id === ctx.param; })) { Hub.wsTabs['req-link'] = ctx.param; setTimeout(function () { Hub.actions['pp-req']({ dataset: { id: ctx.param } }); }, 0); }
+    if (!ctx.param) Hub.wsTabs['req-link'] = null;
     if (!on) return K.page(h, K.featureOff('sessionRequests') + K.section('Waiting while switched off', waiting.length + ' request' + (waiting.length === 1 ? '' : 's') + ' arrived before the feature was switched off. They are kept and can be decided once it is on.', '<div class="pp-disabled" aria-disabled="true">' + requestTable(list) + '</div>'));
     return K.page(h, K.stats([{ label: 'Waiting', value: waiting.length, tone: 'feature' }, { label: 'Approved', value: list.filter(function (r) { return r.resolution && r.resolution.outcome === 'Approved'; }).length }, { label: 'Declined', value: list.filter(function (r) { return r.status === 'Declined'; }).length }]) +
       K.section('All session requests', 'Open a request to approve or decline it.', requestTable(list)));

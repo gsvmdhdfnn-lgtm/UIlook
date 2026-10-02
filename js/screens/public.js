@@ -413,6 +413,8 @@
     var g = K.guard(ctx, head, { empty: ['userCheck', 'No sign-ups waiting', 'New coach and management sign-ups appear here.'] }); if (g) return g;
     var body;
     if (K.tab('csu', tabs) === 'pending') {
+      /* Opened for one sign-up: that one first */
+      if (ctx.param) pending = pending.slice().sort(function (a, b) { return (b.id === ctx.param) - (a.id === ctx.param); });
       body = pending.length ? '<div class="lx-stack">' + pending.map(function (s) {
         var mg = s.role === 'Management';
         return K.card({ title: s.name, sub: K.stamp('Signed up', s.name, s.at), right: K.pill(s.role, mg ? 'warn' : 'info'),
@@ -501,6 +503,7 @@
     var g = K.guard(ctx, head, { empty: ['link', 'No claims to review', 'Partial matches from parent sign-up appear here.'] }); if (g) return g;
     var body;
     if (K.tab('clm', tabs) === 'review') {
+      if (ctx.param) pend = pend.slice().sort(function (a, b) { return (b.id === ctx.param) - (a.id === ctx.param); });
       body = pend.length ? '<div class="lx-stack">' + pend.map(function (c) {
         var pl = db.getPlayer(c.player), fam = pl && db.getFamily(pl.family), parents = fam ? db.getFamilyParents(fam.id) : [];
         return K.card({ title: c.parent + ' claims ' + c.child, sub: K.stamp('Submitted', c.parent, c.at), right: K.status(c.outcome),

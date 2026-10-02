@@ -493,29 +493,31 @@
       if (!regDone) list.push(regIssue);
       return list;
     }
-    var working = db.workingStaff(o).filter(function (x) { return out.indexOf(x) < 0; }).map(function (x) { return x.actualRole || x.role; });
-    /* Know who should coach → Change coach / Add a coach. Don't know → Find cover. */
-    if (!o.staff.length) list.push(coverBanner(o, null));
-    out.forEach(function (x) { list.push(coverBanner(o, x.coach)); });
-    if (working.length && working.every(function (r) { return r === 'Learning'; })) list.push({ tone: 'warn', title: 'Learning Coach only', text: 'A Learning Coach can’t run a session alone. Add a Lead Coach.', primary: K.actBtn('Add a coach', 'sch-coach', { id: o.id, mode: 'add' }, { variant: 'primary' }), rules: ['ATT-002'] });
-    else if (working.length && working.indexOf('Lead') < 0) list.push({ tone: 'warn', title: 'No Lead Coach', text: 'Someone needs to lead this session. Make one of the coaches the Lead Coach for this date, or add one.', primary: K.actBtn('Choose a lead', 'sch-coach', { id: o.id, mode: 'lead' }, { variant: 'primary' }), rules: ['ATT-003'] });
-    db.workingStaff(o).forEach(function (x) {
-      var comp = db.getCoachComplianceSummary ? db.getCoachComplianceSummary(x.coach) : null;
-      if (comp && (comp.state === 'Expired' || comp.state === 'Missing')) list.push({ tone: 'warn', title: esc(db.coachName(x.coach)) + ': ' + esc(comp.text.charAt(0).toLowerCase() + comp.text.slice(1)), text: 'They are on this date. Change the coach, or check their documents.', primary: K.actBtn('Change coach', 'sch-coach', { id: o.id, coach: x.coach }, { variant: 'primary' }), secondary: K.actBtn('Check documents', 'sch-docs', { coach: x.coach }, { variant: 'secondary' }), rules: ['ATT-031'] });
-    });
+    /* Before it runs: the same issues Needs Attention sees, from the one shared engine */
+    if (o.draft) return [{ tone: 'warn', title: 'This session is still a draft', text: 'Finish setting it up so its dates can run and families can book.', primary: K.goBtn('Finish setting up', 'mgmt-session-edit/' + o.sessionId, { variant: 'primary' }), rules: ['ATT-016'] }];
+    var iss = db.dateIssues(o), seen = {}, leftNotes = [];
     var vActs = K.actBtn('Reschedule', 'sch-resched', { id: o.id }, { variant: 'secondary' }) + K.actBtn('Cancel session', 'sch-cancel', { id: o.id }, { variant: 'tertiary' });
-    var shut = o.venue ? db.venueClosure(o.venue, o.date) : null;
-    if (!o.venue) list.push({ tone: 'danger', title: 'No venue yet', text: 'Choose a venue, or move the session to a date when one is free.', primary: K.actBtn('Change venue', 'sch-venue', { id: o.id }, { variant: 'primary' }), secondary: vActs, rules: ['ATT-018'] });
-    else if (shut) list.push({ tone: 'danger', title: esc(db.venueName(o.venue)) + ' is closed on ' + esc(K.dd(o.date)), text: esc(shut.reason) + '. Move this date to another venue, reschedule it, or cancel it.', primary: K.actBtn('Change venue', 'sch-venue', { id: o.id }, { variant: 'primary' }), secondary: vActs, rules: ['ATT-019'] });
+    iss.open.forEach(function (k) {
+      var who = k.related && k.related.coach || null;
+      if (k.ruleId === 'ATT-013' || k.ruleId === 'ATT-014' || k.ruleId === 'ATT-041') { if (seen[who]) return; seen[who] = 1; list.push(Object.assign(coverBanner(o, who), { rules: ['ATT-013', 'ATT-014', 'ATT-041'] })); }
+      else if (k.ruleId === 'ATT-002') list.push({ tone: 'warn', title: 'Learning Coach only', text: esc(k.why) + ' Add a Lead Coach.', primary: K.actBtn('Add a coach', 'sch-coach', { id: o.id, mode: 'add' }, { variant: 'primary' }), rules: ['ATT-002'] });
+      else if (k.ruleId === 'ATT-003') list.push({ tone: 'warn', title: 'No Lead Coach', text: esc(k.why) + ' Make one of the coaches the Lead Coach for this date, or add one.', primary: K.actBtn('Choose a lead', 'sch-coach', { id: o.id, mode: 'lead' }, { variant: 'primary' }), rules: ['ATT-003'] });
+      else if (k.ruleId === 'ATT-031') { var comp = db.getCoachComplianceSummary(who); list.push({ tone: 'warn', title: esc(db.coachName(who)) + ': ' + esc(comp.text.charAt(0).toLowerCase() + comp.text.slice(1)), text: 'They are on this date and shouldn’t coach until it’s sorted. Change the coach, or check their documents.', primary: K.actBtn('Change coach', 'sch-coach', { id: o.id, coach: who }, { variant: 'primary' }), secondary: K.actBtn('Check documents', 'sch-docs', { coach: who }, { variant: 'secondary' }), rules: ['ATT-031'] }); }
+      else if (k.ruleId === 'ATT-032') list.push({ tone: 'warn', title: esc(k.title), text: esc(k.why), primary: K.goBtn('Set a pay rate', k.route, { variant: 'primary' }), rules: ['ATT-032'] });
+      else if (k.ruleId === 'ATT-018') list.push({ tone: 'danger', title: 'No venue yet', text: esc(k.why) + ' Choose a venue, or move the session to a date when one is free.', primary: K.actBtn('Change venue', 'sch-venue', { id: o.id }, { variant: 'primary' }), secondary: vActs, rules: ['ATT-018'] });
+      else if (k.ruleId === 'ATT-019') { var shut = db.venueClosure(o.venue, o.date); list.push({ tone: 'danger', title: esc(db.venueName(o.venue)) + ' is closed on ' + esc(K.dd(o.date)), text: esc(shut.reason) + '. Move this date to another venue, reschedule it, or cancel it.', primary: K.actBtn('Change venue', 'sch-venue', { id: o.id }, { variant: 'primary' }), secondary: vActs, rules: ['ATT-019'] }); }
+    });
+    /* Deliberate exceptions stay visible on the date, with who, when and why */
+    iss.left.forEach(function (k) { var e = k.exception; leftNotes.push({ tone: 'ok', kicker: 'Left as it is', title: esc(k.title), text: esc(e.reason) + (e.scope && e.scope.label ? ' · ' + esc(e.scope.label) : '') + '. ' + K.stamp('Agreed', e.by, e.at) + ' It comes back if anything changes on this date.', secondary: K.actBtn('Reopen', 'attn-reopen', { id: e.id }, { variant: 'tertiary', size: 'sm' }), rules: [k.ruleId] }); });
     if (db.hasStarted(o) && !regDone) list.push({ tone: 'warn', title: 'Register still needed', text: 'The session has started. The register is ' + reg.state.toLowerCase() + '.', primary: K.goBtn('Open register', 'mgmt-register/' + o.id, { variant: 'primary' }), rules: ['ATT-020'] });
     /* Urgent first; order within a tone stays as written */
     list = list.filter(function (x) { return x.tone === 'danger'; }).concat(list.filter(function (x) { return x.tone !== 'danger'; }));
-    return list.length ? list : [{ tone: 'ok', title: 'Ready to run', text: 'Coaches, a Lead Coach and the venue are in place. After it runs, confirm what happened here.' }];
+    return (list.length ? list : [{ tone: 'ok', title: 'Ready to run', text: 'Coaches, a Lead Coach and the venue are in place. After it runs, confirm what happened here.' }]).concat(leftNotes);
   }
   function readinessHtml(list) {
     var first = list[0], rest = list.slice(1);
     return K.situation(first) + (rest.length ? '<div class="k-sit-more" aria-label="Also before this session runs">' + rest.map(function (x) {
-      return '<div class="k-sit-more__row">' + ui.sev(x.tone === 'danger' ? 'Urgent' : 'Warning') + '<span><b>' + x.title + '</b><small>' + x.text + '</small></span>' + (x.primary || '').replace('btn--primary', 'btn--secondary').replace('class="btn ', 'class="btn btn--sm ') + '</div>';
+      return '<div class="k-sit-more__row">' + ui.sev(x.tone === 'danger' ? 'Urgent' : x.tone === 'ok' ? 'Normal' : 'Warning') + '<span><b>' + (x.kicker && x.tone === 'ok' ? esc(x.kicker) + ': ' : '') + x.title + '</b><small>' + x.text + '</small></span>' + (x.primary || x.secondary || '').replace('btn--primary', 'btn--secondary').replace('class="btn ', 'class="btn btn--sm ') + '</div>';
     }).join('') + '</div>' : '');
   }
   /* Find cover from the date: the Hub offers it to every eligible coach at once and you land on its cover page */

@@ -94,7 +94,7 @@
       : '<a class="nav-child" href="#' + S.route + '" aria-current="page"><span>' + esc(pageTitle()) + '</span></a>';
     var c = D.attention.summary.counts;
     var status = '<a class="side-status" href="#mgmt-attention"><span class="side-status__k">' + ui.sev('Urgent') + 'Needs attention</span>' +
-      '<b class="num">' + c.Urgent + ' urgent</b><small class="num">' + c.Warning + ' warning \u00b7 ' + c.Normal + ' normal</small><span class="side-status__go">Review' + I('arrowRight', 'icon-sm') + '</span></a>';
+      '<b class="num">' + c.Urgent + ' urgent</b><small class="num">' + c.Warning + ' warning \u00b7 ' + c.Normal + ' to do</small><span class="side-status__go">Review' + I('arrowRight', 'icon-sm') + '</span></a>';
     return '<aside class="sidebar" aria-label="Management navigation">' +
       '<a class="rv-brand" href="#mgmt-home" aria-label="Relvor home">' + Hub.relvorLogo + '<span>Relvor</span></a>' +
       '<button type="button" class="org-card" data-action="org-switch" aria-label="Switch organisation"><span class="org-card__mark">' + esc(ui.initials(Hub.brand.orgName)) + '</span><span class="org-card__text"><b>' + esc(Hub.brand.orgFull || Hub.brand.orgName) + '</b><small>Management hub</small></span>' + I('chevron', 'icon-sm') + '</button>' +
@@ -317,7 +317,10 @@
     Hub.navKind = (S.area !== wasArea || topOf(S.route) !== wasTop) ? 'top' : 'drill';
     /* Local tab rails start fresh on a new page, so drilling in never animates them */
     Object.keys(puckAt).forEach(function (k) { if (k.indexOf('top-') && k.indexOf('bar-')) delete puckAt[k]; });
-    Hub.render(); window.scrollTo(0, 0);
+    /* Opened from Needs Attention: the return ends once you go back, or leave for a home or area page */
+    var L = Hub.launch; if (L && (full === L.from.full || HOMES.indexOf(route) >= 0 || route === 'mgmt-attention' || topOf(route) === route)) Hub.launch = null;
+    Hub.render();
+    if (Hub.restoreScroll != null) { var y = Hub.restoreScroll; Hub.restoreScroll = null; window.scrollTo(0, y); } else window.scrollTo(0, 0);
   }
 
   /* Sheet & toast */

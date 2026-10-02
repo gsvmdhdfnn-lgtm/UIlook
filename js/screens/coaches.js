@@ -29,7 +29,7 @@
 
   /* Routes */
   K.route('mgmt-coaches', { title: 'Coaches', parent: 'home' });
-  K.route('mgmt-coach', { title: function () { var c = db.getCoach(K.param()); return c ? c.name : one(); }, parent: 'home' });
+  K.route('mgmt-coach', { title: function () { var c = db.getCoach(String(K.param()).split('/')[0]); return c ? c.name : one(); }, parent: 'home' });
   K.route('mgmt-coach-roles', { title: 'Session roles', parent: 'home' });
   K.route('mgmt-allocations', { title: 'Coach pay', parent: 'home' });
   K.route('mgmt-availability', { title: 'Availability', parent: 'home' });
@@ -111,7 +111,10 @@
   var TABS = [{ id: 'overview', label: 'Overview' }, { id: 'roles', label: 'Sessions' }, { id: 'availability', label: 'Availability' },
     { id: 'documents', label: 'Documents' }, { id: 'pay', label: 'Work & Pay' }];
   Hub.screens['mgmt-coach'] = function (ctx) {
-    var c = db.getCoach(ctx.param);
+    /* mgmt-coach/tom/documents opens straight on that tab (once), e.g. from Needs Attention */
+    var parts = String(ctx.param || '').split('/'), c = db.getCoach(parts[0]);
+    if (parts[1] && Hub.wsTabs['coach-prof-link'] !== ctx.param) { Hub.wsTabs['coach-prof'] = parts[1]; Hub.wsTabs['coach-prof-link'] = ctx.param; }
+    if (!parts[1]) Hub.wsTabs['coach-prof-link'] = null;
     var base = K.head({ back: ['mgmt-coaches', word()], eyebrow: one(), title: c ? c.name : one() });
     if (!c) { var g0 = K.guard(ctx, base); if (g0) return g0; return notFound(base, one()); }
     var comp = db.getCoachComplianceSummary(c.id), openCover = db.getOpenCover().filter(function (x) { return x.absent === c.id; }).length;
@@ -715,7 +718,7 @@
   Hub.actions['co-nocover'] = function (el) {
     var d = el.dataset, n = db.getCoverNeed(d.req, d.need), o = db.getOccurrence(n.occurrence), left = db.workingStaff(o);
     var gap = !left.length ? 'Nobody else is on this date, so it can’t run without cover. Cancel or reschedule it instead.' : !left.some(function (x) { return (x.actualRole || x.role) === 'Lead'; }) ? 'This leaves no Lead Coach on this date. Needs Attention will keep showing it.' : '';
-    K.sheet({ overline: '<span class="overline">' + esc(o.session) + ' · ' + esc(K.dd(o.date)) + '</span>', title: 'Run without cover', body: (gap ? ui.notice(left.length ? 'warn' : 'danger', left.length ? 'No Lead Coach' : 'Can’t run without a coach', gap) : '<p class="k-note">' + esc(left.map(function (x) { return db.coachName(x.coach); }).join(', ')) + ' will run it. Everyone offered it is told it’s no longer needed.</p>') +
+    K.sheet({ overline: '<span class="overline">' + esc(o.session) + ' · ' + esc(K.dd(o.date)) + '</span>', title: 'Run without cover', body: (gap ? ui.notice(left.length ? 'warn' : 'danger', left.length ? 'No Lead Coach' : 'Can’t run without a coach', gap) : '<p class="k-note">' + esc(left.map(function (x) { return db.coachName(x.coach); }).join(', ')) + ' will run it. Everyone offered it is told it’s no longer needed.</p>') + (left.length ? '<p class="k-note">This is recorded for ' + esc(K.dd(o.date)) + ' only, with your reason, and shows on the date. If anything changes on the date, it comes back to Needs attention.</p>' : '') +
       (left.length ? K.form([K.field('Why?', K.input('nc-why', '', { placeholder: 'For example: small group this week' }), null, true)], 1) : ''), foot: left.length ? sheetFoot('Run without cover', 'co-nocover-go', { req: d.req, need: d.need }) : ui.btn('Close', { variant: 'secondary', attrs: { 'data-action': 'close-sheet' } }) });
   };
   Hub.actions['co-nocover-go'] = function (el) { var d = el.dataset, why = K.val('nc-why').trim(); if (!why) { Hub.toast('Add a reason'); return; } Hub.closeSheet(true); coverDo(function () { return db.withdrawCover(d.req, d.need, { back: false, reason: why }, K.me(), K.now()); }, 'Running without cover. Everyone offered it has been told', 'Cover withdrawn: running without cover (' + d.need + ')', d.req); };

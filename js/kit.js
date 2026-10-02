@@ -70,11 +70,15 @@
     if (msg) Hub.toast(msg);
     /* Opened from a Needs Attention item: once the source is fixed the item
        clears on re-check, so take the person back to where they started. */
-    var L = Hub.launch;
-    if (L && L.key && Hub.db.getAttentionCases && !Hub.db.getAttentionCases().some(function (k) { return k.caseKey === L.key; })) {
+    var L = Hub.launch, cases = L && L.key && Hub.db.getAttentionCases ? Hub.db.getAttentionCases() : null;
+    if (cases && !cases.some(function (k) { return k.caseKey === L.key; })) {
+      /* The fix moved the problem on to its next step (e.g. "can't coach" → finding cover): follow it */
+      var next = L.chain && cases.filter(function (k) { return k.chain === L.chain; })[0];
+      if (next) { L.key = next.caseKey; L.to = next.route; Hub.render(); return r; }
       Hub.launch = null;
       Hub.toast((msg ? msg + '. ' : '') + 'That item is cleared');
       if (Hub.closeSheet) Hub.closeSheet(true);
+      Hub.restoreScroll = L.from.scroll || 0;
       location.hash = L.from.full; return r;
     }
     Hub.render();
@@ -83,7 +87,10 @@
   /* Any link or button carrying data-case-key starts a launch from this page */
   document.addEventListener('click', function (e) {
     var el = e.target.closest && e.target.closest('[data-case-key]');
-    if (el && Hub.currentPlace) Hub.launch = { key: el.getAttribute('data-case-key'), from: Hub.currentPlace(), to: (el.getAttribute('href') || '').replace(/^#/, '') || el.getAttribute('data-route') || '' };
+    if (el && Hub.currentPlace) {
+      var key = el.getAttribute('data-case-key'), c = Hub.db.getAttentionCase ? Hub.db.getAttentionCase(key) : null;
+      Hub.launch = { key: key, chain: c && c.chain, from: Object.assign(Hub.currentPlace(), { scroll: window.scrollY }), to: (el.getAttribute('href') || '').replace(/^#/, '') || el.getAttribute('data-route') || '' };
+    }
   }, true);
   K.log = function (e) {
     var D = Hub.data; D.audit = D.audit || [];
@@ -160,10 +167,12 @@
      categories, each opening the actual task. */
   K.areaNeeds = function (cats, o) {
     o = o || {};
-    var A = Hub.db.getAttention(), list = A.cases.filter(function (k) { return cats.indexOf(k.category) >= 0; });
+    /* The same cards as Needs Attention: one per date or coach, waiting on others left out */
+    var list = Hub.db.getAttentionCards().filter(function (g) { return !g.waiting && g.issues.some(function (k) { return cats.indexOf(k.category) >= 0; }); });
     var word = { Urgent: 'Urgent', Warning: 'Warning', Normal: 'To do' };
-    var rows = list.slice(0, o.limit || 5).map(function (k) {
-      return ui.row({ lead: ui.sev(k.severity), title: esc(k.title), sub: [esc(word[k.severity]), esc(k.when || '')].concat(k.detail ? [esc(k.detail)] : []), href: '#' + (k.route || 'mgmt-attention'), trail: '<span class="k-needs__act">' + esc(k.actionLabel || 'Open') + '</span>' }).replace('<a ', '<a data-case-key="' + esc(k.caseKey) + '" ');
+    var rows = list.slice(0, o.limit || 5).map(function (g) {
+      var k = g.lead, more = g.issues.length - 1;
+      return ui.row({ lead: ui.sev(g.severity), title: esc(k.title), sub: [esc(word[g.severity]), esc(k.when || '')].concat(k.why ? [esc(k.why)] : []).concat(more ? ['+' + more + ' more'] : []), href: '#' + (k.route || 'mgmt-attention'), trail: '<span class="k-needs__act">' + esc(k.actionLabel || 'Open') + '</span>' }).replace('<a ', '<a data-case-key="' + esc(k.caseKey) + '" ');
     });
     var body = list.length ? K.list(rows) + (list.length > rows.length ? '<p class="k-note">' + (list.length - rows.length) + ' more in Needs attention</p>' : '')
       : '<div class="k-needs__clear">' + I('checkCircle', 'icon-sm') + '<span>' + esc(o.clear || 'Nothing here needs you right now.') + '</span></div>';
@@ -174,7 +183,7 @@
      Quiet (renders nothing) when there is nothing to do. */
   K.needsFor = function (test, o) {
     o = o || {};
-    var list = Hub.db.getAttentionCases().filter(test);
+    var list = Hub.db.getAttentionCases().filter(function (k) { return !k.waiting && test(k); });
     if (!list.length) return o.quiet === false ? '<div class="k-needs__clear">' + I('checkCircle', 'icon-sm') + '<span>Nothing needs you here.</span></div>' : '';
     /* The same problem on several dates reads as one line with a count */
     var groups = [];

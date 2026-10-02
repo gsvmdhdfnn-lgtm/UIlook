@@ -42,12 +42,13 @@
       '<span class="hx-sched__count num">' + I('users', 'icon-sm') + o.players + (client ? '' : '') + '</span>' + I('chevron', 'icon-sm hx-chev') + '</a>';
   }
   function attentionPanel(state) {
-    var A = db.getAttention(), c = A.summary.counts, empty = state === 'empty' || !A.cases.length;
-    var head = '<div class="hx-card__head"><div><h2>Needs attention</h2><small class="hx-sub">' + (empty ? 'Nothing waiting' : A.summary.total + ' open · updated 14:05') + '</small></div><a class="hx-link" href="#mgmt-attention">View all' + I('arrowRight', 'icon-sm') + '</a></div>';
+    var N = attnNow(), c = N.counts, empty = state === 'empty' || !N.total;
+    var head = '<div class="hx-card__head"><div><h2>Needs attention</h2><small class="hx-sub">' + (empty ? 'Nothing waiting' : N.total + ' to do' + (N.waiting.length ? ' · ' + N.waiting.length + ' waiting on others' : '')) + '</small></div><a class="hx-link" href="#mgmt-attention">View all' + I('arrowRight', 'icon-sm') + '</a></div>';
     if (empty) return '<section class="hx-card hm-attn" id="hm-attn">' + head + ui.empty('checkCircle', 'All clear', 'Nothing currently needs management action.', 'ok') + '</section>';
     var sev = '<div class="hm-sev num">' + [['Urgent', 'urgent'], ['Warning', 'warning'], ['Normal', 'normal']].map(function (x) { return '<a class="hm-sev__i hm-sev--' + x[1] + '" href="#mgmt-attention"><i></i><b>' + c[x[0]] + '</b>' + SEVWORD[x[0]] + '</a>'; }).join('') + '</div>';
-    var rows = '<div class="hx-list">' + A.cases.slice(0, 5).map(function (k) {
-      return '<a class="hx-attn' + (k.severity === 'Urgent' ? ' is-urgent' : '') + '" data-case-key="' + esc(k.caseKey) + '" href="#' + esc(k.route || 'mgmt-attention') + '"><span class="hx-dot hx-tone--' + (k.severity === 'Urgent' ? 'danger' : k.severity === 'Warning' ? 'warn' : 'muted') + '"></span><span class="hx-attn__main"><b>' + esc(k.title) + '</b><small>' + esc(k.when) + ' · ' + esc(k.actionLabel || 'Open') + '</small></span>' + I('chevron', 'icon-sm hx-chev') + '</a>';
+    var rows = '<div class="hx-list">' + N.active.slice(0, 5).map(function (g) {
+      var k = g.lead, more = g.issues.length - 1;
+      return '<a class="hx-attn' + (g.severity === 'Urgent' ? ' is-urgent' : '') + '" data-case-key="' + esc(k.caseKey) + '" href="#' + esc(k.route || 'mgmt-attention') + '"><span class="hx-dot hx-tone--' + (g.severity === 'Urgent' ? 'danger' : g.severity === 'Warning' ? 'warn' : 'muted') + '"></span><span class="hx-attn__main"><b>' + esc(k.title) + '</b><small>' + esc(k.when) + ' · ' + esc(k.actionLabel || 'Open') + (more ? ' · +' + more + ' more' : '') + '</small></span>' + I('chevron', 'icon-sm hx-chev') + '</a>';
     }).join('') + '</div>';
     return '<section class="hx-card hm-attn" id="hm-attn">' + head + sev + rows + '</section>';
   }
@@ -61,14 +62,14 @@
     var active = db.getCoaches().filter(function (c) { return c.active !== false; }).length;
     var players = db.getPlayers(function (p) { return p.status === 'Active'; }).length;
     var fin = K.fin() !== 'none', owed = fin ? db.fin.receivables().total : 0;
-    var A = db.getAttention().cases;
-    function waiting(cats) { var n = A.filter(function (k) { return cats.indexOf(k.category) >= 0; }).length; return n ? n + ' need' + (n === 1 ? 's' : '') + ' you' : ''; }
+    var NC = attnNow().active;
+    function waiting(cats) { var n = NC.filter(function (g) { return g.issues.some(function (k) { return cats.indexOf(k.category) >= 0; }); }).length; return n ? n + ' need' + (n === 1 ? 's' : '') + ' you' : ''; }
     var areas = '<div class="lx-areas lx-areas--stat hm-areas" aria-label="Your four areas">' +
       areaCard({ route: 'mgmt-schedule', icon: 'calendar', title: 'Schedule & Sessions', value: empty ? 0 : T.length, label: 'today', need: waiting(['Sessions & Venues', 'Staffing & Cover']) }) +
       areaCard({ route: 'mgmt-coaches', icon: 'coaches', title: 'Coaches', value: active, label: 'active', need: waiting(['Coaches & Compliance', 'Staffing & Cover']) }) +
       areaCard({ route: 'mgmt-players', icon: 'players', title: 'Players & Parents', value: players, label: 'active players', need: waiting(['Players & Parents']) }) +
       areaCard({ route: 'mgmt-finance', icon: 'finance', title: 'Financials', value: fin ? K.money(owed).replace(/\.\d\d$/, '') : '—', label: fin ? 'owed to us' : 'ask for Finance access', need: fin ? waiting(['Finance']) : '' }) + '</div>';
-    var urgent = db.getAttention().cases.filter(function (k) { return k.severity === 'Urgent'; }), c = db.getAttention().summary.counts;
+    var UN = attnNow(), urgent = UN.active.filter(function (g) { return g.severity === 'Urgent'; }).map(function (g) { return g.lead; }), c = UN.counts;
     var urgentSum = empty || !urgent.length ? '' : '<section class="hm-urgent" aria-label="Urgent actions"><a class="hm-urgent__head" href="#hm-attn"><span class="hm-urgent__k">' + ui.sev('Urgent') + '<b class="num">' + urgent.length + ' urgent</b><span class="num">· ' + c.Warning + ' warning · ' + c.Normal + ' to do</span></span><span class="hm-urgent__go">Review' + I('arrowRight', 'icon-sm') + '</span></a>' +
       urgent.map(function (k) { return '<a class="hm-urgent__row" data-case-key="' + esc(k.caseKey) + '" href="#' + esc(k.route || 'mgmt-attention') + '"><b>' + esc(k.title) + '</b><small>' + esc(k.when) + ' · ' + esc(k.actionLabel || 'Open') + '</small></a>'; }).join('') + '</section>';
     var sched = '<section class="hx-card hm-sched" id="hx-today"><div class="hx-card__head"><div><h2>Today’s schedule</h2><small class="hx-sub">' + (empty ? 'No sessions' : T.length + ' sessions · ' + expected + ' players expected') + '</small></div><a class="hx-link" href="#mgmt-calendar">View full day' + I('arrowRight', 'icon-sm') + '</a></div>' +
@@ -83,67 +84,101 @@
     var approvals = '<section class="hx-card hx-card--rail"><div class="hx-card__head"><div><h2>Approvals waiting</h2><small class="hx-sub">' + K.sum(appr, 'count') + ' to decide</small></div><a class="hx-link" href="#mgmt-approvals">All' + I('arrowRight', 'icon-sm') + '</a></div><div class="hx-list">' + appr.map(function (a) { return '<a class="hm-mini" href="#mgmt-' + a.id + '"><span class="hm-mini__icon">' + I(a.icon, 'icon-sm') + '</span><span><b>' + esc(a.label) + '</b><small>' + esc(a.sub) + '</small></span>' + K.pill(a.count + ' waiting', 'info') + '</a>'; }).join('') + '</div></section>';
     var changes = '<section class="hx-card hx-card--rail"><div class="hx-card__head"><div><h2>Since you last looked</h2><small class="hx-sub">Last visit ' + esc(db.getLastVisit()) + '</small></div><a class="hx-link" href="#mgmt-audit">History' + I('arrowRight', 'icon-sm') + '</a></div><div class="hx-activity">' +
       db.getChanges().map(function (ch, i) { var tone = ['warn', 'ok', 'blue'][i % 3], icon = ['calendar', 'shield', 'inbox'][i % 3]; var target = ch.key ? ' data-action="case" data-key="' + esc(ch.key) + '"' : ''; return '<' + (ch.key ? 'button type="button"' : 'a href="' + (ch.href || '#mgmt-audit') + '"') + ' class="hx-act hm-act"' + target + '><span class="hx-act__icon hx-tone--' + tone + '">' + I(icon, 'icon-sm') + '</span><span><b>' + esc(ch.text) + '</b><small>' + esc(ch.time) + '</small></span></' + (ch.key ? 'button' : 'a') + '>'; }).join('') + '</div></section>';
-    return shell(urgentSum + areas + '<div class="hm__pair">' + attentionPanel(ctx.state) + sched + '</div>', approvals + tom + cal);
+    /* Approvals are Needs Attention items now, so there is one list of decisions */
+    return shell(urgentSum + areas + '<div class="hm__pair">' + attentionPanel(ctx.state) + sched + '</div>', tom + cal);
   };
 
-  /* ------------------------------------------------------ NEEDS ATTENTION */
+  /* ------------------------------------------------------ NEEDS ATTENTION
+     One card per date or coach (each problem underneath is still its own issue): what is wrong,
+     why it matters, and the one action that opens the exact task. Urgent first, soonest first.
+     Waiting on others is folded away and not counted until Management is needed again. */
   var attnCategory = 'All';
   /* The four areas are filtered views of this one list (never separate queues) */
   var AREA_CATS = { 'Schedule & Sessions': ['Sessions & Venues', 'Staffing & Cover'], 'Coaches': ['Coaches & Compliance', 'Staffing & Cover'], 'Players & Parents': ['Players & Parents'], 'Financials': ['Finance'] };
-  function inFilter(k) { return attnCategory === 'All' || (AREA_CATS[attnCategory] || [attnCategory]).indexOf(k.category) >= 0; }
+  function inFilter(g) { var cats = AREA_CATS[attnCategory] || [attnCategory]; return attnCategory === 'All' || g.issues.some(function (k) { return cats.indexOf(k.category) >= 0; }); }
   Hub.actions['attn-area'] = function (el) { attnCategory = el.dataset.area || 'All'; Hub.wsTabs.attention = 'All'; if (location.hash === '#mgmt-attention') Hub.render(); else Hub.go('mgmt-attention'); };
   document.addEventListener('change', function (e) { if (e.target.matches && e.target.matches('[data-change="attn-cat"]')) { attnCategory = e.target.value; Hub.render(); } });
+  /* Every surface reads the same cards */
+  function attnNow() {
+    var A = db.getAttention(), all = db.getAttentionCards(A.cases), active = all.filter(function (g) { return !g.waiting; }), waiting = all.filter(function (g) { return g.waiting; });
+    var counts = { Urgent: 0, Warning: 0, Normal: 0 }; active.forEach(function (g) { counts[g.severity]++; });
+    return { A: A, active: active, waiting: waiting, counts: counts, total: active.length };
+  }
+  Hub.attnNow = attnNow;
+  function issueCard(g) {
+    var k = g.lead, sv = g.waiting ? 'normal' : (g.severity === 'Normal' ? 'normal' : g.severity.toLowerCase()), also = g.issues.slice(1);
+    var where = g.group ? esc(g.group.title) + ' · ' + esc(g.group.sub) : esc(k.category);
+    return '<article class="lx-issue lx-issue--' + sv + '"><div class="lx-issue__main"><span class="lx-issue__tags">' + (g.waiting ? K.pill('Waiting', '') : K.pill(SEVWORD[g.severity], sevTone(g.severity))) + '<span class="lx-issue__cat">' + where + '</span></span>' +
+      '<h3><button type="button" class="lx-issue__link" data-action="case" data-key="' + esc(k.caseKey) + '">' + esc(k.title) + '</button></h3>' +
+      '<p class="lx-issue__meta">' + esc(k.why || k.detail || '') + '</p>' +
+      '<p class="lx-issue__why"><span class="num when when--' + (g.waiting ? 'normal' : k.severity.toLowerCase()) + '">' + esc(k.when) + '</span>' + (k.reopened ? '<span>Back after being left as it is: ' + esc(k.reopened.lapsed ? k.reopened.lapsed.why.toLowerCase() : 'something changed') + '</span>' : '') + '</p>' +
+      (also.length ? '<ul class="lx-also" aria-label="Also">' + also.map(function (c) {
+        return '<li>' + (c.waiting ? '<span class="lx-also__tag">Waiting</span>' : ui.sev(c.severity)) + '<span class="lx-also__t">' + esc(c.title) + '</span><a class="lx-also__go" href="#' + esc(c.route) + '" data-case-key="' + esc(c.caseKey) + '">' + esc(c.actionLabel) + '</a></li>';
+      }).join('') + '</ul>' : '') + '</div>' +
+      '<div class="lx-issue__act">' + K.goBtn(k.actionLabel, k.route, { variant: 'primary', trail: 'arrowRight', attrs: { 'data-case-key': k.caseKey } }) + '</div></article>';
+  }
+  function leftCard(k) {
+    var e = k.exception;
+    return '<article class="lx-issue lx-issue--normal"><div class="lx-issue__main"><span class="lx-issue__tags">' + K.pill('Left as it is', 'ok') + '<span class="lx-issue__cat">' + esc(k.category) + '</span></span><h3>' + esc(k.title) + '</h3>' +
+      '<p class="lx-issue__meta">“' + esc(e.reason) + '”' + (e.scope && e.scope.label ? ' · ' + esc(e.scope.label) : '') + '</p><p class="lx-issue__why"><span>' + K.stamp('Agreed', e.by, e.at) + '</span><span>Comes back if anything material changes</span></p></div>' +
+      '<div class="lx-issue__act">' + K.actBtn('Reopen', 'attn-reopen', { id: e.id }, { variant: 'secondary' }) + '</div></article>';
+  }
   Hub.screens['mgmt-attention'] = function (ctx) {
-    var A = db.getAttention(), c = A.summary.counts;
-    var tabs = [{ id: 'All', label: 'All', meta: A.summary.total + ' open' }, { id: 'Urgent', label: 'Urgent', meta: c.Urgent, state: 'Urgent' }, { id: 'Warning', label: 'Warning', meta: c.Warning, state: 'Warning' }, { id: 'Normal', label: 'To do', meta: c.Normal, state: 'Normal' }, { id: 'Accepted', label: 'Accepted', meta: A.accepted.length }];
+    var N = attnNow(), c = N.counts;
+    var tabs = [{ id: 'All', label: 'All', meta: N.total + ' to do' }, { id: 'Urgent', label: 'Urgent', meta: c.Urgent, state: 'Urgent' }, { id: 'Warning', label: 'Warning', meta: c.Warning, state: 'Warning' }, { id: 'Normal', label: 'To do', meta: c.Normal }, { id: 'Accepted', label: 'Left as it is', meta: N.A.left.length }];
     var sev = K.tab('attention', tabs);
     var cats = ['Staffing & Cover', 'Coaches & Compliance', 'Sessions & Venues', 'Players & Parents', 'Development', 'Finance'];
-    var select = '<label class="lx-select"><span class="visually-hidden">Category</span>' + I('filter', 'icon-sm') + '<select data-change="attn-cat">' + ['All'].concat(Object.keys(AREA_CATS)).concat(cats.filter(function (c) { return !AREA_CATS[c]; })).map(function (k) { return '<option value="' + esc(k) + '"' + (k === attnCategory ? ' selected' : '') + '>' + (k === 'All' ? 'Everything' : AREA_CATS[k] ? esc(k) + ' (area)' : esc(k)) + '</option>'; }).join('') + '</select>' + I('chevronDown', 'icon-sm') + '</label>';
-    var h = K.head({ back: ['mgmt-home', 'Home'], eyebrow: 'Needs attention', title: 'Needs attention', sub: 'A work queue of things Management needs to decide, fix, approve or support. Each item clears itself once the issue is fixed.',
-      actions: K.goBtn('Rules', 'mgmt-attention-rules', { variant: 'tertiary', icon: 'settings' }) + K.actBtn('Refresh', 'attn-refresh', {}, { variant: 'secondary', icon: 'refresh' }), tabs: '<div class="lx-filterbar">' + K.tabs('attention', tabs) + select + '</div>' });
+    var select = '<label class="lx-select"><span class="visually-hidden">Area</span>' + I('filter', 'icon-sm') + '<select data-change="attn-cat">' + ['All'].concat(Object.keys(AREA_CATS)).concat(cats.filter(function (x) { return !AREA_CATS[x]; })).map(function (k) { return '<option value="' + esc(k) + '"' + (k === attnCategory ? ' selected' : '') + '>' + (k === 'All' ? 'Every area' : esc(k)) + '</option>'; }).join('') + '</select></label>';
+    var h = K.head({ back: ['mgmt-home', 'Home'], eyebrow: 'Needs attention', title: 'Needs attention', sub: '<span class="na-sub">Everything waiting for a Management decision, most urgent first. Each item says what’s wrong, why it matters and what to do, and clears itself once it’s fixed.</span>',
+      actions: K.goBtn('Rules', 'mgmt-attention-rules', { variant: 'tertiary', icon: 'settings' }), tabs: '<div class="lx-filterbar">' + K.tabs('attention', tabs) + select + '</div>' });
     var g = K.guard(ctx, h, { empty: ['checkCircle', 'All clear', 'No staffing gaps, compliance issues, registers, claims or finance items are waiting.'] }); if (g) return g;
-    var list = (sev === 'Accepted' ? A.accepted : A.cases).filter(function (k) { return (sev === 'All' || sev === 'Accepted' || k.severity === sev) && inFilter(k); });
-    if (!list.length) return K.page(h, '<div class="zone-inset">' + ui.empty('checkCircle', 'Nothing in this filter', 'Try another priority or category.', 'ok') + '</div>');
-    /* Urgent first, across every category; the category is a label and a filter, not the order */
-    var RANK = { Urgent: 0, Warning: 1, Normal: 2 };
-    list = list.map(function (k, i) { return { k: k, i: i }; }).sort(function (a, b) { return (RANK[a.k.severity] - RANK[b.k.severity]) || (a.i - b.i); }).map(function (x) { return x.k; });
-    var body = '<div class="lx-stack">' + list.map(function (k) {
-      return '<article class="lx-issue lx-issue--' + (k.severity === 'Normal' ? 'normal' : k.severity.toLowerCase()) + '"><div class="lx-issue__main"><span class="lx-issue__tags">' + K.pill(SEVWORD[k.severity], sevTone(k.severity)) + '<span class="lx-issue__cat">' + esc(k.category) + '</span></span>' +
-        '<h3><button type="button" class="lx-issue__link" data-action="case" data-key="' + esc(k.caseKey) + '">' + esc(k.title) + '</button></h3><p class="lx-issue__meta">' + esc(k.detail) + '</p>' +
-        '<p class="lx-issue__why"><span>' + esc(k.severityReason) + '</span><span class="num when when--' + k.severity.toLowerCase() + '">' + esc(k.when) + '</span>' + (k.exception ? '<span>' + esc(k.exception.type) + ' by ' + esc(k.exception.approver) + '</span>' : '') + '</p></div>' +
-        '<div class="lx-issue__act">' + (sev === 'Accepted' ? K.actBtn('Reopen', 'attn-reopen', { id: k.exception.id }, { variant: 'secondary' }) : K.goBtn(k.actionLabel, k.route, { variant: 'primary', trail: 'arrowRight' , attrs: { 'data-case-key': k.caseKey } })) + '</div></article>';
-    }).join('') + '</div>';
-    return K.page(h, body + '<p class="lx-note">Items clear on their own once the underlying issue is fixed. Accepting or overriding a case needs a reason and an approver, and stays in history.</p>');
+    if (sev === 'Accepted') {
+      var left = N.A.left.filter(function (k) { return inFilter({ issues: [k] }); });
+      return K.page(h, left.length ? '<div class="lx-stack">' + left.map(leftCard).join('') + '</div><p class="lx-note">Each one was a deliberate decision with a reason and who agreed it. It comes back to the queue on its own if something material changes, or when its time limit passes.</p>' : '<div class="zone-inset">' + ui.empty('checkCircle', 'Nothing left as it is', 'When you decide to leave something as it is, it shows here with the reason.', 'ok') + '</div>');
+    }
+    var list = N.active.filter(function (x) { return (sev === 'All' || x.severity === sev) && inFilter(x); });
+    var wait = sev === 'All' ? N.waiting.filter(inFilter) : [];
+    var body = list.length ? '<div class="lx-stack na-list">' + list.map(issueCard).join('') + '</div>' : '<div class="zone-inset">' + ui.empty('checkCircle', sev === 'All' ? 'Nothing needs you' : 'Nothing in this filter', sev === 'All' ? 'Everything is sorted or waiting on someone else.' : 'Try another priority or area.', 'ok') + '</div>';
+    var waitSec = wait.length ? K.details('Waiting on others (' + wait.length + ')', '<div class="lx-stack na-list">' + wait.map(issueCard).join('') + '</div>', { sub: 'You’ve done your part. These come back up when you’re needed: someone can cover, no one can, or it gets close.', key: 'na-waiting' }) : '';
+    return K.page(h, body + waitSec);
   };
-  Hub.actions['attn-refresh'] = function (el) { el.classList.add('is-busy'); setTimeout(function () { el.classList.remove('is-busy'); Hub.render(); Hub.toast('Checks re-run at ' + K.dt(K.now()).split(' ')[2]); }, 500); };
-  Hub.actions['attn-reopen'] = function (el) { Hub.mutate(function () { db.revokeAttentionException(el.dataset.id); }, 'Item reopened'); };
+  Hub.actions['attn-refresh'] = function () { Hub.render(); };
+  Hub.actions['attn-reopen'] = function (el) { Hub.mutate(function () { db.revokeAttentionException(el.dataset.id); }, 'Reopened. It’s back in Needs attention'); };
 
-  /* Case drawer: detail, one action, and accept / override as an exception */
+  /* Item detail: what, why, what to do, and "Leave as it is" as a deliberate exception */
   Hub.actions['case'] = function (el) {
     var c = db.getAttentionCase(el.dataset.key);
     if (!c) { Hub.toast('This item has already been resolved'); return; }
-    var occ = c.related && c.related.occurrence && db.getOccurrence(c.related.occurrence), occHtml = '';
-    if (occ) occHtml = '<section class="section">' + ui.sectionHead(occ.session, { meta: K.dd(occ.date) + ', ' + occ.start + '–' + occ.end }) +
-      (occ.staff.length ? ui.rows(occ.staff.map(function (s) { return ui.row({ lead: ui.avatar(db.coachName(s.coach), 'md'), title: esc(db.coachName(s.coach)), sub: [esc(K.roleName(s.role || (s.lead ? 'Lead' : 'Coach')))], trail: s.unavailable ? ui.status(s.covering ? 'Covered by ' + db.coachName(s.covering) : 'Unavailable', s.covering ? 'ok' : 'danger') : ui.status('Assigned') }); }), 'rows--avatar') : '<p>' + ui.status('No coach assigned yet', 'danger') + '</p>') + '</section>';
+    var siblings = c.group && c.group.kind ? db.getAttentionCases().filter(function (x) { return x.caseKey !== c.caseKey && x.group && x.group.key === c.group.key; }) : [];
     Hub.openSheet({
-      overline: '<div class="sheet-kicker">' + ui.sev(c.severity) + '<span class="' + (c.severity === 'Urgent' ? 'text-danger' : '') + '">' + SEVWORD[c.severity] + '</span><span class="text-4">/</span><span>' + esc(c.category) + '</span></div>',
+      overline: '<div class="sheet-kicker">' + ui.sev(c.severity) + '<span class="' + (c.severity === 'Urgent' ? 'text-danger' : '') + '">' + (c.waiting ? 'Waiting on others' : SEVWORD[c.severity]) + '</span><span class="text-4">/</span><span>' + esc(c.group && c.group.kind ? c.group.title : c.category) + '</span></div>',
       title: esc(c.title),
-      body: K.kv([['When', '<span class="num when when--' + c.severity.toLowerCase() + '">' + esc(c.when) + '</span>'], ['Details', esc(c.detail)], ['Why this priority', esc(c.severityReason)], ['Rule', esc(c.ruleName) + ' <span class="text-3 mono">' + esc(c.ruleId) + '</span>'], c.exception ? ['Exception', esc(c.exception.type) + ': ' + esc(c.exception.reason) + '<br>' + K.stamp('Approved by ' + c.exception.approver + ', recorded', c.exception.by, c.exception.at)] : null]) + occHtml +
-        '<p class="text-3 fs-14">This item clears on its own once the underlying issue is fixed.</p>',
-      foot: K.actBtn('Accept or change priority', 'case-except', { key: c.caseKey }, { variant: 'tertiary' }) + K.goBtn(c.actionLabel, c.route, { variant: 'primary', trail: 'arrowRight', attrs: { 'data-case-key': c.caseKey } })
+      body: K.kv([['Why it matters', esc(c.why || '')], ['When', '<span class="num when when--' + c.severity.toLowerCase() + '">' + esc(c.when) + '</span>' + (c.severityReason ? ' <small class="k-note">' + esc(c.severityReason) + '</small>' : '')], c.detail ? ['Details', esc(c.detail)] : null,
+        c.exception ? [c.exception.type, '“' + esc(c.exception.reason) + '”' + (c.exception.scope && c.exception.scope.label ? ' · ' + esc(c.exception.scope.label) : '') + '<br>' + K.stamp('By', c.exception.by, c.exception.at)] : null,
+        c.reopened && c.reopened.lapsed ? ['Came back', esc(c.reopened.lapsed.why) + ' (was left as it is by ' + esc(c.reopened.by) + ': “' + esc(c.reopened.reason) + '”)'] : null].filter(Boolean)) +
+        (siblings.length ? '<h3 class="k-h3">Also on this ' + (c.group.kind === 'date' ? 'date' : 'coach') + '</h3>' + ui.rows(siblings.map(function (x) { return ui.row({ lead: ui.sev(x.severity), title: esc(x.title), sub: [esc(x.why || '')], href: '#' + x.route }); })) : '') +
+        '<p class="text-3 fs-14">This clears on its own once the problem is fixed.</p>',
+      foot: (c.exception ? '' : K.actBtn('Leave as it is', 'case-except', { key: c.caseKey }, { variant: 'tertiary' })) + K.goBtn(c.actionLabel, c.route, { variant: 'primary', trail: 'arrowRight', attrs: { 'data-case-key': c.caseKey } })
     });
   };
   Hub.actions['case-except'] = function (el) {
-    var c = db.getAttentionCase(el.dataset.key);
-    Hub.openSheet({ overline: '<span class="overline">Exception</span>', title: 'Accept or change priority: ' + esc(c.title), meta: '<p class="k-note">Accepting removes the case from the queue until it changes. Changing priority moves it up or down. Both need a reason and an approver, and are kept in history.</p>',
-      body: K.form([K.field('Decision', K.select('ex_type', [['Accepted', 'Accept (known and handled)'], ['Severity override', 'Change priority']], 'Accepted')), K.field('Change priority to', K.select('ex_sev', [['Normal', 'To do'], ['Warning', 'Warning'], ['Urgent', 'Urgent']], 'Normal')), K.field('Approver', K.select('ex_approver', ['Josh Evans', 'David Cole'], 'Josh Evans')), K.field('Reason', K.input('ex_reason', '', { placeholder: 'Required' }), '', true)], 2),
-      foot: ui.btn('Cancel', { variant: 'tertiary', attrs: { 'data-action': 'close-sheet' } }) + K.actBtn('Save exception', 'case-except-save', { key: c.caseKey }, { variant: 'primary' }) });
+    var c = db.getAttentionCase(el.dataset.key), occ = c.related && c.related.occurrence && db.getOccurrence(c.related.occurrence);
+    var scopes = (occ ? [['date', 'This date only (' + K.dd(occ.date) + ')']] : []).concat([['change', 'Until something changes'], ['until', 'Until a date']]);
+    Hub.openSheet({ overline: '<span class="overline">Leave as it is</span>', title: esc(c.title),
+      meta: '<p class="k-note">Use this when you’ve decided not to fix it, for a good reason. It leaves the queue, stays visible where it applies, and comes back on its own if something material changes. Your name, the time and the reason are kept.</p>',
+      body: K.form([K.field('Decision', K.select('ex_type', [['Leave as it is', 'Leave as it is'], ['Change priority', 'Change its priority instead']], 'Leave as it is')),
+        K.field('For how long', K.select('ex_scope', scopes, scopes[0][0])), K.field('Until (if a date)', K.input('ex_until', K.addDays(K.today, 7), { type: 'date' })),
+        K.field('Priority (if changing it)', K.select('ex_sev', [['Normal', 'To do'], ['Warning', 'Warning'], ['Urgent', 'Urgent']], 'Normal')),
+        K.field('Why?', K.input('ex_reason', '', { placeholder: 'For example: small group this week, two coaches is enough' }), null, true)], 1) + '<p class="k-note">Recorded as ' + esc(K.me()) + ', now.</p>',
+      foot: ui.btn('Cancel', { variant: 'tertiary', attrs: { 'data-action': 'close-sheet' } }) + K.actBtn('Save', 'case-except-save', { key: c.caseKey }, { variant: 'primary' }) });
   };
   Hub.actions['case-except-save'] = function (el) {
-    var c = db.getAttentionCase(el.dataset.key), r = K.val('ex_reason'); if (!r) { Hub.toast('A reason is required'); return; }
-    var t = K.val('ex_type'), e = { caseKey: c.caseKey, title: c.title, type: t, severity: t === 'Severity override' ? K.val('ex_sev') : null, from: c.severity, approver: K.val('ex_approver'), reason: r };
-    if (t === 'Severity override') { var rl = db.getAttentionRule(c.ruleId); if (rl.locked && ({ Normal: 1, Warning: 2, Urgent: 3 })[e.severity] < ({ Normal: 1, Warning: 2, Urgent: 3 })[rl.locked]) { Hub.toast('This rule has a locked minimum of ' + rl.locked); return; } }
-    Hub.closeSheet(true); Hub.mutate(function () { db.addAttentionException(e); }, t === 'Accepted' ? 'Item accepted' : 'Priority changed');
+    var c = db.getAttentionCase(el.dataset.key), r = K.val('ex_reason').trim(); if (!r) { Hub.toast('Say why'); return; }
+    var t = K.val('ex_type'), sc = K.val('ex_scope'), until = K.val('ex_until'), occ = c.related && c.related.occurrence && db.getOccurrence(c.related.occurrence);
+    if (sc === 'until' && (!until || until < K.today)) { Hub.toast('Pick a date from today'); return; }
+    var scope = sc === 'date' ? { kind: 'date', date: occ.date, label: 'For ' + K.dd(occ.date) + ' only' } : sc === 'until' ? { kind: 'until', until: until, label: 'Until ' + K.dd(until) } : { kind: 'change', label: 'Until something changes' };
+    var e = { caseKey: c.caseKey, title: c.title, type: t, severity: t === 'Change priority' ? K.val('ex_sev') : null, reason: r, scope: scope, occurrence: occ ? occ.id : null };
+    Hub.closeSheet(true); Hub.mutate(function () { db.addAttentionException(e); }, t === 'Leave as it is' ? 'Left as it is, with your reason' : 'Priority changed');
   };
 
   /* Rule settings */

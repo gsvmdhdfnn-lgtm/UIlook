@@ -610,7 +610,11 @@
     }
     var words = back ? db.coachName(n.absent).split(' ')[0] + ' can coach after all' : 'Running without cover';
     (o.history = o.history || []).push({ text: words + ': cover no longer needed', detail: how.reason || '', who: who, at: at, tone: 'info' });
-    return db.closeCoverNeed(reqId, needId, { coach: null, ended: back ? 'back' : 'not-needed', note: words, history: words + ' on ' + K.dd(o.date) + ': cover no longer needed', reason: how.reason }, who, at);
+    var res = db.closeCoverNeed(reqId, needId, { coach: null, ended: back ? 'back' : 'not-needed', note: words, history: words + ' on ' + K.dd(o.date) + ': cover no longer needed', reason: how.reason }, who, at);
+    /* Running without cover is a deliberate exception for this date only: kept with reason, who and when,
+       and it reopens itself if anything material changes on the date */
+    if (!back && n.absent && db.leaveAsIs) db.leaveAsIs('assigned_coach_unavailable|occurrence:' + o.id + '|coach:' + n.absent, how.reason || 'Running without cover', { kind: 'date', date: o.date, label: 'For ' + K.dd(o.date) + ' only' }, who, at, o.id);
+    return res;
   };
   /* The date itself changed (cancelled, postponed, moved, or confirmed as delivered): its cover closes.
      coveredBy: { absentCoach: coach who actually covered } from delivery confirmation. */
