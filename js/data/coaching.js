@@ -626,7 +626,7 @@
   };
   /* Plain outcome of one date, shared by Management screens, Needs Attention and the Coach hub */
   db.coverOutcome = function (n) {
-    var o = occOf(n), now = K.parse(K.now()), start = K.parse(o.date + 'T' + o.start), h = (start - now) / 36e5;
+    var o = occOf(n), now = K.parse(K.clock), start = K.parse(o.date + 'T' + o.start), h = (start - now) / 36e5;
     var fs = n.offers, lv = fs.filter(live);
     var out = { offered: fs.length, replied: fs.filter(function (f) { return f.response === 'Accepted' || f.response === 'Declined'; }).length,
       can: lv.filter(function (f) { return f.response === 'Accepted'; }), waiting: lv.filter(function (f) { return !f.response; }), cant: fs.filter(function (f) { return f.response === 'Declined'; }),

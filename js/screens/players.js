@@ -107,7 +107,7 @@
     var counts = '<div class="pp-counts">' +
       '<span class="pp-count"><b class="num">' + F.active + '</b> active players' + (F.trial ? ' · ' + F.trial + ' on trial' : '') + '</span>' +
       '<span class="pp-count"><b class="num">' + F.parents + '</b> ' + c.toLowerCase() + 's</span>' +
-      '</div>' + K.areaNeeds(['Players & Parents'], { area: 'Players & Parents', clear: 'No family or player needs you right now.' });
+      '</div>' + K.areaSummary('Players & Parents');
     var tab = K.tab('pp-land', [{ id: 'players' }, { id: 'parents' }]);
     var seg = K.seg('pp-land', [{ id: 'players', label: 'Players' }, { id: 'parents', label: c + 's' }]);
     var search = '<label class="search pp-search"><span class="visually-hidden">Search</span>' + I('search') + '<input class="input" data-pp-search placeholder="' + (tab === 'players' ? 'Search players by name, age group or school' : 'Search ' + c.toLowerCase() + 's by name or child') + '" value="' + esc(ppQuery) + '"></label>';
@@ -242,7 +242,6 @@
         ['How it is going', att.length ? Math.round(pres / att.length * 100) + '% attendance' : 'No registers yet', fb0 ? 'Latest feedback ' + esc(fb0.period || '') + ' from ' + esc(db.coachName(fb0.coach)) : 'No feedback yet']
       ]);
       var also = K.needsFor(function (k) { return K.relatesTo(k, 'player', p.id) && !(medNeeded && k.ruleId === 'ATT-050'); }, { title: sit ? 'Also needs you' : 'Needs you for ' + p.first, quiet: true });
-      if (!sit && !also) sit = K.situation({ tone: 'ok', title: p.first + ' is all set', text: 'Medical confirmed, photo answer given and nothing waiting.' });
       body = sit + also + snap + K.grid([care, details], 2) + K.details('Address and emergency contacts', viewAsBar() + K.grid([address, contacts], 2), { sub: 'Restricted' });
     } else if (tab === 'development') {
       var fb = feedbackFor(p.id), plans = plansFor(p.id);

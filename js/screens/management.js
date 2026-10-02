@@ -8,23 +8,6 @@
   function sevTone(s) { return { Urgent: 'danger', Warning: 'warn', Normal: '' }[s] || ''; }
   function today() { return db.getTodayOccurrences().slice().sort(function (a, b) { return a.start < b.start ? -1 : 1; }); }
   function tomorrow() { return db.getOccurrences(function (o) { return o.date === '2026-10-02'; }).sort(function (a, b) { return a.start < b.start ? -1 : 1; }); }
-  /* A date's badge on Home: only when the engine has something for it, in the engine's tone.
-     A healthy date has no badge; waiting cover reads "Finding cover", quietly. */
-  var SHORT = { 'ATT-019': 'Venue closed', 'ATT-018': 'No venue', 'ATT-003': 'No Lead Coach', 'ATT-002': 'Learning Coach only', 'ATT-031': 'Documents to check', 'ATT-032': 'No pay rate', 'ATT-022': 'Awaiting confirmation', 'ATT-020': 'Register to finish' };
-  function dayPill(o) {
-    var st = K.dateStanding(o); if (!st) return '';
-    var k = st.lead, label = st.waiting ? 'Finding cover' : /ATT-01[34]|ATT-041/.test(k.ruleId) ? staffState(o)[0] : SHORT[k.ruleId] || 'Needs attention';
-    var tone = K.sevTone(st.sev, st.waiting);
-    return K.pill(label, tone === 'danger' ? 'danger' : tone === 'warn' ? 'warn' : '');
-  }
-  function staffState(o) {
-    var st = db.occState(o), why = db.staffIssue(o);
-    if (st === 'Awaiting confirmation') return ['Awaiting confirmation', 'warn'];
-    if (st === 'Confirmed' || st === 'Partially delivered') return [st, 'ok'];
-    if (!o.staff.length) return ['No coach', 'danger'];
-    if (why) return [why, 'warn'];
-    return ['Staffed', 'ok'];
-  }
   K.route('mgmt-home', { title: 'Home' });
   K.route('mgmt-attention', { title: 'Needs attention', parent: 'home' });
   K.route('mgmt-attention-rules', { title: 'Needs attention rules', parent: 'more' });
@@ -39,27 +22,16 @@
   }
   function areaCard(o) {
     return '<a class="lx-area" href="#' + o.route + '"><span class="lx-area__top"><span class="lx-area__icon">' + I(o.icon) + '</span>' + I('arrowRight', 'icon-sm lx-area__go') + '</span><span class="lx-area__title">' + esc(o.title) + '</span>' +
-      '<span class="lx-area__value"><b class="num">' + o.value + '</b><small>' + esc(o.label) + '</small>' + (o.need ? '<span class="hm-areas__need ' + (o.needCls || '') + '">' + esc(o.need) + '</span>' : '') + '</span></a>';
+      '<span class="lx-area__value"><b class="num">' + o.value + '</b><small>' + esc(o.label) + '</small>' + (o.need ? '<span class="hm-areas__need ' + (o.needCls || '') + '">' + esc(o.need) + '</span>' + (o.topics ? '<span class="hm-areas__topics">' + esc(o.topics) + '</span>' : '') : '') + '</span></a>';
   }
   function schedRow(o) {
-    var ss = staffState(o), r = db.getRegister(o.id), client = !!db.getSession(o.sessionId).client;
+    var r = db.getRegister(o.id), client = !!db.getSession(o.sessionId).client;
     var reg = r.state === 'Completed' ? ['Register done', 'ok'] : r.state === 'In progress' ? ['Register in progress', 'warn'] : ['Register not started', ''];
-    return '<a class="hx-sched" href="#mgmt-occurrence/' + o.id + '"><span class="hx-sched__bar hx-tone--' + (ss[1] === 'ok' ? 'ok' : 'warn') + '"></span>' +
+    return '<a class="hx-sched" href="#mgmt-occurrence/' + o.id + '"><span class="hx-sched__bar hx-tone--muted"></span>' +
       '<span class="hx-sched__time num">' + o.start + '<small>' + o.end + '</small></span>' +
       '<span class="hx-sched__main"><b>' + esc(o.session) + '</b><small>' + esc(db.venueName(o.venue)) + ' · ' + (o.staff.length ? o.staff.map(function (s) { var n = db.coachName(s.covering || s.coach).split(' ')[0]; return s.unavailable && !s.covering ? '<s>' + esc(n) + '</s>' : esc(n); }).join(', ') : 'No coach') + '</small>' +
-      '<span class="hm-chips">' + dayPill(o) + (db.hasStarted(o) && r.state !== 'Completed' ? K.pill(reg[0], '') : '') + '</span></span>' +
+      (db.hasStarted(o) && r.state !== 'Completed' ? '<span class="hm-chips">' + K.pill(reg[0], '') + '</span>' : '') + '</span>' +
       '<span class="hx-sched__count num">' + I('users', 'icon-sm') + o.players + (client ? '' : '') + '</span>' + I('chevron', 'icon-sm hx-chev') + '</a>';
-  }
-  function attentionPanel(state) {
-    var N = attnNow(), c = N.counts, empty = state === 'empty' || !N.total;
-    var head = '<div class="hx-card__head"><div><h2>Needs attention</h2><small class="hx-sub">' + (empty ? 'Nothing waiting' : N.total + ' to do' + (N.waiting.length ? ' · ' + N.waiting.length + ' waiting on others' : '')) + '</small></div><a class="hx-link" href="#mgmt-attention">View all' + I('arrowRight', 'icon-sm') + '</a></div>';
-    if (empty) return '<section class="hx-card hm-attn" id="hm-attn">' + head + ui.empty('checkCircle', 'All clear', 'Nothing currently needs management action.', 'ok') + '</section>';
-    var sev = '<div class="hm-sev num">' + [['Urgent', 'urgent'], ['Warning', 'warning'], ['Normal', 'normal']].map(function (x) { return '<a class="hm-sev__i hm-sev--' + x[1] + '" href="#mgmt-attention"><i></i><b>' + c[x[0]] + '</b>' + SEVWORD[x[0]] + '</a>'; }).join('') + '</div>';
-    var rows = '<div class="hx-list">' + N.active.slice(0, 5).map(function (g) {
-      var k = g.lead, more = g.issues.length - 1;
-      return '<a class="hx-attn' + (g.severity === 'Urgent' ? ' is-urgent' : '') + '" data-case-key="' + esc(k.caseKey) + '" href="#' + esc(k.route || 'mgmt-attention') + '"><span class="hx-dot hx-tone--' + (g.severity === 'Urgent' ? 'danger' : g.severity === 'Warning' ? 'warn' : 'muted') + '"></span><span class="hx-attn__main"><b>' + esc(k.title) + '</b><small>' + esc(k.when) + ' · ' + esc(k.actionLabel || 'Open') + (more ? ' · +' + more + ' more' : '') + '</small></span>' + I('chevron', 'icon-sm hx-chev') + '</a>';
-    }).join('') + '</div>';
-    return '<section class="hx-card hm-attn" id="hm-attn">' + head + sev + rows + '</section>';
   }
   Hub.screens['mgmt-home'] = function (ctx) {
     var me = db.getMe(), first = me.name.split(' ')[0], empty = ctx.state === 'empty';
@@ -72,23 +44,22 @@
     var players = db.getPlayers(function (p) { return p.status === 'Active'; }).length;
     var fin = K.fin() !== 'none', owed = fin ? db.fin.receivables().total : 0;
     var NC = attnNow().active;
-    /* Area cards: a neutral count, red only when that area has something urgent */
-    function areaNeed(cats) {
-      var gs = NC.filter(function (g) { return g.issues.some(function (k) { return cats.indexOf(k.category) >= 0; }); }), u = gs.filter(function (g) { return g.severity === 'Urgent'; }).length, n = gs.length;
-      return { need: !n ? '' : u ? u + ' urgent' + (n - u ? ' · ' + (n - u) + ' to do' : '') : n + ' to do', needCls: u ? 'is-urgent' : 'is-calm' };
+    /* Area cards summarise how much work belongs to that area (never the tasks themselves) */
+    function areaNeed(area) {
+      var S = db.getAttentionSummary(area), u = S.counts.Urgent, n = S.total;
+      return { need: !n ? '' : u ? u + ' urgent' + (n - u ? ' · ' + (n - u) + ' other' : '') : n + ' need' + (n === 1 ? 's' : '') + ' attention', needCls: u ? 'is-urgent' : 'is-calm', topics: S.topics.slice(0, 3).join(' · ') };
     }
     var areas = '<div class="lx-areas lx-areas--stat hm-areas" aria-label="Your four areas">' +
-      areaCard({ route: 'mgmt-schedule', icon: 'calendar', title: 'Schedule & Sessions', value: empty ? 0 : T.length, label: 'today', needCls: areaNeed(['Sessions & Venues', 'Staffing & Cover']).needCls, need: areaNeed(['Sessions & Venues', 'Staffing & Cover']).need }) +
-      areaCard({ route: 'mgmt-coaches', icon: 'coaches', title: 'Coaches', value: active, label: 'active', needCls: areaNeed(['Coaches & Compliance']).needCls, need: areaNeed(['Coaches & Compliance']).need }) +
-      areaCard({ route: 'mgmt-players', icon: 'players', title: 'Players & Parents', value: players, label: 'active players', needCls: areaNeed(['Players & Parents']).needCls, need: areaNeed(['Players & Parents']).need }) +
-      areaCard({ route: 'mgmt-finance', icon: 'finance', title: 'Financials', value: fin ? K.money(owed).replace(/\.\d\d$/, '') : '—', label: fin ? 'owed to us' : 'ask for Finance access', needCls: areaNeed(['Finance']).needCls, need: fin ? areaNeed(['Finance']).need : '' }) + '</div>';
+      areaCard({ route: 'mgmt-schedule', icon: 'calendar', title: 'Schedule & Sessions', value: empty ? 0 : T.length, label: 'today', needCls: areaNeed('Schedule & Sessions').needCls, need: areaNeed('Schedule & Sessions').need, topics: areaNeed('Schedule & Sessions').topics }) +
+      areaCard({ route: 'mgmt-coaches', icon: 'coaches', title: 'Coaches', value: active, label: 'active', needCls: areaNeed('Coaches').needCls, need: areaNeed('Coaches').need, topics: areaNeed('Coaches').topics }) +
+      areaCard({ route: 'mgmt-players', icon: 'players', title: 'Players & Parents', value: players, label: 'active players', needCls: areaNeed('Players & Parents').needCls, need: areaNeed('Players & Parents').need, topics: areaNeed('Players & Parents').topics }) +
+      areaCard({ route: 'mgmt-finance', icon: 'finance', title: 'Financials', value: fin ? K.money(owed).replace(/\.\d\d$/, '') : '—', label: fin ? 'owed to us' : 'ask for Finance access', needCls: areaNeed('Financials').needCls, need: fin ? areaNeed('Financials').need : '', topics: areaNeed('Financials').topics }) + '</div>';
     var UN = attnNow(), urgent = UN.active.filter(function (g) { return g.severity === 'Urgent'; }).map(function (g) { return g.lead; }), c = UN.counts;
-    /* Needs attention on Home: the counts, and only what is genuinely urgent, by name */
-    var counts = [c.Warning ? c.Warning + ' warning' : '', c.Normal ? c.Normal + ' to do' : ''].filter(Boolean).join(' · ');
+    /* Needs attention on Home: counts only. The tasks live in Needs Attention. */
+    var counts = [c.Warning ? c.Warning + ' warning' + (c.Warning === 1 ? '' : 's') : '', c.Normal ? c.Normal + ' to do' : ''].filter(Boolean).join(' · ');
     var urgentSum = empty ? '' : '<section class="hm-urgent' + (urgent.length ? '' : ' is-calm') + '" id="hm-attn" aria-label="Needs attention"><a class="hm-urgent__head" href="#mgmt-attention"><span class="hm-urgent__k"><span class="hm-urgent__t">Needs attention</span>' +
-      (urgent.length ? ui.sev('Urgent') + '<b class="num">' + urgent.length + ' urgent</b>' + (counts ? '<span class="num">· ' + counts + '</span>' : '') : '<span class="num">' + (counts || 'All clear') + '</span>') + '</span><span class="hm-urgent__go">Review' + I('arrowRight', 'icon-sm') + '</span></a>' +
-      (urgent.length ? urgent.map(function (k) { return '<a class="hm-urgent__row" data-case-key="' + esc(k.caseKey) + '" href="#' + esc(k.route || 'mgmt-attention') + '"><b>' + esc(k.title) + '</b><small>' + esc(k.when) + ' · ' + esc(k.actionLabel || 'Open') + '</small></a>'; }).join('')
-        : '<p class="hm-urgent__calm">Nothing urgent.' + (UN.waiting.length ? ' ' + UN.waiting.length + ' waiting on others.' : '') + '</p>') + '</section>';
+      (urgent.length ? ui.sev('Urgent') + '<b class="num">' + urgent.length + ' urgent</b>' + (counts ? '<span class="num">· ' + counts + '</span>' : '') : '<span class="num">' + (counts || 'You’re up to date ✓') + '</span>') + '</span><span class="hm-urgent__go">Review' + I('arrowRight', 'icon-sm') + '</span></a>' +
+      '</section>';
     var sched = '<section class="hx-card hm-sched" id="hx-today"><div class="hx-card__head"><div><h2>Today’s schedule</h2><small class="hx-sub">' + (empty ? 'No sessions' : T.length + ' sessions · ' + expected + ' players expected') + '</small></div><a class="hx-link" href="#mgmt-calendar">View full day' + I('arrowRight', 'icon-sm') + '</a></div>' +
       (empty ? ui.empty('calendar', 'Nothing scheduled today', 'Tomorrow has ' + tomorrow().length + ' sessions.') : '<div class="hx-list">' + T.map(schedRow).join('') + '</div>') + '</section>';
     var week = [['Mon', 28, '2026-09-28'], ['Tue', 29, '2026-09-29'], ['Wed', 30, '2026-09-30'], ['Thu', 1, '2026-10-01'], ['Fri', 2, '2026-10-02'], ['Sat', 3, '2026-10-03'], ['Sun', 4, '2026-10-04']];
@@ -96,7 +67,7 @@
       '<div class="hx-week" role="group" aria-label="Choose a day">' + week.map(function (d, i) { return '<a class="hx-week__day' + (i === 3 ? ' is-today' : '') + '" href="#mgmt-occurrences/' + d[2] + '"' + (i === 3 ? ' aria-current="date"' : '') + '><small>' + d[0] + '</small><b>' + d[1] + '</b></a>'; }).join('') + '</div>' +
       '<p class="hm-cal__sum num">' + (empty ? 'No sessions today' : T.length + ' sessions · first ' + (T[0] || {}).start + ' · last ends ' + (T[T.length - 1] || {}).end) + '</p></section>';
     var tm = tomorrow();
-    var tom = '<section class="hx-card hx-card--rail"><div class="hx-card__head"><div><h2>Tomorrow</h2><small class="hx-sub">Friday 2 October</small></div></div><div class="hx-list">' + (tm.length ? tm.map(function (o) { var ss = staffState(o); return '<a class="hm-mini" href="#mgmt-occurrence/' + o.id + '"><span class="num">' + o.start + '</span><span><b>' + esc(o.session) + '</b><small>' + esc(db.venueName(o.venue)) + '</small></span>' + dayPill(o) + '</a>'; }).join('') : '<p class="hx-sub">Nothing scheduled.</p>') + '</div></section>';
+    var tom = '<section class="hx-card hx-card--rail"><div class="hx-card__head"><div><h2>Tomorrow</h2><small class="hx-sub">Friday 2 October</small></div></div><div class="hx-list">' + (tm.length ? tm.map(function (o) { return '<a class="hm-mini" href="#mgmt-occurrence/' + o.id + '"><span class="num">' + o.start + '</span><span><b>' + esc(o.session) + '</b><small>' + esc(db.venueName(o.venue)) + '</small></span></a>'; }).join('') : '<p class="hx-sub">Nothing scheduled.</p>') + '</div></section>';
     var appr = db.getApprovalsWaiting().filter(function (a) { return a.count; });
     var approvals = '<section class="hx-card hx-card--rail"><div class="hx-card__head"><div><h2>Approvals waiting</h2><small class="hx-sub">' + K.sum(appr, 'count') + ' to decide</small></div><a class="hx-link" href="#mgmt-approvals">All' + I('arrowRight', 'icon-sm') + '</a></div><div class="hx-list">' + appr.map(function (a) { return '<a class="hm-mini" href="#mgmt-' + a.id + '"><span class="hm-mini__icon">' + I(a.icon, 'icon-sm') + '</span><span><b>' + esc(a.label) + '</b><small>' + esc(a.sub) + '</small></span>' + K.pill(a.count + ' waiting', 'info') + '</a>'; }).join('') + '</div></section>';
     var changes = '<section class="hx-card hx-card--rail"><div class="hx-card__head"><div><h2>Since you last looked</h2><small class="hx-sub">Last visit ' + esc(db.getLastVisit()) + '</small></div><a class="hx-link" href="#mgmt-audit">History' + I('arrowRight', 'icon-sm') + '</a></div><div class="hx-activity">' +
@@ -110,10 +81,10 @@
      why it matters, and the one action that opens the exact task. Urgent first, soonest first.
      Waiting on others is folded away and not counted until Management is needed again. */
   var attnCategory = 'All';
-  /* The four areas are filtered views of this one list (never separate queues) */
-  var AREA_CATS = { 'Schedule & Sessions': ['Sessions & Venues', 'Staffing & Cover'], 'Coaches': ['Coaches & Compliance', 'Staffing & Cover'], 'Players & Parents': ['Players & Parents'], 'Financials': ['Finance'] };
-  function inFilter(g) { var cats = AREA_CATS[attnCategory] || [attnCategory]; return attnCategory === 'All' || g.issues.some(function (k) { return cats.indexOf(k.category) >= 0; }); }
+  /* Area or topic filter: one of the four areas, or "topic:Venue" */
+  function inFilter(g) { if (attnCategory === 'All') return true; if (attnCategory.indexOf('topic:') === 0) { var t = attnCategory.slice(6); return g.issues.some(function (k) { return k.topic === t; }); } return g.area === attnCategory; }
   Hub.actions['attn-area'] = function (el) { attnCategory = el.dataset.area || 'All'; Hub.wsTabs.attention = 'All'; if (location.hash === '#mgmt-attention') Hub.render(); else Hub.go('mgmt-attention'); };
+  Hub.actions['attn-left'] = function () { Hub.wsTabs.attention = 'Accepted'; Hub.render(); window.scrollTo(0, 0); };
   document.addEventListener('change', function (e) { if (e.target.matches && e.target.matches('[data-change="attn-cat"]')) { attnCategory = e.target.value; Hub.render(); } });
   /* Every surface reads the same cards */
   function attnNow() {
@@ -122,11 +93,13 @@
     return { A: A, active: active, waiting: waiting, counts: counts, total: active.length };
   }
   Hub.attnNow = attnNow;
+  function countsText(c) { return [c.Urgent ? c.Urgent + ' urgent' : '', c.Warning ? c.Warning + ' warning' + (c.Warning === 1 ? '' : 's') : '', c.Normal ? c.Normal + ' to do' : ''].filter(Boolean).join(' · '); }
   function issueCard(g) {
     var k = g.lead, sv = g.waiting ? 'normal' : (g.severity === 'Normal' ? 'normal' : g.severity.toLowerCase()), also = g.issues.slice(1);
-    var where = g.group ? esc(g.group.title) + ' · ' + esc(g.group.sub) : esc(k.category);
-    return '<article class="lx-issue lx-issue--' + sv + '"><div class="lx-issue__main"><span class="lx-issue__tags">' + (g.waiting ? K.pill('Waiting', '') : K.pill(SEVWORD[g.severity], sevTone(g.severity))) + '<span class="lx-issue__cat">' + where + '</span></span>' +
+    var where = g.group ? esc(g.group.title) + ' · ' + esc(g.group.sub) : esc(k.area || k.category);
+    return '<article class="lx-issue lx-issue--' + sv + '"><div class="lx-issue__main"><span class="lx-issue__tags">' + (g.waiting ? K.pill('Waiting', '') : K.pill(SEVWORD[g.severity], sevTone(g.severity))) + '<span class="lx-issue__cat">' + esc(k.topic || k.category) + '</span></span>' +
       '<h3><button type="button" class="lx-issue__link" data-action="case" data-key="' + esc(k.caseKey) + '">' + esc(k.title) + '</button></h3>' +
+      '<p class="lx-issue__where">' + where + '</p>' +
       '<p class="lx-issue__meta">' + esc(k.why || k.detail || '') + '</p>' +
       '<p class="lx-issue__why"><span class="num when when--' + (g.waiting ? 'normal' : k.severity.toLowerCase()) + '">' + esc(k.when) + '</span>' + (k.reopened ? '<span>Back after being left as it is: ' + esc(k.reopened.lapsed ? k.reopened.lapsed.why.toLowerCase() : 'something changed') + '</span>' : '') + '</p>' +
       (also.length ? '<ul class="lx-also" aria-label="Also">' + also.map(function (c) {
@@ -140,24 +113,33 @@
       '<p class="lx-issue__meta">“' + esc(e.reason) + '”' + (e.scope && e.scope.label ? ' · ' + esc(e.scope.label) : '') + '</p><p class="lx-issue__why"><span>' + K.stamp('Agreed', e.by, e.at) + '</span><span>Comes back if anything material changes</span></p></div>' +
       '<div class="lx-issue__act">' + K.actBtn('Reopen', 'attn-reopen', { id: e.id }, { variant: 'secondary' }) + '</div></article>';
   }
+  /* The Management inbox: the one place tasks are listed. Work through it like a checklist. */
   Hub.screens['mgmt-attention'] = function (ctx) {
     var N = attnNow(), c = N.counts;
-    var tabs = [{ id: 'All', label: 'All', meta: N.total + ' to do' }, { id: 'Urgent', label: 'Urgent', meta: c.Urgent, state: 'Urgent' }, { id: 'Warning', label: 'Warning', meta: c.Warning, state: 'Warning' }, { id: 'Normal', label: 'To do', meta: c.Normal }, { id: 'Accepted', label: 'Left as it is', meta: N.A.left.length }];
+    var tabs = [{ id: 'All', label: 'All', meta: N.total }, { id: 'Urgent', label: 'Urgent', meta: c.Urgent, state: c.Urgent ? 'Urgent' : null }, { id: 'Warning', label: 'Warning', meta: c.Warning }, { id: 'Normal', label: 'To do', meta: c.Normal }, { id: 'Waiting', label: 'Waiting', meta: N.waiting.length }, { id: 'Accepted', label: 'Left as it is', hidden: true }];
     var sev = K.tab('attention', tabs);
-    var cats = ['Staffing & Cover', 'Coaches & Compliance', 'Sessions & Venues', 'Players & Parents', 'Development', 'Finance'];
-    var select = '<label class="lx-select"><span class="visually-hidden">Area</span>' + I('filter', 'icon-sm') + '<select data-change="attn-cat">' + ['All'].concat(Object.keys(AREA_CATS)).concat(cats.filter(function (x) { return !AREA_CATS[x]; })).map(function (k) { return '<option value="' + esc(k) + '"' + (k === attnCategory ? ' selected' : '') + '>' + (k === 'All' ? 'Every area' : esc(k)) + '</option>'; }).join('') + '</select></label>';
-    var h = K.head({ back: ['mgmt-home', 'Home'], eyebrow: 'Needs attention', title: 'Needs attention', sub: '<span class="na-sub">Everything waiting for a Management decision, most urgent first. Each item says what’s wrong, why it matters and what to do, and clears itself once it’s fixed.</span>',
-      actions: K.goBtn('Rules', 'mgmt-attention-rules', { variant: 'tertiary', icon: 'settings' }), tabs: '<div class="lx-filterbar">' + K.tabs('attention', tabs) + select + '</div>' });
-    var g = K.guard(ctx, h, { empty: ['checkCircle', 'All clear', 'No staffing gaps, compliance issues, registers, claims or finance items are waiting.'] }); if (g) return g;
+    var topics = []; N.active.concat(N.waiting).forEach(function (g) { g.issues.forEach(function (k) { if (topics.indexOf(k.topic) < 0) topics.push(k.topic); }); });
+    var select = '<label class="lx-select"><span class="visually-hidden">Area</span>' + I('filter', 'icon-sm') + '<select data-change="attn-cat"><option value="All">Every area</option>' +
+      db.attentionAreas.map(function (a) { return '<option value="' + esc(a) + '"' + (a === attnCategory ? ' selected' : '') + '>' + esc(a) + '</option>'; }).join('') +
+      '<optgroup label="By topic">' + topics.map(function (t) { var v = 'topic:' + t; return '<option value="' + esc(v) + '"' + (v === attnCategory ? ' selected' : '') + '>' + esc(t) + '</option>'; }).join('') + '</optgroup></select></label>';
+    var title = N.total ? N.total + ' thing' + (N.total === 1 ? '' : 's') + ' need' + (N.total === 1 ? 's' : '') + ' you' : 'You’re up to date';
+    var h = K.head({ back: ['mgmt-home', 'Home'], eyebrow: 'Needs attention', title: title, sub: (countsText(c) || 'Nothing for you to do right now') + '<span class="na-sub"> · Each task opens the exact place to fix it, and clears once it’s done.</span>',
+      actions: K.goBtn('Rules', 'mgmt-attention-rules', { variant: 'tertiary', icon: 'settings' }), tabs: '<div class="lx-filterbar">' + K.tabs('attention', tabs.filter(function (t) { return !t.hidden; })) + select + '</div>' });
+    var g = K.guard(ctx, h, { empty: ['checkCircle', 'You’re up to date', 'Nothing needs Management right now.'] }); if (g) return g;
+    var leftLink = N.A.left.length ? '<p class="na-left"><button type="button" class="k-link-btn" data-action="attn-left">' + N.A.left.length + ' left as it is ›</button></p>' : '';
     if (sev === 'Accepted') {
-      var left = N.A.left.filter(function (k) { return inFilter({ issues: [k] }); });
-      return K.page(h, left.length ? '<div class="lx-stack">' + left.map(leftCard).join('') + '</div><p class="lx-note">Each one was a deliberate decision with a reason and who agreed it. It comes back to the queue on its own if something material changes, or when its time limit passes.</p>' : '<div class="zone-inset">' + ui.empty('checkCircle', 'Nothing left as it is', 'When you decide to leave something as it is, it shows here with the reason.', 'ok') + '</div>');
+      var left = N.A.left.filter(function (k) { return inFilter({ area: k.area, issues: [k] }); });
+      return K.page(h, '<p class="na-left"><button type="button" class="k-link-btn" data-action="wstab" data-ws="attention" data-tab="All">‹ Back to the list</button></p>' + (left.length ? '<div class="lx-stack">' + left.map(leftCard).join('') + '</div><p class="lx-note">Each one was a deliberate decision with a reason and who agreed it. It comes back to the list on its own if something material changes, or when its time limit passes.</p>' : '<div class="zone-inset">' + ui.empty('checkCircle', 'Nothing left as it is', 'When you decide to leave something as it is, it shows here with the reason.', 'ok') + '</div>'));
+    }
+    if (sev === 'Waiting') {
+      var w = N.waiting.filter(inFilter);
+      return K.page(h, (w.length ? '<p class="lx-note">You’ve done your part on these. Each comes back to the list on its own when you’re needed.</p><div class="lx-stack na-list">' + w.map(issueCard).join('') + '</div>' : '<div class="zone-inset">' + ui.empty('checkCircle', 'Nothing waiting on others', 'Offers sent and replies due show here.', 'ok') + '</div>') + leftLink);
     }
     var list = N.active.filter(function (x) { return (sev === 'All' || x.severity === sev) && inFilter(x); });
     var wait = sev === 'All' ? N.waiting.filter(inFilter) : [];
-    var body = list.length ? '<div class="lx-stack na-list">' + list.map(issueCard).join('') + '</div>' : '<div class="zone-inset">' + ui.empty('checkCircle', sev === 'All' ? 'Nothing needs you' : 'Nothing in this filter', sev === 'All' ? 'Everything is sorted or waiting on someone else.' : 'Try another priority or area.', 'ok') + '</div>';
-    var waitSec = wait.length ? K.details('Waiting on others (' + wait.length + ')', '<div class="lx-stack na-list">' + wait.map(issueCard).join('') + '</div>', { sub: 'You’ve done your part. These come back up when you’re needed: someone can cover, no one can, or it gets close.', key: 'na-waiting' }) : '';
-    return K.page(h, body + waitSec);
+    var body = list.length ? '<div class="lx-stack na-list">' + list.map(issueCard).join('') + '</div>' : '<div class="zone-inset">' + ui.empty('checkCircle', sev === 'All' && attnCategory === 'All' ? 'You’re up to date' : 'Nothing in this filter', sev === 'All' && attnCategory === 'All' ? 'Nothing needs you right now.' : 'Try another priority or area.', 'ok') + '</div>';
+    var waitSec = wait.length ? K.details('Waiting on others (' + wait.length + ')', '<div class="lx-stack na-list">' + wait.map(issueCard).join('') + '</div>', { sub: 'You’ve done your part. These come back up when you’re needed.', key: 'na-waiting' }) : '';
+    return K.page(h, body + waitSec + leftLink);
   };
   Hub.actions['attn-refresh'] = function () { Hub.render(); };
   Hub.actions['attn-reopen'] = function (el) { Hub.mutate(function () { db.revokeAttentionException(el.dataset.id); }, 'Reopened. It’s back in Needs attention'); };

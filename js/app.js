@@ -70,7 +70,7 @@
 
   function tabLinks(area, cls) {
     return '<span class="glide__puck" aria-hidden="true"></span>' + NAV(area).map(function (n) {
-      return '<a class="' + cls + (cls === '' ? 'glide__tab' : '') + '" href="#' + n.id + '"' + (isCurrent(n.id) ? ' aria-current="page"' : '') + '>' + I(n.icon) + '<span>' + esc(n.label) + '</span>' + (n.bubble && cls === 'tab' ? '<span class="bubble">' + D.attention.summary.counts.Urgent + '</span>' : '') + '</a>';
+      return '<a class="' + cls + (cls === '' ? 'glide__tab' : '') + '" href="#' + n.id + '"' + (isCurrent(n.id) ? ' aria-current="page"' : '') + '>' + I(n.icon) + '<span>' + esc(n.label) + '</span>' + (n.bubble && cls === 'tab' ? navCount('bubble') : '') + '</a>';
     }).join('');
   }
 
@@ -82,6 +82,13 @@
   /* Pass 7 sidebar: a floating obsidian card. Relvor at the top, the
      organisation switcher beneath it, one calm list of destinations, and
      settings, help and the person anchored at the bottom. */
+  /* The Home badge is the same navigation counter as the sidebar: red with the urgent count,
+     otherwise a quiet count of things to work through, and nothing once you're up to date */
+  function navCount(cls) {
+    var sm = D.attention.summary, u = sm.counts.Urgent;
+    if (!sm.total) return '';
+    return '<span class="' + cls + (u ? '' : ' is-calm') + '" title="' + (u ? u + ' urgent · ' : '') + sm.total + ' to work through">' + (u || sm.total) + '</span>';
+  }
   function sidebar() {
     /* Home and More only, as the design pack sets out. The area you are in
        appears nested under its parent, so the sidebar says where you are
@@ -93,10 +100,10 @@
     var child = ar ? '<a class="nav-child" href="#' + ar.id + '"' + (S.route === ar.id ? ' aria-current="page"' : '') + '><span>' + esc(ar.label) + '</span></a>'
       : '<a class="nav-child" href="#' + S.route + '" aria-current="page"><span>' + esc(pageTitle()) + '</span></a>';
     var c = D.attention.summary.counts;
-    /* Red only when something is urgent; otherwise a quiet count */
-    var rest = [c.Warning ? c.Warning + ' warning' : '', c.Normal ? c.Normal + ' to do' : ''].filter(Boolean).join(' \u00b7 ');
+    /* A navigation counter, not a list: how many things need you, red only when something is urgent */
+    var tot = D.attention.summary.total;
     var status = '<a class="side-status' + (c.Urgent ? '' : ' is-calm') + '" href="#mgmt-attention"><span class="side-status__k">' + (c.Urgent ? ui.sev('Urgent') : '') + 'Needs attention</span>' +
-      (c.Urgent ? '<b class="num">' + c.Urgent + ' urgent</b><small class="num">' + rest + '</small>' : '<b class="num">' + (rest || 'All clear') + '</b>') + '<span class="side-status__go">Review' + I('arrowRight', 'icon-sm') + '</span></a>';
+      (c.Urgent ? '<b class="num">' + c.Urgent + ' urgent</b><small class="num">' + tot + ' to work through</small>' : '<b class="num">' + (tot ? tot + ' to work through' : 'Up to date ✓') + '</b>') + '<span class="side-status__go">Review' + I('arrowRight', 'icon-sm') + '</span></a>';
     return '<aside class="sidebar" aria-label="Management navigation">' +
       '<a class="rv-brand" href="#mgmt-home" aria-label="Relvor home">' + Hub.relvorLogo + '<span>Relvor</span></a>' +
       '<button type="button" class="org-card" data-action="org-switch" aria-label="Switch organisation"><span class="org-card__mark">' + esc(ui.initials(Hub.brand.orgName)) + '</span><span class="org-card__text"><b>' + esc(Hub.brand.orgFull || Hub.brand.orgName) + '</b><small>Management hub</small></span>' + I('chevron', 'icon-sm') + '</button>' +
@@ -139,7 +146,7 @@
       '<span class="topbar__spacer"></span>' + sw + (S.area === 'public' ? publicActions() : '<button type="button" class="je-me" data-action="profile" aria-label="Account">' + ui.avatar(who, '') + '</button>') + '</header>' +
       '<nav class="je-nav" aria-label="Main">' + NAV(S.area).map(function (n) {
         var cur = isCurrent(n.id);
-        return '<a class="je-pill' + (cur ? ' is-active' : '') + '" href="#' + n.id + '"' + (cur ? ' aria-current="page"' : '') + '>' + esc(n.label) + (n.bubble ? '<span class="je-pill__n">' + D.attention.summary.counts.Urgent + '</span>' : '') + '</a>';
+        return '<a class="je-pill' + (cur ? ' is-active' : '') + '" href="#' + n.id + '"' + (cur ? ' aria-current="page"' : '') + '>' + esc(n.label) + (n.bubble ? navCount('je-pill__n') : '') + '</a>';
       }).join('') + '</nav>';
   }
 
@@ -323,6 +330,8 @@
     var L = Hub.launch; if (L && (full === L.from.full || HOMES.indexOf(route) >= 0 || route === 'mgmt-attention' || topOf(route) === route)) Hub.launch = null;
     Hub.render();
     if (Hub.restoreScroll != null) { var y = Hub.restoreScroll; Hub.restoreScroll = null; window.scrollTo(0, y); } else window.scrollTo(0, 0);
+    /* Back in Needs Attention after finishing a task: focus the next one so work carries on */
+    if (Hub.focusNext && route === 'mgmt-attention') { Hub.focusNext = false; setTimeout(function () { var c = [].filter.call(document.querySelectorAll('.na-list .lx-issue'), function (e) { return e.getBoundingClientRect().bottom > 90; })[0]; var b = c && c.querySelector('.lx-issue__act .btn'); if (b) b.focus({ preventScroll: true }); }, 0); }
   }
 
   /* Sheet & toast */
@@ -343,7 +352,7 @@
     el.classList.add('is-closing'); setTimeout(done, 260);
   };
   var toastTimer;
-  Hub.toast = function (t) { var el = document.getElementById('toast'); el.innerHTML = I('check', 'icon-sm') + '<span>' + esc(t) + '</span>'; el.hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(function () { el.hidden = true; }, 2200); };
+  Hub.toast = function (t) { if (Hub._doneSuffix && String(t).indexOf(Hub._doneSuffix) < 0) t = String(t).replace(/\.$/, '') + Hub._doneSuffix; var el = document.getElementById('toast'); el.innerHTML = I('check', 'icon-sm') + '<span>' + esc(t) + '</span>'; el.hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(function () { el.hidden = true; }, 2200); };
 
   /* Actions */
   Hub.actions.proto = function (el) {

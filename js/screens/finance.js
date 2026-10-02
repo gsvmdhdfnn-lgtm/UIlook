@@ -86,9 +86,9 @@
     var od = overdueList(), odSum = K.sum(od, function (i) { return F.balance(i); });
     var sit = cash.low < cash.threshold ? K.situation({ tone: 'danger', kicker: 'September 2026', title: 'Cash drops below the safety level on ' + K.dm(cash.lowDate), text: cashWords(cash) + ' Profit ' + M(t.profit) + ' this month.', primary: K.goBtn('View cash flow', 'mgmt-fin-cash', { variant: 'primary' }) }) :
       /* The month at a glance stays calm; anything overdue is in Needs attention just below */
-      od.length ? K.situation({ tone: 'neutral', kicker: 'September 2026', title: 'Profit ' + M(t.profit) + ' this month', text: cashWords(cash) + ' ' + M(odSum) + ' is overdue: see Needs attention below.' }) :
+      od.length ? K.situation({ tone: 'neutral', kicker: 'September 2026', title: 'Profit ' + M(t.profit) + ' this month', text: cashWords(cash) }) :
       K.situation({ tone: 'quiet', kicker: 'September 2026', title: 'On track', text: 'Profit ' + M(t.profit) + ' this month. Nothing overdue. ' + cashWords(cash) });
-    return K.page(h, sit + K.areaNeeds(['Finance'], { area: 'Financials', clear: 'Nothing overdue, unsent or waiting to be invoiced.' }) + bar + kpis + upcoming + band + K.section('Where the money is', '', areas) + tools, 'fin');
+    return K.page(h, sit + K.areaSummary('Financials') + bar + kpis + upcoming + band + K.section('Where the money is', '', areas) + tools, 'fin');
   };
 
   /* ================================================================ MONEY IN */

@@ -101,7 +101,7 @@
       empty: 'Nothing else this week.' });
     var feature = '<section class="lx-feature"><div class="lx-feature__text"><h2>All sessions</h2><p>Open a session to see its dates, coaches and players, or to change, cancel or reschedule a date.</p>' +
       '<p class="lx-feature__facts num"><span><b>' + active.length + '</b> sessions running</span><span><b>' + week.length + '</b> this week</span>' +
-      (need.length ? '<span' + (need.some(function (o) { var d = K.dateStanding(o); return d && d.sev === 'Urgent' && !d.waiting; }) ? ' class="is-alert"' : '') + '><b>' + need.length + '</b> need a coach this week</span>' : '') + '</p></div>' +
+'' + '</p></div>' +
       '<button type="button" class="lx-feature__btn" data-action="go" data-route="mgmt-sessions">Open all sessions' + I('arrowRight', 'icon-sm') + '</button></section>';
     var cards = '<div class="lx-links">' +
       K.tile({ route: 'mgmt-calendar', icon: 'calendar', title: 'Calendar', desc: 'Every session by day, week or month.' }) +
@@ -115,8 +115,7 @@
       ['Places and rules', [{ route: 'mgmt-venues', icon: 'pin', title: 'Venues', desc: 'Details and closures' },
         { route: 'mgmt-eligibility', icon: 'shield', title: 'Who can join', desc: 'Age, school year and player exceptions', count: db.getEligibilityOverrides().filter(function (x) { return !x.revokedAt; }).length }]]
     ]);
-    return K.page(h, K.findBar('Find a session, venue, player or coach') +
-      K.areaNeeds(['Sessions & Venues', 'Staffing & Cover'], { area: 'Schedule & Sessions', clear: 'Every session in the next two weeks has a coach, a venue and is on track.' }) +
+    return K.page(h, K.areaSummary('Schedule & Sessions') + K.findBar('Find a session, venue, player or coach') +
       K.section('Today', K.d(K.today) + ' · ' + today.length + ' sessions · ' + K.sum(today, 'players') + ' expected. Open one to change coaches, cancel, reschedule or take the register.', todayT) +
       K.section('Later this week', later.length + ' sessions in the next six days', weekT, K.goBtn('Calendar', 'mgmt-calendar', { size: 'sm', variant: 'secondary' })) +
       K.section('Your sessions', '', feature + cards) + more);
@@ -460,15 +459,16 @@
     var actions = '';
     /* Is this session ready to run? One message and the one next step. */
     var issues = readiness(o, s, reg), handled = [].concat.apply([], issues.map(function (x) { return x.rules || []; }));
-    var sit = readinessHtml(issues);
+    /* Anything else Needs Attention holds for this date joins the same quiet list (one presentation, no second box) */
+    var extra = K.needsRows(function (k) { return K.relatesTo(k, 'occurrence', o.id) && handled.indexOf(k.ruleId) < 0; });
+    var sit = readinessHtml(issues, extra);
     var originals = (o.deliveryHistory || []).map(function (hx, i) {
       return '<div class="sch-orig"><b>' + (i === 0 ? 'Original confirmation' : 'Before correction ' + (i + 1)) + '</b><small>' + K.stamp('Confirmed', hx.delivery.by, hx.delivery.at) + ' · replaced ' + K.dt(hx.replacedAt) + ' by ' + esc(hx.replacedBy) + ': ' + esc(hx.reason) + '</small>' +
         '<p>' + (hx.delivery.staff || []).map(function (x) { return esc(db.coachName(x.coach)) + ' (' + esc(K.roleName(x.role)) + '): ' + esc(x.attended === 'Attended' ? 'present' : (x.attended || 'not recorded').toLowerCase()); }).join(' · ') + '</p>' +
         (K.fin() === 'none' ? '' : '<p class="c-mute">Pay: ' + hx.pay.map(function (a) { return esc(db.coachName(a.coach).split(' ')[0]) + ' ' + a.units + ' h × ' + K.money(a.rate) + ' = ' + K.money(a.cost); }).join(' · ') + '</p>') + '</div>';
     }).join('');
     var history = K.details('History', originals + K.timeline(o.history.slice().reverse()), { sub: 'Every change to this date, with who and when' });
-    var also = K.needsFor(function (k) { return K.relatesTo(k, 'occurrence', o.id) && handled.indexOf(k.ruleId) < 0; }, { title: 'Also needs you' });
-    return K.page(h, sit + also + K.grid(['<div class="lx-stack">' + staffT + details + '</div>', '<div class="lx-stack">' + change + notes + '</div>'], '21') + history);
+    return K.page(h, sit + K.grid(['<div class="lx-stack">' + staffT + details + '</div>', '<div class="lx-stack">' + change + notes + '</div>'], '21') + history);
   };
   /* Per coach on a date: Can't coach (finds cover) and Change (you know who) */
   function staffActs(o, x) {
@@ -545,7 +545,8 @@
     iss.left.forEach(function (k) { var e = k.exception; leftNotes.push({ tone: 'ok', kicker: 'Left as it is', title: esc(k.title), text: esc(e.reason) + (e.scope && e.scope.label ? ' · ' + esc(e.scope.label) : '') + '. ' + K.stamp('Agreed', e.by, e.at) + ' It comes back if anything changes on this date.', secondary: K.actBtn('Reopen', 'attn-reopen', { id: e.id }, { variant: 'tertiary', size: 'sm' }), rules: [k.ruleId] }); });
     if (db.hasStarted(o) && !regDone) list.push({ tone: 'warn', sev: 'Normal', title: 'Register still needed', text: 'The session has started. The register is ' + reg.state.toLowerCase() + '.', primary: K.goBtn('Open register', 'mgmt-register/' + o.id, { variant: 'primary' }), rules: ['ATT-020'] });
     /* Urgent first; order within a tone stays as written */
-    return (list.length ? list : [{ tone: 'ok', title: 'Ready to run', text: 'Coaches, a Lead Coach and the venue are in place. After it runs, confirm what happened here.' }]).concat(leftNotes);
+    /* Healthy dates say nothing: no "Ready to run" line */
+    return list.concat(leftNotes);
   }
   /* After the session: confirmation and register take their severity from the engine too */
   function engineSev(o, list) {
@@ -555,7 +556,7 @@
   }
   /* The most important issue first, as the banner. Other Urgent issues stay as banners (never folded);
      everything else sits quietly underneath. Healthy states are one quiet line. */
-  function readinessHtml(list) {
+  function readinessHtml(list, extra) {
     var R = { Urgent: 0, Warning: 1, Normal: 2 };
     var left = list.filter(function (x) { return x.kicker === 'Left as it is'; }), ok = list.filter(function (x) { return x.tone === 'ok' && x.kicker !== 'Left as it is'; });
     var act = list.filter(function (x) { return x.tone !== 'ok'; }).map(function (x, i) { return { x: x, i: i }; })
@@ -564,7 +565,7 @@
     var banners = act.filter(function (x, i) { return i === 0 || x.sev === 'Urgent'; }), rest = act.filter(function (x) { return banners.indexOf(x) < 0; });
     var okHtml = ok.map(function (x) { return '<p class="k-okline">' + I('checkCircle') + '<b>' + (x.kicker ? esc(x.kicker) + ' · ' : '') + x.title + '</b>' + (act.length ? '' : '<span>' + x.text + '</span>') + (x.secondary || '') + '</p>'; }).join('');
     var rows = rest.map(function (x) { return { sev: x.sev, waiting: x.waiting, title: x.title, action: K.quietAct(x.primary || x.secondary) }; })
-      .concat(left.map(function (x) { return { sev: 'Normal', title: 'Left as it is: ' + x.title, sub: x.text, action: K.quietAct(x.secondary) }; }));
+      .concat(extra || []).concat(left.map(function (x) { return { sev: 'Normal', title: 'Left as it is: ' + x.title, sub: x.text, action: K.quietAct(x.secondary) }; }));
     return banners.map(K.situation).join('') + (act.length ? '' : okHtml) + K.alsoList(rows) + (act.length ? okHtml : '');
   }
   /* Find cover from the date: the Hub offers it to every eligible coach at once and you land on its cover page */

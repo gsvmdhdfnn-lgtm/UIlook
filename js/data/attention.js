@@ -47,6 +47,18 @@
     { id: 'ATT-061', name: 'Invoice not sent to the accounting system', category: 'Finance', enabled: true, base: 'Normal', warnHours: null, urgentHours: null, locked: null },
     { id: 'ATT-062', name: 'Month not invoiced', category: 'Finance', enabled: true, base: 'Normal', warnHours: null, urgentHours: null, locked: null }
   ];
+  /* Display metadata only (who owns it and what kind of work it is). Every issue belongs to exactly one
+     Management area and one topic, so the four areas always add up to the Needs Attention total. */
+  var OWN = {
+    'ATT-013': ['Schedule & Sessions', 'Staffing'], 'ATT-014': ['Schedule & Sessions', 'Staffing'], 'ATT-003': ['Schedule & Sessions', 'Staffing'], 'ATT-002': ['Schedule & Sessions', 'Staffing'],
+    'ATT-041': ['Schedule & Sessions', 'Cover'], 'ATT-018': ['Schedule & Sessions', 'Venue'], 'ATT-019': ['Schedule & Sessions', 'Venue'], 'ATT-016': ['Schedule & Sessions', 'Session setup'],
+    'ATT-017': ['Schedule & Sessions', 'Session setup'], 'ATT-022': ['Schedule & Sessions', 'Confirmation'], 'ATT-020': ['Schedule & Sessions', 'Register'], 'ATT-024': ['Schedule & Sessions', 'Refunds & credits'],
+    'ATT-031': ['Coaches', 'Documents'], 'ATT-042': ['Coaches', 'Documents'], 'ATT-011': ['Coaches', 'Documents'], 'ATT-032': ['Coaches', 'Pay rates'], 'ATT-045': ['Coaches', 'Work summaries'], 'ATT-046': ['Coaches', 'Sign-ups'],
+    'ATT-050': ['Players & Parents', 'Medical'], 'ATT-053': ['Players & Parents', 'Requests'], 'ATT-052': ['Players & Parents', 'Claims'], 'ATT-054': ['Players & Parents', 'Cancellations'],
+    'ATT-056': ['Players & Parents', 'Family reviews'], 'ATT-070': ['Players & Parents', 'Feedback'], 'ATT-071': ['Players & Parents', 'Development plans'],
+    'ATT-060': ['Financials', 'Invoices'], 'ATT-062': ['Financials', 'Invoices'], 'ATT-061': ['Financials', 'Accounting']
+  };
+  db.attentionAreas = ['Schedule & Sessions', 'Coaches', 'Players & Parents', 'Financials'];
   D.attentionExceptions = [];
   function rule(id) { return D.attentionRules.filter(function (r) { return r.id === id; })[0]; }
   /* How soon, in plain words */
@@ -66,7 +78,7 @@
     var r = rule(rid); if (!r || !r.enabled) return null;
     var sv = sev(r, o.hours);
     if (o.forceSev) sv = [maxSev(o.forceSev, sv[0]), o.forceWhy || sv[1]];
-    return Object.assign({ caseKey: key, ruleId: r.id, ruleName: r.name, category: r.category, severity: sv[0], severityReason: sv[1], when: o.hours != null ? inText(o.hours) : (o.whenText || ''), due: o.hours != null ? o.hours : 9999, group: { key: key }, fact: o.title }, o);
+    return Object.assign({ caseKey: key, ruleId: r.id, ruleName: r.name, category: r.category, area: (OWN[r.id] || [])[0] || 'Schedule & Sessions', topic: (OWN[r.id] || [])[1] || r.name, severity: sv[0], severityReason: sv[1], when: o.hours != null ? inText(o.hours) : (o.whenText || ''), due: o.hours != null ? o.hours : 9999, group: { key: key }, fact: o.title }, o);
   }
 
   /* ---------- One dated session: every issue it has, whatever the horizon ----------
@@ -278,7 +290,7 @@
       g.issues.sort(function (a, b) { return (a.waiting - b.waiting) || RANK[b.severity] - RANK[a.severity] || a.due - b.due; });
       g.lead = g.issues[0]; g.severity = g.issues.reduce(function (s, c) { return c.waiting ? s : maxSev(s, c.severity); }, 'Normal');
       g.waiting = g.issues.every(function (c) { return c.waiting; }); g.due = Math.min.apply(null, g.issues.map(function (c) { return c.due; }));
-      g.category = g.lead.category;
+      g.category = g.lead.category; g.area = g.lead.area; g.topic = g.lead.topic;
     });
     return out.sort(function (a, b) { return (a.waiting - b.waiting) || RANK[b.severity] - RANK[a.severity] || a.due - b.due; });
   }
@@ -293,6 +305,12 @@
   };
   db.getAttentionCases = function () { return db.getAttention().cases; };
   db.getAttentionCards = function (list) { return cards(list || db.getAttention().cases); };
+  /* Summary of active work (Waiting on others excluded), overall or for one area: counts, and topics most important first */
+  db.getAttentionSummary = function (area) {
+    var cs = cards(db.getAttention().cases).filter(function (g) { return !g.waiting && (!area || g.area === area); }), counts = { Urgent: 0, Warning: 0, Normal: 0 }, topics = [];
+    cs.forEach(function (g) { counts[g.severity]++; g.issues.forEach(function (k) { if (!k.waiting && topics.indexOf(k.topic) < 0 && (!area || k.area === area)) topics.push(k.topic); }); });
+    return { total: cs.length, counts: counts, topics: topics };
+  };
   db.getAttentionCase = function (key) { var a = compute(); return a.cases.concat(a.left).filter(function (c) { return c.caseKey === key; })[0]; };
   /* The dated session's own view: every issue, including ones beyond the queue's horizon and ones left as they are */
   db.dateIssues = function (o) { var a = applyExceptions(dateIssues(o)); return { open: a.cases, left: a.left }; };

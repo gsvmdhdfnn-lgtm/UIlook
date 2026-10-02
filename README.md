@@ -9,6 +9,7 @@ trying out the look and feel. It is not a second Hub.
 - **Change coach (one flow everywhere, shared staffing steps with Find cover):** `docs/CHANGE-COACH.md`.
 - **Cover (outcome-first for Management, one-tap offers for coaches; time off never leaves a date looking ready):** `docs/COVER.md`.
 - **Needs Attention (one engine, outcome-first cards, waiting on others, exact tasks, Leave as it is):** `docs/NEEDS-ATTENTION.md`.
+- **Needs Attention as the inbox (the only task list; Home, area pages and badges summarise; checklist run):** `docs/NEEDS-ATTENTION-INBOX.md`.
 - **Session page consistency (dates follow the schedule, plain Schedule and Usual venue wording; Draft foundation note):** `docs/SESSION-CONSISTENCY.md`.
 - **Rule fixes and session confirmation (Phases 1–2):** `docs/RULES-AND-DELIVERY.md`.
 - **Design audit against the Josh Evans packs and 68 designs:** `docs/DESIGN-AUDIT.md`.

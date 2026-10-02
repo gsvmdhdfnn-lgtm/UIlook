@@ -13,10 +13,9 @@ Every card answers three things straight away: **what is wrong**, **why it matte
 
 ## One engine, grouped only when shown
 - **One engine** (`js/data/attention.js`) computes every issue from live data. It feeds:
-  - Needs Attention;
-  - the urgent strip, card and counts on Home;
-  - the "Needs you" panels on the area pages;
-  - the "Also needs you" lists;
+  - Needs Attention, the only task list;
+  - the counts on Home, the area summaries, the sidebar and the Home badge (see `NEEDS-ATTENTION-INBOX.md`);
+  - the quiet issue lists on a date, coach, player or family page;
   - **the dated session's banners** (`db.dateIssues`).
 - Because they all read the same issues and the same exceptions, they can't disagree.
 - **Each problem is still its own issue,** with its own rule, state, history and resolution.

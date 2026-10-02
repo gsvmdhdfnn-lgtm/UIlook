@@ -298,3 +298,21 @@ a.hx-attn, a.hm-urgent__row { text-decoration: none; color: inherit; }
 .hm-areas__need.is-calm { color: var(--text-3); font-weight: 500; }
 .hm-areas__need.is-calm::before { display: none; }
 .hm-areas__need.is-urgent { color: var(--danger); }
+/* Area pages: one line about outstanding work, never a task list */
+.k-areasum { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 14px; margin: 0 0 18px; padding: 10px 14px 10px 16px; border-radius: 14px; background: var(--hx-surface-solid); box-shadow: var(--hx-shadow), inset 3px 0 0 var(--line-strong); }
+.k-areasum.is-urgent { box-shadow: var(--hx-shadow), inset 3px 0 0 var(--danger); }
+.k-areasum__n { display: inline-flex; align-items: baseline; gap: 8px; font-size: 14px; }
+.k-areasum__n b { font-weight: 650; color: var(--text); }
+.k-areasum__n em { font-style: normal; font-weight: 650; color: var(--danger); }
+.k-areasum__t { flex: 1; min-width: 0; font-size: 13px; color: var(--text-3); }
+@media (max-width: 560px) { .k-areasum__t { flex-basis: 100%; order: 3; } }
+.hm-areas__topics { flex-basis: 100%; font-size: 12px; color: var(--text-3); }
+.na-left { margin: 18px 0 0; }
+.k-link-btn { padding: 0; border: 0; background: none; font: inherit; font-size: 13.5px; font-weight: 600; color: var(--link); cursor: pointer; }
+.k-link-btn:hover { text-decoration: underline; }
+/* Needs Attention card: problem, then where it is, then why */
+.lx-issue__where { margin: 0; font-size: 13px; font-weight: 600; color: var(--text-2); }
+/* Home badge with nothing urgent: a quiet count, not an alarm */
+.bubble.is-calm { background: var(--text-3); color: var(--raised); }
+.je-pill__n.is-calm { background: color-mix(in oklab, currentColor 18%, transparent); color: inherit; }
+.je-pill.is-active .je-pill__n.is-calm { background: rgba(255,255,255,.25); color: #fff; }

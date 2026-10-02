@@ -60,7 +60,6 @@
 
   /* ============================================================ DIRECTORY */
   /* Directory badges: nothing for a coach who's fine; problems take their tone from the engine */
-  function urgentIn(cats) { return db.getAttentionCards().some(function (g) { return !g.waiting && g.severity === 'Urgent' && g.issues.some(function (k) { return cats.indexOf(k.category) >= 0; }); }); }
   function dirPills(c) {
     var comp = db.getCoachComplianceSummary(c.id), gs = K.groupStanding('coach:' + c.id), out = [];
     if (comp.state !== 'Current') out.push(K.pill(comp.text, gs && gs.sev === 'Urgent' ? 'danger' : 'warn'));
@@ -79,9 +78,9 @@
     var reqs = cover.map(function (x) { return x.request; }).filter(function (v, i, a) { return a.indexOf(v) === i; });
     var glance = K.section('At a glance', '', K.stats([
       { label: 'Active ' + word().toLowerCase(), value: all.filter(function (c) { return c.active; }).length, sub: all.length + ' on file · ' + all.filter(function (c) { return c.type === 'learning'; }).length + ' learning' },
-      { label: 'Open cover', value: cover.length, sub: cover.length ? cover.length + ' date' + (cover.length === 1 ? '' : 's') + ' across ' + reqs.length + ' request' + (reqs.length === 1 ? '' : 's') : 'Nothing open', route: 'mgmt-cover', tone: urgentIn(['Staffing & Cover']) ? 'danger' : '' },
+      { label: 'Open cover', value: cover.length, sub: cover.length ? cover.length + ' date' + (cover.length === 1 ? '' : 's') + ' across ' + reqs.length + ' request' + (reqs.length === 1 ? '' : 's') : 'Nothing open', route: 'mgmt-cover' },
       { label: 'Work summaries', value: ready.length, sub: ready.length ? ready.map(function (w) { return first(db.coachName(w.coach)); }).join(', ') + ' to read or answer' : 'Nothing waiting', route: 'mgmt-work-summaries' },
-      { label: 'Documents', value: issues.length, sub: 'Expiring, missing or awaiting check', route: 'mgmt-documents', tone: urgentIn(['Coaches & Compliance']) ? 'danger' : '' }
+      { label: 'Documents', value: issues.length, sub: 'Expiring, missing or awaiting check', route: 'mgmt-documents' }
     ]));
     var more = K.moreIn('More in Coaches', [
       ['Cover and time off', [{ route: 'mgmt-cover', icon: 'swap', title: 'Cover', desc: 'Who is away and who is covering', count: cover.length },
@@ -104,7 +103,7 @@
         '<span class="lx-person__pills">' + dirPills(c).join('') + '<span class="lx-person__n num">' + db.getCoachWeekCount(c.id) + ' this week</span></span></a>';
     }).join('');
     var anyShown = list.some(function (c) { return !dirQuery || (c.name + ' ' + c.role + ' ' + c.code).toLowerCase().indexOf(dirQuery) >= 0; });
-    return page(h, K.areaNeeds(['Coaches & Compliance'], { area: 'Coaches & Compliance', clear: 'Every coach is up to date.' }) + glance +
+    return page(h, K.areaSummary('Coaches') + glance +
       K.section('Find a coach', 'Open a coach for their sessions, time off and cover, documents, and pay and work.', bar + '<div class="lx-people co-dir">' + cards + '</div>' +
         '<p class="k-note co-dir__none"' + (anyShown ? ' hidden' : '') + '>No ' + esc(word().toLowerCase()) + ' match this search and filter.</p>') + more);
   };
@@ -123,8 +122,9 @@
     var comp = db.getCoachComplianceSummary(c.id), openCover = db.getOpenCover().filter(function (x) { return x.absent === c.id; }).length;
     var tabs = TABS.map(function (t) {
       var m = Object.assign({}, t);
-      if (t.id === 'documents') { m.meta = comp.state === 'Current' ? 'Current' : comp.state; var gs = K.groupStanding('coach:' + c.id); m.state = gs && !gs.waiting && gs.sev !== 'Normal' ? gs.sev : null; }
-      if (t.id === 'availability' && openCover) { m.meta = openCover + ' cover open'; m.state = 'Warning'; }
+      /* Plain facts only: the problem itself is the banner above, never a dot as well */
+      if (t.id === 'documents' && comp.state !== 'Current') m.meta = comp.state;
+      if (t.id === 'availability' && openCover) m.meta = openCover + ' cover open';
       return m;
     });
     var h = K.head({ back: ['mgmt-coaches', word()], eyebrow: c.role, title: c.name,
@@ -166,16 +166,15 @@
       ['Documents and pay', cs.state === 'Current' ? 'Documents up to date' : esc(cs.text), 'September: ' + sep.length + ' sessions' + (K.canFin() || K.fin() === 'view' ? ' · ' + K.money(K.sum(sep, 'cost')) : '')]
     ]);
     /* One place for each problem: the engine's most important issue for this coach leads, the rest are quiet.
-       Urgent ones always stay as banners. A coach who's fine gets one quiet line. */
+       Urgent ones always stay as banners. A coach who's fine gets nothing extra. */
     var fn = first(c.name), mine = db.getAttentionCases().filter(function (k) { return !k.waiting && K.relatesTo(k, 'coach', c.id); });
     var go = function (k, v) { return K.goBtn(k.actionLabel, k.route, { variant: v || 'primary', attrs: { 'data-case-key': k.caseKey } }); };
     var big = mine.filter(function (k, i) { return i === 0 || k.severity === 'Urgent'; }), small = mine.filter(function (k) { return big.indexOf(k) < 0; });
     var awayLine = t ? '<p class="k-okline">' + I('clock') + '<b>' + esc(t.type === 'Different hours' ? 'Different hours today' : fn + ' is unavailable today') + '</b><span>' + esc(t.reason || '') + '</span></p>' : '';
     var sit = !c.active ? K.situation({ tone: 'neutral', title: fn + ' is inactive', text: 'Inactive coaches are not offered sessions or cover.' })
       : mine.length ? big.map(function (k) { return K.situation({ tone: K.sevTone(k.severity), title: esc(k.title), text: esc(k.why || ''), primary: go(k) }); }).join('') + awayLine +
-        K.alsoList((function () { var gr = []; small.forEach(function (k) { var g = gr.filter(function (x) { return x.k.title === k.title; })[0]; if (g) g.n++; else gr.push({ k: k, n: 1 }); });
-          return gr.map(function (g) { var k = g.k; return { sev: k.severity, title: esc(k.title), sub: (g.n > 1 ? g.n + ' sessions · first ' : '') + esc(k.when || ''), action: '<a href="#' + esc(k.route) + '" data-case-key="' + esc(k.caseKey) + '">' + esc(k.actionLabel) + ' →</a>' }; }); })())
-      : awayLine || '<p class="k-okline">' + I('checkCircle') + '<b>' + esc(fn) + ' is all set</b><span>Documents current, nothing booked off and no cover open.</span></p>';
+        K.alsoList(K.needsRows(function (k) { return small.indexOf(k) >= 0; }))
+      : awayLine;
     return sit + snap + K.grid([upcoming, compCard], 2) + K.details('Profile and contact', profile, { sub: 'Contact details, role, active status and its history' });
   }
 

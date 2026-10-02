@@ -43,6 +43,8 @@
   K.dd = function (iso) { if (!iso) return '—'; var d = parse(iso); return DOW[d.getDay()] + ' ' + d.getDate() + ' ' + MON[d.getMonth()]; };
   K.dt = function (iso) { if (!iso) return '—'; var d = parse(iso); return d.getDate() + ' ' + MON[d.getMonth()] + ' ' + String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'); };
   K.today = '2026-10-01';
+  /* The prototype's fixed "now" for working out how soon something is. K.now() is for stamps only: it ticks on every call */
+  K.clock = '2026-10-01T14:10';
   var tick = 0;
   K.now = function () { tick++; var m = 10 + tick; return '2026-10-01T' + String(14 + Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0'); };
   K.addDays = function (iso, n) { var d = parse(iso); d.setDate(d.getDate() + n); return K.iso(d); };
@@ -76,7 +78,11 @@
       var next = L.chain && cases.filter(function (k) { return k.chain === L.chain; })[0];
       if (next) { L.key = next.caseKey; L.to = next.route; Hub.render(); return r; }
       Hub.launch = null;
-      Hub.toast((msg ? msg + '. ' : '') + 'That item is cleared');
+      /* Like ticking off a checklist: what was done, and how much is left */
+      var left = Hub.db.getAttention().summary.total;
+      Hub._doneSuffix = ' · ' + (left ? left + ' thing' + (left === 1 ? '' : 's') + ' still need' + (left === 1 ? 's' : '') + ' you' : 'you’re up to date');
+      Hub.toast(msg || 'Done'); Hub.focusNext = true;
+      setTimeout(function () { Hub._doneSuffix = null; }, 60);
       if (Hub.closeSheet) Hub.closeSheet(true);
       Hub.restoreScroll = L.from.scroll || 0;
       location.hash = L.from.full; return r;
@@ -187,35 +193,29 @@
   };
   /* Turn a banner's button into a quiet link-style action for the "also" list */
   K.quietAct = function (html) { return String(html || '').replace(/btn--(primary|secondary|tertiary|danger)/g, 'btn--tertiary').replace('class="btn ', 'class="btn btn--sm '); };
-  /* What needs Management in one area: Needs Attention cases for the given
-     categories, each opening the actual task. */
-  K.areaNeeds = function (cats, o) {
-    o = o || {};
-    /* Concise: the counts, every urgent item, otherwise just the single most important one. Same cards as Needs Attention. */
-    var list = Hub.db.getAttentionCards().filter(function (g) { return !g.waiting && g.issues.some(function (k) { return cats.indexOf(k.category) >= 0; }); });
-    if (!list.length) return '<p class="k-okline">' + I('checkCircle') + '<b>' + esc(o.clear || 'Nothing here needs you right now.') + '</b></p>';
-    var c = { Urgent: 0, Warning: 0, Normal: 0 }; list.forEach(function (g) { c[g.severity]++; });
-    var urgent = list.filter(function (g) { return g.severity === 'Urgent'; }), show = urgent.length ? urgent : list.slice(0, 1);
-    var counts = [c.Urgent ? c.Urgent + ' urgent' : '', c.Warning ? c.Warning + ' warning' : '', c.Normal ? c.Normal + ' to do' : ''].filter(Boolean).join(' · ');
-    var rows = show.map(function (g) {
-      var k = g.lead, more = g.issues.length - 1;
-      return ui.row({ lead: ui.sev(g.severity), title: esc(k.title), sub: [esc(k.when || '')].concat(more ? ['+' + more + ' more'] : []), href: '#' + (k.route || 'mgmt-attention'), trail: '<span class="k-needs__act">' + esc(k.actionLabel || 'Open') + '</span>' }).replace('<a ', '<a data-case-key="' + esc(k.caseKey) + '" ');
-    });
-    return K.section('Needs attention', counts + (list.length > show.length ? ' · most important first' : ''), K.list(rows), o.area ? K.actBtn('See all ' + list.length, 'attn-area', { area: o.area }, { size: 'sm', variant: 'secondary' }) : '');
+  /* An area page's one line about outstanding work: counts and topics, and a way into Needs Attention.
+     Nothing at all when the area has no active work. Never a task list. */
+  K.areaSummary = function (area) {
+    var S = Hub.db.getAttentionSummary(area); if (!S.total) return '';
+    return '<div class="k-areasum' + (S.counts.Urgent ? ' is-urgent' : '') + '"><span class="k-areasum__n"><b>' + S.total + ' need' + (S.total === 1 ? 's' : '') + ' attention</b>' + (S.counts.Urgent ? '<em>' + S.counts.Urgent + ' urgent</em>' : '') + '</span>' +
+      '<span class="k-areasum__t">' + esc(S.topics.slice(0, 3).join(' · ')) + '</span>' + K.actBtn('View in Needs Attention', 'attn-area', { area: area }, { size: 'sm', variant: 'secondary', trail: 'arrowRight' }) + '</div>';
   };
   /* Needs Attention items about one thing (a coach, player, family or session
      date). Same items as the master list, so fixing one clears it everywhere.
      Quiet (renders nothing) when there is nothing to do. */
-  K.needsFor = function (test, o) {
-    o = o || {};
+  K.needsRows = function (test) {
     var list = Hub.db.getAttentionCases().filter(function (k) { return !k.waiting && test(k); });
-    if (!list.length) return o.quiet === false ? '<p class="k-okline">' + I('checkCircle') + '<b>Nothing needs you here.</b></p>' : '';
     /* The same problem on several dates reads as one line with a count; quiet, one line each */
     var groups = [];
     list.forEach(function (k) { var g = groups.filter(function (x) { return x.title === k.title; })[0]; if (g) g.n++; else groups.push({ title: k.title, k: k, n: 1 }); });
-    return K.alsoList(groups.map(function (g) { var k = g.k;
+    return groups.map(function (g) { var k = g.k;
       return { sev: k.severity, title: esc(k.title), sub: (g.n > 1 ? g.n + ' sessions · first ' : '') + esc(k.when || ''), action: '<a href="#' + esc(k.route || 'mgmt-attention') + '" data-case-key="' + esc(k.caseKey) + '">' + esc(k.actionLabel || 'Open') + ' →</a>' };
-    }), { title: o.title || 'Also needs attention' });
+    });
+  };
+  K.needsFor = function (test, o) {
+    o = o || {};
+    var rows = K.needsRows(test);
+    return rows.length ? K.alsoList(rows, { title: o.title || 'Also needs attention' }) : '';
   };
   K.snap = function (items) { return '<div class="k-snap">' + items.map(function (i) { return '<div><span>' + esc(i[0]) + '</span><b>' + i[1] + '</b>' + (i[2] ? '<small>' + i[2] + '</small>' : '') + '</div>'; }).join('') + '</div>'; };
   K.relatesTo = function (k, kind, id) { return !!((k.related && k.related[kind] === id) || (k.route && k.route.split('/')[1] === id)); };
