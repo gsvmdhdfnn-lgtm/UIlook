@@ -361,20 +361,29 @@
   db.cancelOccurrence = function (id, reason, who, at) {
     var o = D.occ(id); Object.assign(o, { status: 'Cancelled', change: 'Cancelled', cancelReason: reason, cancelledBy: who, cancelledAt: at });
     o.staff.forEach(function (s) { s.attended = 'Not required'; });
-    hist(o, 'Cancelled: ' + reason, who, at, 'danger'); return o;
+    hist(o, 'Cancelled: ' + reason, who, at, 'danger');
+    if (db.closeCoverForDate) db.closeCoverForDate(o, 'cancelled', 'Session cancelled', who, at);
+    return o;
   };
   db.postponeOccurrence = function (id, reason, who, at) {
     var o = D.occ(id); Object.assign(o, { status: 'Postponed', change: 'Postponed: new date to be set', cancelReason: reason, cancelledBy: who, cancelledAt: at });
-    hist(o, 'Postponed: ' + reason, who, at, 'warn'); return o;
+    hist(o, 'Postponed: ' + reason, who, at, 'warn');
+    if (db.closeCoverForDate) db.closeCoverForDate(o, 'postponed', 'Session postponed', who, at);
+    return o;
   };
   db.rescheduleOccurrence = function (id, to, reason, who, at) {
     var o = D.occ(id), s = D.session(o.sessionId);
     var rep = makeOcc(s, to.date, { start: to.start || o.start, end: to.end || o.end, venue: to.venue || o.venue, capacity: o.capacity, replacementOf: o.id, change: 'Replacement',
-      staff: o.staff.map(function (x) { return { coach: x.coach, lead: x.lead, role: x.role, actualRole: x.role, attended: null }; }) });
+      /* The plan without this date's cover: anyone away is checked again for the new date */
+      staff: o.staff.filter(function (x) { return !x.cover; }).map(function (x) { return { coach: x.coach, lead: x.lead, role: x.role, actualRole: x.role, attended: null }; }) });
     hist(rep, 'Created as the replacement for ' + K.dd(o.date) + ', ' + o.start, who, at, 'info');
     Object.assign(o, { status: 'Rescheduled', change: 'Rescheduled', replacement: rep.id, cancelReason: reason, cancelledBy: who, cancelledAt: at });
     o.staff.forEach(function (x) { x.attended = 'Moved'; });
     hist(o, 'Rescheduled to ' + K.dd(rep.date) + ', ' + rep.start, who, at, 'warn', reason);
+    if (db.closeCoverForDate) {
+      db.closeCoverForDate(o, 'moved', 'Session moved to ' + K.dd(rep.date), who, at);
+      rep.staff.forEach(function (x) { if (db.awayFrom(x.coach, rep)) db.raiseCover({ coach: x.coach, occurrences: [rep], reason: 'Still away on the new date' }, who, at); });
+    }
     return rep;
   };
   /* ---------- Change venue: one set of rules for every starting point ----------
@@ -504,7 +513,7 @@
       else {
         /* the outgoing coach, and anyone covering for them on this date, come off it with their expected pay */
         if (spec.out) db.staffTakeOff(o, spec.out, { withCover: true });
-        if (inc) db.staffPlace(o, { coach: inc, role: spec.role, changed: spec.scope !== 'onwards' });
+        if (inc) { db.staffPlace(o, { coach: inc, role: spec.role, changed: spec.scope !== 'onwards' }); if (db.coverBusyElsewhere) db.coverBusyElsewhere(inc, o, at); }
       }
       hist(o, 'Coach changed: ' + what + (spec.scope === 'onwards' ? ' (regular from ' + K.dm(spec.from) + ')' : ' for this date only'), who, at, 'warn', spec.reason);
     });
@@ -523,6 +532,8 @@
     plan.cover.forEach(function (c) {
       db.closeCoverNeed(c.r.id, c.n.id, { coach: inc || null, direct: true, note: inc ? first(inN) + ' chosen by Management' : 'No longer needed: ' + first(outN) + ' removed from this date', history: 'Sorted by Management for ' + K.dd(c.o.date) + ': ' + what, reason: spec.reason }, who, at);
     });
+    /* Whoever came off a date may now be free to cover another */
+    if (db.keepOffering) db.keepOffering(at);
     if (db.notifyCoach) {
       var dl = plan.targets.map(function (o) { return K.dd(o.date); }).join(', ') + (spec.scope === 'onwards' ? ' (from ' + K.dm(spec.from) + ' onwards)' : '');
       if (spec.out && spec.to !== 'same') db.notifyCoach(spec.out, 'You’re off ' + s.name, dl + '. ' + (inc ? inN + ' is coaching instead.' : ''), 'coach-schedule', at);
@@ -563,25 +574,11 @@
     if (opts.keepAway) { o.staff.forEach(function (x) { if (x.coach === coach) { x.unavailable = true; x.covering = opts.coveredBy || null; } }); return; }
     o.staff = o.staff.filter(function (x) { return !(x.coach === coach || (opts.withCover && x.cover && x.covers === coach)); });
   };
+  /* The coach can make a date after all: back on it, with expected pay at their normal rate */
+  db.staffBack = function (o, coach) {
+    o.staff.forEach(function (x) { if (x.coach === coach && x.unavailable && !x.cover) { x.unavailable = false; x.covering = null; expectPay(o, coach, x.actualRole || x.role); } });
+  };
   function dropExpected(o, coach) { var F = db.fin; if (!F || !F.allocations) return; for (var i = F.allocations.length - 1; i >= 0; i--) { var a = F.allocations[i]; if (a.occurrence === o.id && a.coach === coach && a.state === 'Draft') F.allocations.splice(i, 1); } }
-  db.addOccurrenceStaff = function (id, coach, role, who, at) {
-    var o = D.occ(id); if (!o || o.delivery || o.staff.some(function (x) { return x.coach === coach && !x.unavailable; })) return null;
-    var x = { coach: coach, lead: role === 'Lead', role: role, actualRole: role, attended: null, added: true };
-    o.staff.push(x); expectPay(o, coach, role);
-    hist(o, db.coachName(coach) + ' added as ' + K.roleName(role) + ' for this date', who, at, 'ok'); return x;
-  };
-  db.updateOccurrenceStaff = function (id, coach, patch, who, at) {
-    var o = D.occ(id), s = o.staff.filter(function (x) { return x.coach === coach; })[0]; if (!s) return null;
-    Object.assign(s, patch);
-    if (patch.covering) {
-      /* The covering coach works the date in their own right */
-      s.unavailable = true; dropExpected(o, coach);
-      if (!o.staff.some(function (x) { return x.coach === patch.covering && !x.unavailable; })) { var role = s.actualRole || s.role; o.staff.push({ coach: patch.covering, lead: role === 'Lead', role: role, actualRole: role, attended: null, cover: true, covers: coach }); expectPay(o, patch.covering, role); }
-    }
-    var words = { actualRole: function (v) { return 'role on the day ' + K.roleName(v); }, covering: function (v) { return 'covered by ' + db.coachName(v); } };
-    hist(o, 'Staff updated: ' + db.coachName(coach), who, at, 'info', Object.keys(patch).map(function (k) { return words[k] ? words[k](patch[k]) : k + ': ' + patch[k]; }).join(', '));
-    return s;
-  };
   db.getAffectedPlayers = function (id) { var o = D.occ(id); return o ? D.expectedPlayers(o) : []; };
   /* Financial outcome of a cancellation or reschedule. A parent Credit creates a family credit per affected player; a Refund creates a refund. */
   db.recordOccurrenceOutcome = function (id, outcome, who, at) {

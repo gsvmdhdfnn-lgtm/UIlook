@@ -38,23 +38,33 @@
     ]
   };
 
-  /* ---------- Seeded cover, through the shared cover helpers ---------- */
-  var ngFri = db.findOccurrence('SES-06', '2026-10-02');
-  if (ngFri && db.addCoverRequest) {
-    var pr = db.addCoverRequest({ coach: 'priya', kind: 'Unavailable', from: '2026-10-02', to: '2026-10-02', noAutoSend: true, reason: 'Supervising a Year 6 school trip' }, 'Priya Nair', '2026-09-29T16:40');
-    var pn = pr.needs[0];
-    if (pn) {
-      var po = db.sendCoverOffer(pr.id, pn.id, 'jack', 'David Cole', '2026-09-29T17:05');
-      db.respondCoverOffer(pr.id, pn.id, po.id, 'Accepted', 'Happy to, I finish at Westbrook at 15:15', '2026-09-29T18:20');
-      db.confirmCover(pr.id, pn.id, 'David Cole', '2026-09-29T18:45');
-    }
+  /* ---------- Seeded cover, raised through the shared cover functions ----------
+     Each one is offered to every eligible coach when it is raised, exactly as in the Hub.
+     Order fixes the references: CVR-01 Tom's holiday (two dates), CVR-02 Charlie tonight,
+     CVR-03 no coach on Friday, CVR-04 Priya on Friday (already covered by Jack). */
+  var DC = 'David Cole';
+  var ppa12 = db.findOccurrence('SES-05', '2026-10-12'), ppa15 = db.findOccurrence('SES-05', '2026-10-15');
+  var u12 = db.findOccurrence('SES-03', '2026-10-01'), u13 = db.findOccurrence('SES-04', '2026-10-02'), ngFri = db.findOccurrence('SES-06', '2026-10-02');
+  function reply(r, i, coach, resp, note, at) {
+    var n = r && r.needs[i], f = n && n.offers.filter(function (x) { return x.coach === coach; })[0];
+    if (f) db.respondCoverOffer(r.id, n.id, f.id, resp, note, at);
   }
-  var u13 = db.findOccurrence('SES-04', '2026-10-02');
-  var noCoach = u13 && db.getCoverRequests(function (r) { return r.needs.some(function (n) { return n.occurrence === u13.id; }) && r.kind === 'No coach'; })[0];
-  if (noCoach) {
-    db.addAvailabilityException({ coach: 'charlie', type: 'Different hours', from: '2026-10-02', to: '2026-10-02', start: '17:00', end: '21:00', reason: 'Free this Friday evening if cover is needed', by: 'Charlie Hughes', at: '2026-10-01T12:05' });
-    db.sendCoverOffer(noCoach.id, noCoach.needs[0].id, 'jack', 'David Cole', '2026-10-01T12:30');
-    db.sendCoverOffer(noCoach.id, noCoach.needs[0].id, 'charlie', 'David Cole', '2026-10-01T12:31');
+  if (db.raiseCover) {
+    var r1 = db.raiseCover({ coach: 'tom', occurrences: [ppa12, ppa15], kind: 'Holiday', reason: 'Family holiday (booked in July)', exception: 'AVX-02', from: '2026-10-12', to: '2026-10-16' }, DC, '2026-09-29T08:30');
+    var r2 = db.raiseCover({ coach: 'charlie', occurrences: [u12], kind: 'Unavailable', reason: 'Family commitment this evening', exception: 'AVX-01' }, 'Charlie Hughes', '2026-09-30T18:12');
+    reply(r2, 0, 'jack', 'Declined', 'Can’t get to Northgate by 19:00 tonight', '2026-10-01T11:02');
+    db.raiseCover({ coach: null, occurrences: [u13], kind: 'No coach', reason: 'No coach assigned after the September rota change' }, 'The Hub', '2026-09-28T09:00');
+    var pr = db.addCoverRequest({ coach: 'priya', kind: 'Unavailable', from: '2026-10-02', to: '2026-10-02', reason: 'Supervising a Year 6 school trip' }, 'Priya Nair', '2026-09-29T16:40');
+    if (pr) {
+      reply(pr, 0, 'jack', 'Accepted', 'Happy to, I finish at Westbrook at 15:15', '2026-09-29T18:20');
+      var pf = pr.needs[0].offers.filter(function (x) { return x.coach === 'jack'; })[0];
+      if (pf) db.confirmCover(pr.id, pr.needs[0].id, DC, '2026-09-29T18:45', { offer: pf.id });
+    }
+    /* Charlie is free on Friday evening after all, so the Hub offers him Friday's open date */
+    db.recordTimeOff({ coach: 'charlie', type: 'Different hours', from: '2026-10-02', to: '2026-10-02', start: '17:00', end: '21:00', reason: 'Free this Friday evening if cover is needed' }, 'Charlie Hughes', '2026-10-01T12:05');
+    if (r1) { reply(r1, 0, 'priya', 'Accepted', 'Yes, I can do the Monday', '2026-09-30T19:10'); reply(r1, 0, 'josh', 'Accepted', '', '2026-10-01T08:40'); }
+    /* Any other time off on file that still leaves a coach on a date starts cover for it */
+    db.sweepTimeOff('The Hub', '2026-10-01T08:00');
   }
 
   /* ---------- Per-coach notifications (the shared coach list is merged in) ---------- */
@@ -163,11 +173,11 @@
     });
     return out.sort(function (a, b) { return (a.offer.response ? 1 : 0) - (b.offer.response ? 1 : 0) || (a.occurrence.date < b.occurrence.date ? -1 : 1); });
   };
-  db.getPendingCoverOffers = function (coach) { return db.getCoverOffersFor(coach).filter(function (x) { return !x.offer.response && x.need.state !== 'Covered'; }); };
+  db.getPendingCoverOffers = function (coach) { return db.getCoverOffersFor(coach).filter(function (x) { return !x.offer.response && !x.offer.closed && x.need.state !== 'Covered' && x.occurrence && !db.hasStarted(x.occurrence); }); };
   db.getMyCoverRequests = function (coach) { return db.getCoverRequests(function (r) { return r.coach === coach; }).slice().sort(function (a, b) { return a.from < b.from ? 1 : -1; }); };
   /* Occurrences a new absence would affect (preview before recording it) */
   db.getAbsenceImpact = function (coach, from, to) {
-    return db.getOccurrences(function (x) { return x.date >= from && x.date <= to && x.status === 'Scheduled' && x.staff.some(function (s) { return s.coach === coach && !s.unavailable; }); });
+    return db.timeOffTouches({ coach: coach, type: 'Unavailable', from: from, to: to });
   };
 
   /* Feedback written by a coach */

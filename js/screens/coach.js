@@ -118,7 +118,7 @@
   function needsYou() {
     var k = meKey(), out = [];
     if (db.hubCan('attendance')) db.getMyOpenRegisters(k).forEach(function (o) { out.push(ui.row({ lead: icoLead('check'), title: 'Register still needed for ' + esc(o.session), sub: [esc(K.dd(o.date) + ', ' + o.start)], trail: K.pill('Open register', 'danger'), href: '#coach-register/' + o.id })); });
-    if (K.feature('cover')) db.getPendingCoverOffers(k).forEach(function (x) { out.push(ui.row({ lead: icoLead('coaches'), title: 'You’ve been offered cover', sub: [esc(x.occurrence.session), esc(when(x.occurrence)), esc(venueName(x.occurrence))], trail: K.pill('View offer', 'info'), href: '#coach-cover' })); });
+    if (K.feature('cover')) db.getPendingCoverOffers(k).forEach(function (x) { out.push(ui.row({ lead: icoLead('coaches'), title: 'Cover available', sub: [esc(x.occurrence.session), esc(when(x.occurrence)), esc(venueName(x.occurrence))], trail: K.pill('View offer', 'info'), href: '#coach-cover' })); });
     db.getMyReturnedFeedback(k).forEach(function (f) { out.push(ui.row({ lead: icoLead('development'), title: 'Feedback for ' + esc(db.getPlayer(f.player).name) + ' needs changes', sub: [esc(f.returns.length ? f.returns[f.returns.length - 1].note : '')], trail: K.pill('Edit feedback', 'warn'), href: '#coach-feedback/' + f.player })); });
     db.getMyDraftFeedback(k).forEach(function (f) { out.push(ui.row({ lead: icoLead('development'), title: 'Finish feedback for ' + esc(db.getPlayer(f.player).name), sub: [esc(f.period), 'Started ' + esc(K.dt(f.startedAt))], trail: K.pill('Continue', 'info'), href: '#coach-feedback/' + f.player })); });
     db.getFeedbackToSignOff(k).forEach(function (f) { out.push(ui.row({ lead: icoLead('userCheck'), title: 'Sign off ' + esc(first(db.coachName(f.coach))) + '’s feedback for ' + esc(db.getPlayer(f.player).name), sub: ['Learning coach', 'Submitted ' + esc(K.dt(f.submittedAt))], trail: K.pill('Sign off', 'info'), href: '#coach-feedback/' + f.player })); });
@@ -546,7 +546,7 @@
   /* ============================================================ AVAILABILITY */
   Hub.screens['coach-availability'] = function (ctx) {
     var k = meKey();
-    var h = K.head({ eyebrow: hub(), title: 'Availability', sub: 'Your usual week, and the dates you can’t make. Marking a date can ask the office for cover straight away.', actions: K.goBtn('Cover', 'coach-cover', { variant: 'secondary', icon: 'coaches' }) });
+    var h = K.head({ eyebrow: hub(), title: 'Availability', sub: 'Your usual week, and the dates you can’t make. If a date touches one of your sessions, the office is told and cover is found straight away.', actions: K.goBtn('Cover', 'coach-cover', { variant: 'secondary', icon: 'coaches' }) });
     var g = K.guard(ctx, h, { empty: ['clock', 'No availability yet', 'Set the days you can usually coach.'] }); if (g) return g;
     var wk = db.getWeeklyAvailability(k), dows = db.getDows(), upd = db.getWeeklyUpdated();
     var week = '<div class="ch-week">' + dows.map(function (d, i) {
@@ -560,9 +560,8 @@
       var linked = reqs.filter(function (r) { return r.exception === e.id; })[0], past = e.to < K.today;
       var impact = past ? [] : db.getAbsenceImpact(k, e.from, e.to);
       var acts = '';
-      if (!past && !linked && e.type !== 'Different hours' && K.feature('cover')) acts += K.actBtn('Request cover', 'ch-av-cover', { id: e.id }, { size: 'sm', variant: 'secondary' });
-      if (!past && !linked) acts += K.actBtn('Remove', 'ch-av-remove', { id: e.id }, { size: 'sm', variant: 'tertiary' });
-      return ui.row({ title: esc((e.from === e.to ? K.dd(e.from) : K.dm(e.from) + '–' + K.dm(e.to)) + (e.start ? ', ' + e.start + '–' + e.end : '')), sub: [esc(e.reason), linked ? 'Cover request: ' + esc(db.coverStatus(linked).toLowerCase()) : impact.length ? impact.length + ' session' + (impact.length === 1 ? '' : 's') + ' affected' : ''],
+      if (!past) acts += K.actBtn('Remove', 'ch-av-remove', { id: e.id }, { size: 'sm', variant: 'tertiary' });
+      return ui.row({ title: esc((e.from === e.to ? K.dd(e.from) : K.dm(e.from) + '–' + K.dm(e.to)) + (e.start ? ', ' + e.start + '–' + e.end : '')), sub: [esc(e.reason), linked ? (db.coverStatus(linked) === 'Covered' ? 'Cover sorted' : 'The office is finding cover') : impact.length ? impact.length + ' session' + (impact.length === 1 ? '' : 's') + ' affected' : ''],
         after: stamp('Recorded', e.by, e.at) + (acts ? '<div class="k-row-actions ch-rowacts">' + acts + '</div>' : ''), trail: K.pill(e.type, e.type === 'Holiday' ? 'info' : e.type === 'Unavailable' ? 'danger' : 'warn') });
     })) : '<p class="k-note">Nothing marked.</p>' });
     var form = K.card({ title: 'Mark dates you can’t make', sub: 'Holiday, illness or a one-off. The office sees it straight away.', body: K.form([
@@ -572,49 +571,69 @@
       K.field('To', K.input('av-to', K.addDays(K.today, 7), { type: 'date' })),
       K.field('Start time (optional)', K.input('av-start', '', { type: 'time' }), 'Leave blank for the whole day'),
       K.field('End time (optional)', K.input('av-end', '', { type: 'time' })),
-      K.field('Cover', K.select('av-cover', K.feature('cover') ? [['yes', 'Request cover for my sessions'], ['no', 'Just mark me unavailable']] : [['no', 'Just mark me unavailable']], K.feature('cover') ? 'yes' : 'no'), K.feature('cover') ? 'Cover is requested for every session you’re on in those dates.' : 'The cover workflow is switched off.', true)
+      '<p class="k-note">If this touches any of your sessions, the office is told and cover is found for each one. You don’t need to do anything else.</p>'
     ], 2) + '<div class="k-row-actions">' + K.actBtn('Save', 'ch-av-save', {}, { variant: 'primary', icon: 'check' }) + '</div>' });
     return page(h, cols(form + exCard, weekCard));
   };
 
   /* ============================================================ COVER */
+  /* Cover, mobile first: an offer is understood and answered in seconds. Pay shows only when it
+     isn't the coach's normal rate; nobody else's reasons are shown. */
+  function offerLive(x) { return x.need.state !== 'Covered' && !x.offer.closed && x.offer.response !== 'Filled'; }
+  function dayWord(o) { var d = K.daysBetween(K.today, o.date); return d === 0 ? 'Today' : d === 1 ? 'Tomorrow' : ''; }
+  function offerCard(x, k) {
+    var o = x.occurrence, f = x.offer, n = x.need, d = { req: x.request.id, need: n.id, offer: f.id };
+    var flag = db.coverFlag(k, o), extra = [];
+    if (n.absent) extra.push('Covering for ' + first(db.coachName(n.absent)));
+    if (flag) extra.push('You’re ' + flag.charAt(0).toLowerCase() + flag.slice(1));
+    if (f.rate !== f.normal) extra.push('<b>' + K.money(f.cost) + ' for this session</b> · ' + (f.rate > f.normal ? 'more than your usual rate' : 'not your usual rate'));
+    var acts, status = '';
+    if (!f.response) acts = K.actBtn('Accept cover', 'ch-cover-accept', d, { variant: 'primary', icon: 'check' }) + K.actBtn('Can’t do it', 'ch-cover-decline', d, { variant: 'secondary' });
+    else if (f.response === 'Accepted') { status = ui.notice('info', 'You said you can cover', 'The office will confirm. We’ll let you know either way.'); acts = K.actBtn('Change my mind', 'ch-cover-decline', d, { variant: 'tertiary' }); }
+    else { status = ui.notice('neutral', 'You said you can’t', f.note ? '“' + esc(f.note) + '”' : 'Thanks for letting the office know.'); acts = K.actBtn('Actually, I can', 'ch-cover-accept', d, { variant: 'secondary' }) + (f.note ? '' : K.actBtn('Add a reason', 'ch-cover-why', d, { variant: 'tertiary' })); }
+    return '<article class="ch-offer' + (f.response ? ' is-answered' : '') + '"><span class="overline">' + esc(dayWord(o) ? 'Cover available · ' + dayWord(o) : 'Cover available') + '</span>' +
+      '<h2 class="ch-offer__t">' + esc(o.session) + '</h2><p class="ch-offer__w">' + esc(K.dd(o.date)) + ' · ' + o.start + '–' + o.end + '</p><p class="ch-offer__v">' + esc(venueName(o)) + '</p>' +
+      (extra.length ? '<ul class="ch-offer__extra">' + extra.map(function (t) { return '<li>' + t + '</li>'; }).join('') + '</ul>' : '') + status +
+      '<div class="ch-offer__acts">' + acts + '</div></article>';
+  }
+  function coveringCard(x) {
+    var o = x.occurrence, n = x.need;
+    return '<article class="ch-offer is-on"><span class="overline">You’re covering' + (dayWord(o) ? ' · ' + dayWord(o) : '') + '</span><h2 class="ch-offer__t">' + esc(o.session) + '</h2><p class="ch-offer__w">' + esc(K.dd(o.date)) + ' · ' + o.start + '–' + o.end + '</p><p class="ch-offer__v">' + esc(venueName(o)) + '</p>' +
+      (n.absent ? '<ul class="ch-offer__extra"><li>Covering for ' + esc(first(db.coachName(n.absent))) + '</li></ul>' : '') +
+      '<div class="ch-offer__acts">' + K.goBtn('Open session', 'coach-session/' + o.id, { variant: 'primary' }) + (db.hasStarted(o) ? '' : K.actBtn('I can’t do it now', 'ch-cover-dropout', { req: x.request.id, need: n.id }, { variant: 'tertiary' })) + '</div></article>';
+  }
+  function earlierWord(x, k) {
+    var n = x.need, f = x.offer, c = n.confirmed;
+    if (c && !c.coach) return 'No longer needed';
+    if (c && c.coach && c.coach !== k) return 'Filled: ' + first(db.coachName(c.coach)) + (c.direct ? ' is coaching' : ' is covering');
+    if (f.closedNote) return f.closedNote;
+    if (f.response === 'Declined') return 'You said you can’t';
+    return 'Filled';
+  }
   Hub.screens['coach-cover'] = function (ctx) {
     var k = meKey();
-    var h = K.head({ eyebrow: hub(), title: 'Cover', sub: 'Cover offered to you, and cover for the dates you can’t make.', actions: K.goBtn('Mark dates unavailable', 'coach-availability', { variant: 'secondary', icon: 'clock' }) });
-    var g = K.guard(ctx, h, { empty: ['coaches', 'No cover yet', 'Cover offered to you and your own requests appear here.'] }); if (g) return g;
+    var h = K.head({ eyebrow: hub(), title: 'Cover', sub: 'Cover you’ve been offered, and dates you can’t make.', actions: K.goBtn('Can’t make a date?', 'coach-availability', { variant: 'secondary', icon: 'clock' }) });
+    var g = K.guard(ctx, h, { empty: ['coaches', 'No cover yet', 'Cover offered to you and dates you can’t make appear here.'] }); if (g) return g;
     if (!K.feature('cover')) return page(h, K.featureOff('cover', 'Cover workflow'));
-    var offers = db.getCoverOffersFor(k);
-    var offerCards = offers.map(function (x) {
-      var o = x.occurrence, f = x.offer, n = x.need, state;
-      if (f.response === 'Filled' || (!f.response && n.state === 'Covered')) state = ui.notice('neutral', 'This cover has been filled', (n.confirmed && n.confirmed.coach ? esc(db.coachName(n.confirmed.coach)) + (n.confirmed.direct ? ' is coaching it. ' : ' is covering. ') : '') + 'Thanks for looking. Nothing more to do.');
-      else if (!f.response) state = '<div class="k-row-actions">' + K.actBtn('Accept cover', 'ch-cover-accept', { req: x.request.id, need: n.id, offer: f.id }, { variant: 'primary', icon: 'check' }) + K.actBtn('Can’t do it', 'ch-cover-decline', { req: x.request.id, need: n.id, offer: f.id }, { variant: 'secondary' }) + '</div>';
-      else if (f.response === 'Declined') state = ui.notice('neutral', 'You declined', esc(f.note || '') + ' ' + stamp('Declined', db.coachName(f.coach), f.respondedAt));
-      else if (n.state === 'Covered' && n.confirmed && n.confirmed.coach === k) state = ui.notice('ok', 'Confirmed: you’re on the staff', stamp('Confirmed', n.confirmed.by, n.confirmed.at), { action: K.goBtn('Open session', 'coach-session/' + o.id, { size: 'sm', variant: 'secondary' }) });
-      else if (n.state === 'Covered' && n.confirmed.direct) state = ui.notice('neutral', 'This cover has been filled by Management', 'Thanks for saying yes. Nothing more to do.');
-      else if (n.state === 'Covered') state = ui.notice('neutral', 'Covered by someone else', 'Thanks for accepting. ' + esc(db.coachName(n.confirmed.coach)) + ' was confirmed.');
-      else state = ui.notice('info', 'Accepted: waiting for the office to confirm', stamp('Accepted', db.coachName(f.coach), f.respondedAt));
-      var absent = n.absent ? 'Covering for ' + db.coachName(n.absent) + (x.request.reason ? ': ' + x.request.reason : '') : (x.request.reason || 'No coach assigned yet');
-      return K.card({ title: o.session, sub: esc(when(o)) + ' · ' + esc(venueName(o)), right: K.status(f.response === 'Filled' ? 'Filled' : n.state === 'Covered' && n.confirmed && n.confirmed.coach === k ? 'Confirmed' : f.response || 'Offered'),
-        body: K.kv([['Why', esc(absent)], ['Expected', isClient(o) ? o.players + ' (headcount)' : db.getExpectedPlayers(o).length + ' players'], ['Your pay', '<b class="num">' + K.money(f.cost) + '</b> <small>(' + K.money(f.rate) + ' an hour)</small>'], ['Offered', stamp('Offered', f.sentBy, f.sentAt)]]) + state });
+    var offers = db.getCoverOffersFor(k).filter(function (x) { return x.occurrence && !db.hasEnded(x.occurrence); });
+    var asked = offers.filter(function (x) { return offerLive(x) && !x.offer.response; }), answered = offers.filter(function (x) { return offerLive(x) && x.offer.response; });
+    var covering = offers.filter(function (x) { return x.need.confirmed && x.need.confirmed.coach === k && x.offer.chosen; });
+    var earlier = offers.filter(function (x) { return asked.indexOf(x) < 0 && answered.indexOf(x) < 0 && covering.indexOf(x) < 0; });
+    var cards = asked.concat(answered).map(function (x) { return offerCard(x, k); }).join('') + covering.map(coveringCard).join('');
+    var offerSec = cards ? '<div class="ch-offers">' + cards + '</div>' : '<div class="zone-inset">' + ui.empty('coaches', isLearning() ? 'Cover for Learning Coach places only' : 'No cover offered right now', isLearning() ? 'You’re offered cover when a Learning Coach can’t make a session.' : 'When cover is available you’ll get a notification. Answer it here in one tap.') + '</div>';
+    var earlierSec = earlier.length ? K.details('Earlier offers (' + earlier.length + ')', ui.rows(earlier.map(function (x) { var o = x.occurrence; return ui.row({ lead: dateLead(o.date), title: esc(o.session), sub: [esc(o.start + '–' + o.end), esc(earlierWord(x, k))] }); }), 'rows--lead')) : '';
+    /* Dates I can't make: each one in plain words, and "I can make it after all" until someone is chosen */
+    var mine = [];
+    db.getMyCoverRequests(k).forEach(function (r) { r.needs.forEach(function (n) { var o = db.getOccurrence(n.occurrence); if (o && !db.hasEnded(o)) mine.push({ r: r, n: n, o: o }); }); });
+    mine.sort(function (a, b) { return a.o.date < b.o.date ? -1 : 1; });
+    var mineRows = mine.map(function (x) {
+      var c = x.n.confirmed, word = !c ? 'Finding cover' : c.coach ? first(db.coachName(c.coach)) + ' is covering' : c.ended === 'back' ? 'You’re back on' : 'No longer needed';
+      var act = !c && !db.hasStarted(x.o) ? K.actBtn('I can make it after all', 'ch-back', { req: x.r.id, need: x.n.id }, { size: 'sm', variant: 'secondary' }) : c && c.coach ? '<small class="k-note">Something changed? Contact the office.</small>' : '';
+      return ui.row({ lead: dateLead(x.o.date), title: esc(x.o.session), sub: [esc(x.o.start + '–' + x.o.end), esc(word)], after: act });
     });
-    var offerSec = K.section('Offered to you', offers.length ? offers.filter(function (x) { return !x.offer.response; }).length + ' waiting for your reply' : '',
-      offers.length ? K.grid(offerCards, 2) : '<div class="zone-inset">' + ui.empty('coaches', isLearning() ? 'Learning coaches aren’t offered cover' : 'No cover offered right now', isLearning() ? 'Learning coaches are never left alone with a group, so cover goes to qualified coaches.' : 'When the office offers you cover it appears here to accept or decline.') + '</div>');
-    var reqs = db.getMyCoverRequests(k);
-    var reqCards = reqs.map(function (r) {
-      var rows = r.needs.map(function (n) {
-        var o = db.getOccurrence(n.occurrence), pending = n.offers.filter(function (f) { return !f.response; }).map(function (f) { return first(db.coachName(f.coach)); });
-        return ui.row({ lead: dateLead(o.date), title: esc(o.session), sub: [esc(o.start + '–' + o.end), n.confirmed ? (n.confirmed.coach ? (n.confirmed.direct ? esc(db.coachName(n.confirmed.coach)) + ' is coaching' : 'Covered by ' + esc(db.coachName(n.confirmed.coach))) : 'No longer needed') : pending.length ? 'Offered to ' + esc(pending.join(', ')) : n.offers.length ? n.offers.length + ' offer' + (n.offers.length === 1 ? '' : 's') + ' declined' : 'Not offered yet'], trail: K.status(n.state), href: '#coach-session/' + o.id });
-      });
-      return K.card({ title: r.kind + ' · ' + (r.from === r.to ? K.dd(r.from) : K.dm(r.from) + '–' + K.dm(r.to)), sub: esc(r.reason), right: K.status(db.coverStatus(r)),
-        body: (rows.length ? ui.rows(rows, 'rows--lead') : '<p class="k-note">No sessions affected.</p>') + K.details('History', K.timeline(r.history.slice().reverse()), { key: 'ch-cover-hist-' + r.id }) });
-    }).join('');
-    var reqSec = K.section('Your cover requests', 'The office finds cover; each date moves on its own.', reqs.length ? reqCards : '<div class="zone-inset">' + ui.empty('calendar', 'No cover requests', 'Mark dates you can’t make in Availability and ask for cover there.') + '</div>');
-    var waitingOffers = offers.filter(function (x) { return !x.offer.response; });
-    var openNeeds = []; reqs.forEach(function (r) { r.needs.forEach(function (n) { if (!n.confirmed) openNeeds.push(n); }); });
-    var sit = waitingOffers.length ? K.situation({ tone: 'warn', title: waitingOffers.length === 1 ? 'You’ve been offered cover' : 'You’ve been offered cover for ' + waitingOffers.length + ' sessions', text: esc(waitingOffers[0].occurrence.session) + ', ' + esc(when(waitingOffers[0].occurrence)) + '. Say yes or that you can’t; the office chooses who covers.' }) :
-      openNeeds.length ? K.situation({ tone: 'info', title: 'The office is finding cover', text: openNeeds.length + ' of your session' + (openNeeds.length === 1 ? '' : 's') + ' still need' + (openNeeds.length === 1 ? 's' : '') + ' a coach. No action needed from you.' }) :
-      K.situation({ tone: 'ok', title: 'Nothing needs you', text: 'No cover offers waiting, and your dates are all covered.' });
-    return page(h, sit + offerSec + reqSec);
+    var mineSec = K.section('Dates you can’t make', 'The office finds cover for each date; nothing else to do.', mineRows.length ? ui.rows(mineRows, 'rows--lead') : '<div class="zone-inset">' + ui.empty('calendar', 'Nothing coming up', 'Can’t make a session? Tap “I can’t make this” on it, or mark dates in Availability.') + '</div>');
+    var sit = !asked.length && !answered.length && !covering.length && !mine.some(function (x) { return !x.n.confirmed; }) ? K.situation({ tone: 'ok', title: 'Nothing needs you', text: 'No cover waiting for an answer.' }) : '';
+    return page(h, sit + offerSec + mineSec + earlierSec);
   };
 
   /* ============================================================ DOCUMENTS */
@@ -848,6 +867,8 @@
   /* Availability */
   A['ch-av-day'] = function (el) {
     var i = +el.dataset.i, wk = db.getWeeklyAvailability(meKey()), on = !!wk[i], d = db.getDows()[i];
+    var clash = on ? db.weeklyClashes(meKey(), i, null) : [];
+    if (clash.length) { Hub.toast('You coach ' + clash[0].session + ' on ' + d + 's. Mark the dates you can’t make instead, so cover can be found.'); return; }
     act(function (at) { return db.setWeeklyAvailability(meKey(), i, on ? null : ['16:00', '21:00'], who(), at); }, d + (on ? ' switched off' : ' set to 16:00–21:00'), 'Usual week: ' + d + (on ? ' off' : ' 16:00–21:00'), meKey(), { before: on ? wk[i].join('–') : 'Off', after: on ? 'Off' : '16:00–21:00' });
   };
   A['ch-av-save'] = function () {
@@ -857,45 +878,61 @@
     if (from < K.today) { Hub.toast('Choose today or a later date'); return; }
     if (!reason) { Hub.toast('Add a short reason'); return; }
     if (type === 'Different hours' && (!start || !end)) { Hub.toast('Add the hours you can do'); return; }
-    var k = meKey(), impact = db.getAbsenceImpact(k, from, to).length;
-    if (cover && type !== 'Different hours' && K.feature('cover')) {
-      act(function (at) { return db.addCoverRequest({ coach: k, kind: type === 'Holiday' ? 'Holiday' : 'Unavailable', from: from, to: to, reason: reason }, who(), at); }, type + ' saved · cover requested for ' + impact + ' session' + (impact === 1 ? '' : 's'), type + ' ' + from + (to !== from ? ' to ' + to : '') + ' with cover requested', k, { area: 'Coaches' });
-    } else {
-      act(function (at) { return db.addAvailabilityException({ coach: k, type: type, from: from, to: to, start: start || null, end: end || null, reason: reason, by: who(), at: at }); }, type + ' saved', type + ' recorded ' + from + (to !== from ? ' to ' + to : ''), k, { area: 'Coaches' });
-    }
+    var k = meKey();
+    var res = act(function (at) { return db.recordTimeOff({ coach: k, type: type, from: from, to: to, start: start || null, end: end || null, reason: reason }, who(), at); }, null, type + ' ' + from + (to !== from ? ' to ' + to : ''), k, { area: 'Coaches' });
+    Hub.toast(res && res.request ? 'Saved. The office is finding cover for ' + res.dates + ' session' + (res.dates === 1 ? '' : 's') : type + ' saved. No sessions affected');
   };
   /* From the session itself: say you can't make it and ask for cover in one step */
   A['ch-cantmake'] = function (el) {
-    var o = db.getOccurrence(el.dataset.id);
-    K.sheet({ overline: '<span class="overline">' + esc(o.session) + ' · ' + esc(K.dd(o.date)) + '</span>', title: 'Can’t make this session?', body: '<p class="k-note">We let the office know and ask other coaches to cover. You can see how it is going under Cover.</p>' + K.form([K.field('Reason', K.input('cm-reason', '', { placeholder: 'For example: unwell, work, family' }))], 1),
-      foot: ui.btn('Cancel', { variant: 'tertiary', attrs: { 'data-action': 'close-sheet' } }) + K.actBtn('Ask for cover', 'ch-cantmake-go', { id: o.id }, { variant: 'primary' }) });
+    var o = db.getOccurrence(el.dataset.id), why = ['Unwell', 'Work', 'Family', 'Travel', 'Other'];
+    K.sheet({ overline: '<span class="overline">' + esc(o.session) + ' · ' + esc(K.dd(o.date)) + '</span>', title: 'Can’t make this session?',
+      body: '<p class="k-note">The office is told and other coaches are asked to cover. Your reason stays with the office.</p><div class="ch-why" role="radiogroup" aria-label="Reason">' + why.map(function (w, i) { return '<label class="ch-why__opt"><input type="radio" name="cm-why" value="' + w + '"' + (i ? '' : ' checked') + '><span>' + w + '</span></label>'; }).join('') + '</div>' + K.form([K.field('Anything to add? (optional)', K.input('cm-reason', ''))], 1),
+      foot: ui.btn('Cancel', { variant: 'tertiary', attrs: { 'data-action': 'close-sheet' } }) + K.actBtn('Tell the office', 'ch-cantmake-go', { id: o.id }, { variant: 'primary' }) });
   };
   A['ch-cantmake-go'] = function (el) {
-    var o = db.getOccurrence(el.dataset.id), reason = (K.val('cm-reason') || '').trim();
-    if (!reason) { Hub.toast('Add a short reason'); return; }
+    var o = db.getOccurrence(el.dataset.id), pick = (document.querySelector('#sheet [name=cm-why]:checked') || {}).value || 'Other', more = (K.val('cm-reason') || '').trim(), reason = pick + (more ? ': ' + more : '');
     Hub.closeSheet(true);
-    act(function (at) { return db.addCoverRequest({ coach: meKey(), kind: 'Unavailable', from: o.date, to: o.date, reason: reason }, who(), at); }, 'Cover requested for ' + o.session + ', ' + K.dm(o.date), 'Cover requested from the session page: ' + o.session + ' ' + o.date, meKey(), { area: 'Coaches' });
+    act(function (at) { return db.recordTimeOff({ coach: meKey(), type: 'Unavailable', from: o.date, to: o.date, start: o.start, end: o.end, reason: reason }, who(), at); }, 'The office knows. Other coaches are being asked to cover', 'Can’t make ' + o.session + ' ' + o.date, meKey(), { area: 'Coaches' });
   };
   A['ch-av-remove'] = function (el) {
     var id = el.dataset.id, e = db.getAvailabilityExceptions(meKey()).filter(function (x) { return x.id === id; })[0];
-    act(function () { return db.removeAvailabilityException(id); }, 'Removed', 'Availability removed: ' + e.type + ' ' + e.from, meKey(), { area: 'Coaches', before: e.type + ' ' + e.from + (e.to !== e.from ? '–' + e.to : ''), after: 'Removed' });
-  };
-  A['ch-av-cover'] = function (el) {
-    var id = el.dataset.id, e = db.getAvailabilityExceptions(meKey()).filter(function (x) { return x.id === id; })[0], n = db.getAbsenceImpact(meKey(), e.from, e.to).length;
-    act(function (at) { db.removeAvailabilityException(id); return db.addCoverRequest({ coach: meKey(), kind: e.type === 'Holiday' ? 'Holiday' : 'Unavailable', from: e.from, to: e.to, reason: e.reason }, who(), at); }, 'Cover requested for ' + n + ' session' + (n === 1 ? '' : 's'), 'Cover requested for ' + e.type.toLowerCase() + ' ' + e.from, meKey(), { area: 'Coaches' });
+    act(function (at) { return db.removeTimeOff(id, who(), at); }, 'Removed. You’re back on any dates still looking for cover', 'Availability removed: ' + e.type + ' ' + e.from, meKey(), { area: 'Coaches', before: e.type + ' ' + e.from + (e.to !== e.from ? '–' + e.to : ''), after: 'Removed' });
   };
   /* Cover */
+  function coverAct(fn, ok, summary, req) {
+    var res = act(fn, null, summary, req, { area: 'Coaches' });
+    Hub.toast(res && res.error ? 'You can’t take this one: ' + res.error.toLowerCase() : ok);
+  }
   A['ch-cover-accept'] = function (el) {
     var d = el.dataset;
-    act(function (at) { return db.respondCoverOffer(d.req, d.need, d.offer, 'Accepted', '', at); }, 'You said yes. The office chooses who covers and will let you know', 'Cover accepted (' + d.req + ')', d.req, { area: 'Coaches' });
+    coverAct(function (at) { return db.respondCoverOffer(d.req, d.need, d.offer, 'Accepted', null, at); }, 'Thanks. The office chooses who covers and will let you know', 'Cover: can cover (' + d.need + ')', d.req);
   };
+  /* One tap; a reason can be added afterwards */
   A['ch-cover-decline'] = function (el) {
     var d = el.dataset;
-    K.sheet({ overline: '<span class="overline">Cover</span>', title: 'Can’t do this cover?', body: K.field('Reason (optional, shared with the office)', K.textarea('ch-decline-note', '', 'For example: already working at another session')), foot: sheetFoot('Can’t do it', 'ch-cover-decline-save', { req: d.req, need: d.need, offer: d.offer }) });
+    coverAct(function (at) { return db.respondCoverOffer(d.req, d.need, d.offer, 'Declined', null, at); }, 'Thanks for letting the office know', 'Cover: can’t do it (' + d.need + ')', d.req);
   };
-  A['ch-cover-decline-save'] = function (el) {
-    var d = el.dataset, note = K.val('ch-decline-note').trim(); Hub.closeSheet(true);
-    act(function (at) { return db.respondCoverOffer(d.req, d.need, d.offer, 'Declined', note, at); }, 'Declined', 'Cover declined (' + d.req + ')' + (note ? ': ' + note : ''), d.req, { area: 'Coaches' });
+  A['ch-cover-why'] = function (el) {
+    var d = el.dataset;
+    K.sheet({ overline: '<span class="overline">Cover</span>', title: 'Add a reason', body: K.field('Reason (only the office sees it)', K.input('ch-decline-note', '', { placeholder: 'For example: already working that evening' })), foot: sheetFoot('Save', 'ch-cover-why-save', d) });
+  };
+  A['ch-cover-why-save'] = function (el) {
+    var d = el.dataset, note = K.val('ch-decline-note').trim(); Hub.closeSheet(true); if (!note) return;
+    act(function () { return db.noteCoverReply(d.req, d.need, d.offer, note); }, 'Saved', 'Cover reply reason added (' + d.need + ')', d.req, { area: 'Coaches' });
+  };
+  /* Chosen, then can't do it: the office is told and the date is offered again */
+  A['ch-cover-dropout'] = function (el) {
+    var d = el.dataset;
+    K.sheet({ overline: '<span class="overline">Cover</span>', title: 'Can’t do this cover now?', body: '<p class="k-note">The office is told straight away and the date is offered to other coaches.</p>' + K.field('What’s happened?', K.input('ch-drop-why', '', { placeholder: 'For example: unwell' })), foot: sheetFoot('Tell the office', 'ch-cover-dropout-go', d) });
+  };
+  A['ch-cover-dropout-go'] = function (el) {
+    var d = el.dataset, why = K.val('ch-drop-why').trim(); if (!why) { Hub.toast('Say what’s happened'); return; } Hub.closeSheet(true);
+    act(function (at) { return db.coverDropOut(d.req, d.need, why, who(), at); }, 'The office knows. The date is being offered again', 'Cover dropped out (' + d.need + ')', d.req, { area: 'Coaches' });
+  };
+  /* My own date: I can make it after all (until someone is chosen) */
+  A['ch-back'] = function (el) {
+    var d = el.dataset;
+    act(function (at) { return db.withdrawCover(d.req, d.need, { back: true, reason: 'Can make it after all', tell: false }, who(), at); }, 'You’re back on. Anyone offered it has been told', 'Cover withdrawn by coach (' + d.need + ')', d.req, { area: 'Coaches' });
   };
   /* Documents */
   A['ch-doc-upload'] = function (el) {

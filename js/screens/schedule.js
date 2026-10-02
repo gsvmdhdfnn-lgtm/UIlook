@@ -412,10 +412,10 @@
     }
     var staffT = K.card({ title: 'Staff for this Session', sub: done ? 'What actually happened. Saved for history and coach pay.' : ended ? 'As planned. Confirm what actually happened above.' : 'Planned for this date. Changes here affect this date only.',
       right: done || changed || ended ? '' : K.actBtn('Add a coach', 'sch-coach', { id: o.id, mode: 'add' }, { size: 'sm', variant: o.staff.length ? 'secondary' : 'primary', icon: 'plus' }),
-      body: o.staff.length ? K.table({ cols: '36px minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 150px)' + (canEdit ? ' 80px' : ''), head: ['', 'Coach', { label: 'Role on the day', cls: 'wide' }, { label: done ? 'On the day' : 'Status', cls: 'c-end' }].concat(canEdit ? [{ label: '', cls: 'c-end' }] : []), rows: o.staff.map(function (x) {
+      body: o.staff.length ? K.table({ cols: '36px minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 150px)' + (canEdit ? ' 190px' : ''), head: ['', 'Coach', { label: 'Role on the day', cls: 'wide' }, { label: done ? 'On the day' : 'Status', cls: 'c-end' }].concat(canEdit ? [{ label: '', cls: 'c-end' }] : []), rows: o.staff.map(function (x) {
         var planned = K.roleName(x.role || (x.lead ? 'Lead' : 'Coach'));
         return { cells: [ui.avatar(db.coachName(x.coach), 'sm', x.attended === 'Absent' || (x.unavailable && !x.covering) ? 'is-out' : ''), K.cell(esc(db.coachName(x.coach)), x.cover ? 'Covering ' + esc(db.coachName(x.covers || '').split(' ')[0]) : x.extra ? 'Extra coach on the day' : x.added ? 'Added for this date' : 'Planned: ' + esc(planned)),
-          { cls: 'wide c-cell', html: esc(K.roleName(x.actualRole || x.role) || '—') }, { cls: 'c-end', html: onTheDay(x) }].concat(canEdit ? [{ cls: 'c-end', html: x.cover && x.unavailable ? '' : K.actBtn('Change', 'sch-coach', { id: o.id, coach: x.coach }, { size: 'sm', variant: 'tertiary' }) }] : []) };
+          { cls: 'wide c-cell', html: esc(K.roleName(x.actualRole || x.role) || '—') }, { cls: 'c-end', html: onTheDay(x) }].concat(canEdit ? [{ cls: 'c-end', html: staffActs(o, x) }] : []) };
       }) }) : ui.notice('danger', 'No coach yet', 'Add a coach or ask for cover before this session starts.') });
     var notes = K.card({ title: 'Operational notes', right: K.actBtn(o.notes ? 'Edit notes' : 'Add notes', 'sch-notes', { id: o.id }, { size: 'sm', variant: 'secondary' }), body: o.notes ? '<p class="sch-notes">' + esc(o.notes) + '</p>' + (o.notesBy ? K.stamp('Updated', o.notesBy, o.notesAt) : '') : '<p class="k-note">No notes for this session.</p>' });
     var change = '';
@@ -438,10 +438,36 @@
     var also = K.needsFor(function (k) { return K.relatesTo(k, 'occurrence', o.id) && handled.indexOf(k.ruleId) < 0; }, { title: 'Also needs you' });
     return K.page(h, sit + also + K.grid(['<div class="lx-stack">' + staffT + details + '</div>', '<div class="lx-stack">' + change + notes + '</div>'], '21') + history);
   };
+  /* Per coach on a date: Can't coach (finds cover) and Change (you know who) */
+  function staffActs(o, x) {
+    if (x.unavailable) return '';
+    var cant;
+    if (x.cover) {
+      var held = db.getCoverRequests().map(function (r) { var n = r.needs.filter(function (n) { return n.occurrence === o.id && n.confirmed && n.confirmed.coach === x.coach && !n.confirmed.direct; })[0]; return n ? { r: r, n: n } : null; }).filter(Boolean)[0];
+      cant = held ? K.actBtn('Can’t coach', 'co-dropout', { req: held.r.id, need: held.n.id }, { size: 'sm', variant: 'tertiary' }) : '';
+    } else cant = K.actBtn('Can’t coach', 'sch-cantcoach', { id: o.id, coach: x.coach }, { size: 'sm', variant: 'tertiary' });
+    return '<span class="k-row-actions">' + cant + K.actBtn('Change', 'sch-coach', { id: o.id, coach: x.coach }, { size: 'sm', variant: 'tertiary' }) + '</span>';
+  }
+  /* Cover on this date, in the same plain words as the cover page. Know who → Change coach; don't → Find cover. */
+  function coverBanner(o, absent) {
+    var hit = db.coverNeedsFor(o.id).filter(function (y) { return y.need.absent === (absent || null); })[0];
+    var title0 = absent ? esc(db.coachName(absent)) + ' can’t coach' : 'No coach yet';
+    var change = absent ? K.actBtn('Change coach', 'sch-coach', { id: o.id, coach: absent }, { variant: 'secondary' }) : K.actBtn('Add a coach', 'sch-coach', { id: o.id, mode: 'add' }, { variant: 'secondary' });
+    var rules = absent ? ['ATT-014', 'ATT-041'] : ['ATT-013', 'ATT-041'];
+    if (!hit) return { tone: 'danger', title: title0, text: absent ? 'Find cover offers it to every eligible coach and you choose who covers. Change coach if you already know who.' : 'This session can’t run without a coach. Find cover, or add a coach if you know who.',
+      primary: K.actBtn('Find cover', 'sch-findcover', { id: o.id, coach: absent || '' }, { variant: 'primary', icon: 'swap' }), secondary: change, rules: rules };
+    var x = db.coverOutcome(hit.need), go = function (label) { return K.goBtn(label, 'mgmt-cover-request/' + hit.request.id + '/' + hit.need.id, { variant: 'primary', icon: 'swap' }); };
+    var prog = x.offered ? x.offered + ' offered · ' + x.replied + ' replied · ' + x.can.length + ' can cover' : 'No eligible coach is free';
+    var nm = function (f) { return db.coachName(f.coach).split(' ')[0]; };
+    if (x.key === 'choose') return { tone: x.urgency ? 'danger' : 'warn', title: title0 + ': ' + (x.can.length > 1 ? x.can.length + ' coaches can cover' : esc(nm(x.can[0])) + ' can cover'), text: 'Choose who covers. ' + prog + '.', primary: go('Choose who covers'), secondary: change, rules: rules };
+    if (x.key === 'none') return { tone: 'danger', title: title0 + ': no one can cover yet', text: prog + '. Ring round, offer a higher rate, or choose someone yourself.', primary: go('Find someone'), secondary: change, rules: rules };
+    return { tone: x.urgency ? 'danger' : 'warn', title: title0 + ': finding cover', text: prog + '. You’ll choose once someone can cover.', primary: go('See replies'), secondary: change, rules: rules };
+  }
   /* What this date needs, most serious first. The first is the banner; the rest sit under it.
      Before it runs: is it ready? Once it has ended: did it go as planned? Once confirmed: what happened. */
   function readiness(o, s, reg) {
-    var out = o.staff.filter(function (x) { return x.unavailable && !x.covering; }), list = [];
+    /* Away with no one covering yet, including time off that still leaves a coach on the date: never "ready" */
+    var out = o.staff.filter(function (x) { return (x.unavailable && !x.covering) || (!x.unavailable && !x.cover && db.awayFrom && db.awayFrom(x.coach, o)); }), list = [];
     var regDone = reg.state === 'Completed', regIssue = { tone: 'warn', title: 'Register still needed', text: 'The register is ' + reg.state.toLowerCase() + '.', primary: K.goBtn('Open register', 'mgmt-register/' + o.id, { variant: 'primary' }), rules: ['ATT-020'] };
     if (o.status === 'Cancelled' || o.status === 'Postponed' || o.status === 'Rescheduled') {
       if (o.outcome) return [{ tone: 'ok', title: 'This session was ' + o.status.toLowerCase(), text: esc(o.cancelReason || '') + ' Refunds and credits have been decided.' }];
@@ -467,10 +493,10 @@
       if (!regDone) list.push(regIssue);
       return list;
     }
-    var cb = coverBtn(o), working = db.workingStaff(o).map(function (x) { return x.actualRole || x.role; });
+    var working = db.workingStaff(o).filter(function (x) { return out.indexOf(x) < 0; }).map(function (x) { return x.actualRole || x.role; });
     /* Know who should coach → Change coach / Add a coach. Don't know → Find cover. */
-    if (!o.staff.length) list.push({ tone: 'danger', title: 'No coach yet', text: 'This session can’t run without a coach. Add one if you know who, or find cover.', primary: K.actBtn('Add a coach', 'sch-coach', { id: o.id, mode: 'add' }, { variant: 'primary' }), secondary: cb ? cb.replace('btn--primary', 'btn--secondary') : '', rules: ['ATT-013', 'ATT-041'] });
-    if (out.length) list.push({ tone: 'danger', title: esc(out.map(function (x) { return db.coachName(x.coach); }).join(' and ')) + ' can’t coach', text: 'Change coach if you know who should take it; Find cover asks every eligible coach.', primary: cb, secondary: K.actBtn('Change coach', 'sch-coach', { id: o.id, coach: out[0].coach }, { variant: 'secondary' }), rules: ['ATT-014', 'ATT-041'] });
+    if (!o.staff.length) list.push(coverBanner(o, null));
+    out.forEach(function (x) { list.push(coverBanner(o, x.coach)); });
     if (working.length && working.every(function (r) { return r === 'Learning'; })) list.push({ tone: 'warn', title: 'Learning Coach only', text: 'A Learning Coach can’t run a session alone. Add a Lead Coach.', primary: K.actBtn('Add a coach', 'sch-coach', { id: o.id, mode: 'add' }, { variant: 'primary' }), rules: ['ATT-002'] });
     else if (working.length && working.indexOf('Lead') < 0) list.push({ tone: 'warn', title: 'No Lead Coach', text: 'Someone needs to lead this session. Make one of the coaches the Lead Coach for this date, or add one.', primary: K.actBtn('Choose a lead', 'sch-coach', { id: o.id, mode: 'lead' }, { variant: 'primary' }), rules: ['ATT-003'] });
     db.workingStaff(o).forEach(function (x) {
@@ -492,13 +518,34 @@
       return '<div class="k-sit-more__row">' + ui.sev(x.tone === 'danger' ? 'Urgent' : 'Warning') + '<span><b>' + x.title + '</b><small>' + x.text + '</small></span>' + (x.primary || '').replace('btn--primary', 'btn--secondary').replace('class="btn ', 'class="btn btn--sm ') + '</div>';
     }).join('') + '</div>' : '');
   }
-  /* Find cover: straight to the open cover request for this date, else the cover page */
-  function coverBtn(o) {
-    var need = !o.staff.length || o.staff.some(function (x) { return x.unavailable && !x.covering; });
-    if (!need) return '';
-    var req = db.getCoverRequests && db.getCoverRequests(function (r) { return r.needs.some(function (n) { return n.occurrence === o.id && n.state !== 'Covered'; }); })[0];
-    return K.goBtn('Find cover', req ? 'mgmt-cover-request/' + req.id : 'mgmt-cover', { variant: 'primary', icon: 'swap' });
-  }
+  /* Find cover from the date: the Hub offers it to every eligible coach at once and you land on its cover page */
+  Hub.actions['sch-findcover'] = function (el) {
+    var o = db.getOccurrence(el.dataset.id), coach = el.dataset.coach || null, at = K.now(), r;
+    var ex = coach && db.awayFrom(coach, o);
+    r = Hub.mutate(function () { return coach && ex ? db.sweepTimeOff(who(), at)[0] : db.raiseCover({ coach: coach, occurrences: [o], kind: coach ? 'Unavailable' : 'No coach', reason: coach ? 'Can’t coach this date' : 'No coach on this date' }, who(), at); }, null, occLog(o, 'Cover started', at));
+    var hit = db.coverNeedsFor(o.id).filter(function (y) { return y.need.absent === coach; })[0];
+    if (hit) { Hub.toast('Offered to every eligible coach'); location.hash = 'mgmt-cover-request/' + hit.request.id + '/' + hit.need.id; }
+  };
+  /* A coach can't coach this date (or some dates): time off, then cover starts at once */
+  Hub.actions['sch-cantcoach'] = function (el) {
+    var o = db.getOccurrence(el.dataset.id), c = el.dataset.coach, nm = db.coachName(c).split(' ')[0];
+    K.sheet({ overline: '<span class="overline">' + esc(o.session) + ' · ' + esc(K.dd(o.date)) + ', ' + o.start + '</span>', title: esc(nm) + ' can’t coach',
+      body: '<p class="k-note">' + esc(nm) + ' comes off the date and the Hub offers it to every eligible coach by Hub and email. You choose who covers. The regular coaches don’t change.</p>' + K.form([
+        K.field('Reason', K.input('cc-why', '', { placeholder: 'For example: unwell. Kept from other coaches' }), null, true),
+        '<fieldset class="k-fieldset"><legend class="k-label">Which dates?</legend><div class="sch-scope sch-scope--row">' +
+          '<label class="sch-scope__opt"><input type="radio" name="ccScope" value="one" checked><span><b>Just this date</b><small>' + esc(K.dd(o.date)) + '</small></span></label>' +
+          '<label class="sch-scope__opt"><input type="radio" name="ccScope" value="range"><span><b>More dates</b><small>Every session ' + esc(nm) + ' is on in a date range</small></span></label></div></fieldset>',
+        K.field('Until', K.input('cc-to', o.date, { type: 'date' }), 'Only used for More dates')], 1),
+      foot: sheetFoot('Find cover', 'sch-cantcoach-go', { id: o.id, coach: c }) });
+  };
+  Hub.actions['sch-cantcoach-go'] = function (el) {
+    var o = db.getOccurrence(el.dataset.id), c = el.dataset.coach, why = K.val('cc-why').trim(), scope = (document.querySelector('#sheet [name=ccScope]:checked') || {}).value, to = K.val('cc-to') || o.date, at = K.now();
+    if (!why) { Hub.toast('Add a reason'); return; }
+    if (scope === 'range' && to < o.date) { Hub.toast('The end date is before this date'); return; }
+    Hub.closeSheet(true);
+    var res = Hub.mutate(function () { return db.recordTimeOff(scope === 'range' ? { coach: c, type: 'Unavailable', from: o.date, to: to, reason: why } : { coach: c, type: 'Unavailable', from: o.date, to: o.date, start: o.start, end: o.end, reason: why }, who(), at); }, null, occLog(o, db.coachName(c) + ' can’t coach', at));
+    if (res && res.request) { Hub.toast('Offered to every eligible coach'); var n0 = res.request.needs.filter(function (n) { return n.occurrence === o.id; })[0] || res.request.needs[0]; location.hash = 'mgmt-cover-request/' + res.request.id + '/' + n0.id; }
+  };
   /* Less frequent changes, behind one Actions control */
   Hub.actions['sch-more'] = function (el) {
     var o = db.getOccurrence(el.dataset.id);

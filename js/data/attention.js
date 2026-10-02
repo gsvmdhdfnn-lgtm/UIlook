@@ -55,14 +55,19 @@
       if (o.forceSev) sv = [maxSev(o.forceSev, sv[0]), o.forceWhy || sv[1]];
       cases.push(Object.assign({ caseKey: key, ruleId: r.id, ruleName: r.name, category: r.category, severity: sv[0], severityReason: sv[1], when: o.hours != null ? inText(o.hours) : (o.whenText || '') }, o));
     }
-    var coverOcc = {}; (typeof db.getOpenCover === 'function' ? db.getOpenCover() : []).forEach(function (c) { coverOcc[c.occurrence] = 1; });
+    /* Live cover per date and per absent coach: one coach being covered never hides another */
+    var coverOcc = {}, coverFor = {}; (typeof db.getOpenCover === 'function' ? db.getOpenCover() : []).forEach(function (c) { coverOcc[c.occurrence] = 1; coverFor[c.occurrence + '|' + c.absent] = 1; });
     var upcoming = db.getOccurrences(function (o) { return o.date >= '2026-10-01' && o.date <= '2026-10-23' && o.status === 'Scheduled'; });
     upcoming.forEach(function (o) {
       var h = hoursUntil(o.date, o.start); if (h < 0 && o.date === '2026-10-01') return;
       var staffed = o.staff.filter(function (s) { return !s.unavailable || s.covering; });
       var ses = db.getSession(o.sessionId);
-      if (!o.draft && !o.staff.length && h <= 336) add('ATT-013', 'session_no_coach|occurrence:' + o.id, { hours: h, title: o.session + ' has no coach', detail: occLabel(o) + ' · ' + o.players + ' players', actionLabel: 'Add a coach', route: 'mgmt-occurrence/' + o.id, related: { occurrence: o.id } });
-      o.staff.forEach(function (s) { if (s.unavailable && !s.covering && !coverOcc[o.id]) add('ATT-014', 'assigned_coach_unavailable|occurrence:' + o.id + '|coach:' + s.coach, { hours: h, title: db.coachName(s.coach) + ' is unavailable for ' + o.session, detail: occLabel(o) + ' · marked unavailable', actionLabel: 'Find cover', route: 'mgmt-cover', related: { occurrence: o.id, coach: s.coach } }); });
+      if (!o.draft && !o.staff.length && h <= 336 && !coverOcc[o.id]) add('ATT-013', 'session_no_coach|occurrence:' + o.id, { hours: h, title: o.session + ' has no coach', detail: occLabel(o) + ' · ' + o.players + ' players', actionLabel: 'Add a coach', route: 'mgmt-occurrence/' + o.id, related: { occurrence: o.id } });
+      /* A coach who can't coach this date and nobody looking for cover yet, including time off that still leaves them on it */
+      o.staff.forEach(function (s) {
+        var away = (s.unavailable && !s.covering) || (!s.unavailable && db.awayFrom && db.awayFrom(s.coach, o));
+        if (away && !coverFor[o.id + '|' + s.coach]) add('ATT-014', 'assigned_coach_unavailable|occurrence:' + o.id + '|coach:' + s.coach, { hours: h, title: db.coachName(s.coach) + ' can’t coach ' + o.session, detail: occLabel(o) + ' · no cover yet', actionLabel: 'Find cover', route: 'mgmt-occurrence/' + o.id, related: { occurrence: o.id, coach: s.coach } });
+      });
       var rolesNow = db.workingStaff(o).map(function (x) { return x.actualRole || x.role; });
       if (rolesNow.length && rolesNow.every(function (r) { return r === 'Learning'; })) add('ATT-002', 'learning_coach_only|occurrence:' + o.id, { hours: h, title: o.session + ' has only a learning coach', detail: occLabel(o), actionLabel: 'Check coaches', route: 'mgmt-occurrence/' + o.id, related: { occurrence: o.id } });
       if (!o.venue && h <= 336) add('ATT-018', 'venue_missing|occurrence:' + o.id, { hours: h, title: o.session + ' has no venue', detail: K.dd(o.date) + ', ' + o.start + (ses.lifecycle === 'Draft' ? ' · session is a draft' : ''), actionLabel: 'Choose a venue', route: 'mgmt-occurrence/' + o.id, related: { occurrence: o.id } });
@@ -96,16 +101,16 @@
       if (d.kind === 'pending') add('ATT-042', 'verification_pending|doc:' + d.doc, { whenText: 'Uploaded ' + K.dm(d.date), title: d.title, detail: 'Check the document and verify or reject it', actionLabel: 'Check document', route: route, related: { coach: d.coach } });
     });
     var cover = typeof db.getOpenCover === 'function' ? db.getOpenCover() : [];
-    /* Cover: one item per date still to sort. Urgent within 24 hours and on the day itself. */
+    /* Cover: one item per date still to sort, worded by its outcome. Urgent within 24 hours and on the day itself. */
     cover.forEach(function (c) {
-      var o = db.getOccurrence(c.occurrence) || {}; if (!c.absent && o.staff && !o.staff.length) return;
-      var n = db.getCoverNeed(c.request, c.need), yes = n ? n.offers.filter(function (f) { return f.response === 'Accepted' && !f.closed; }) : [];
-      var waiting = n ? n.offers.filter(function (f) { return !f.response; }).length : 0, today = o.date === K.today, who = c.absent ? db.coachName(c.absent) : 'a coach';
-      var title = yes.length > 1 ? yes.length + ' coaches said yes: choose who covers ' + o.session : yes.length ? db.coachName(yes[0].coach).split(' ')[0] + ' said yes: confirm cover for ' + o.session
-        : today ? 'Cover still required today: ' + o.session : 'Cover needed: ' + (o.session || 'session') + ' (' + who + ' away)';
-      add('ATT-041', 'cover_open|' + c.request + '|' + c.need, { hours: o.date ? hoursUntil(o.date, o.start) : null, forceSev: today ? 'Urgent' : null, forceWhy: today ? 'The session is today' : '', title: title,
-        detail: (o.date ? occLabel(o) : '') + (yes.length ? '' : waiting ? ' · waiting for ' + waiting + ' repl' + (waiting === 1 ? 'y' : 'ies') : c.state === 'Needs a phone call' ? ' · needs a phone call' : ' · nobody asked yet'),
-        actionLabel: yes.length > 1 ? 'Choose who covers' : yes.length ? 'Confirm cover' : 'Arrange cover', route: 'mgmt-cover-request/' + c.request, related: c.absent ? { coach: c.absent } : null });
+      var o = db.getOccurrence(c.occurrence) || {}, n = db.getCoverNeed(c.request, c.need); if (!n || !o.date) return;
+      var x = db.coverOutcome(n), today = x.urgency === 'today', who = c.absent ? db.coachName(c.absent).split(' ')[0] + ' can’t coach' : 'no coach yet';
+      var first = function (f) { return db.coachName(f.coach).split(' ')[0]; };
+      var title = x.key === 'choose' ? (x.can.length > 1 ? x.can.length + ' coaches can cover ' + o.session + ': choose one' : first(x.can[0]) + ' can cover ' + o.session + ': choose')
+        : x.key === 'none' ? 'No one can cover ' + o.session + ' yet' : 'Cover still needed' + (today ? ' today' : '') + ': ' + o.session;
+      var detail = occLabel(o) + ' · ' + who + ' · ' + (x.offered ? x.offered + ' offered, ' + x.replied + ' replied' : 'no eligible coaches');
+      add('ATT-041', 'cover_open|' + c.request + '|' + c.need, { hours: hoursUntil(o.date, o.start), forceSev: today ? 'Urgent' : null, forceWhy: today ? 'The session is today' : '', title: title, detail: detail,
+        actionLabel: x.key === 'choose' ? 'Choose who covers' : x.key === 'none' ? 'Find someone' : 'See replies', route: 'mgmt-cover-request/' + c.request + '/' + c.need, related: Object.assign({ occurrence: o.id }, c.absent ? { coach: c.absent } : {}) });
     });
     var sums = typeof db.getSummariesReady === 'function' ? db.getSummariesReady() : [];
     sums.forEach(function (w) { add('ATT-045', 'work_summary_ready|' + w.id, { whenText: 'Period ended 30 Sep', title: w.stale && w.state !== 'Needs review' ? db.coachName(w.coach) + '’s ' + (w.monthLabel || 'September') + ' summary needs reopening: delivered work changed after it was finalised' : w.state === 'Queried' ? db.coachName(w.coach) + ' queried their ' + (w.monthLabel || 'September') + ' summary' : db.coachName(w.coach) + '’s ' + (w.monthLabel || 'September') + ' summary needs reading', detail: w.state === 'Queried' && w.query ? w.query.text : (w.lines ? w.lines.length + ' sessions · ' : '') + (w.total != null ? K.money(w.total) : ''), actionLabel: w.stale && w.state !== 'Needs review' ? 'Reopen summary' : w.state === 'Queried' ? 'Answer query' : 'Read and finalise', route: 'mgmt-work-summary/' + w.id, related: { coach: w.coach } }); });

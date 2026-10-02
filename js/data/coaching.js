@@ -145,29 +145,8 @@
     o.needs.forEach(function (n, i) { n.id = o.id + '-' + (i + 1); });
     C.cover.push(o); return o;
   }
-  var ppa12 = db.findOccurrence('SES-05', '2026-10-12'), ppa15 = db.findOccurrence('SES-05', '2026-10-15');
-  var u12 = db.findOccurrence('SES-03', '2026-10-01'), u13 = db.findOccurrence('SES-04', '2026-10-02');
-  var r1 = cvr({ coach: 'tom', kind: 'Holiday', from: '2026-10-12', to: '2026-10-16', reason: 'Family holiday (booked in July)', requestedBy: 'Tom Reid', at: '2026-09-28T20:14', exception: 'AVX-02',
-    needs: [ppa12, ppa15].filter(Boolean).map(function (o) { return need(o.id, 'tom'); }),
-    history: [{ text: 'Holiday requested for 12–16 Oct', who: 'Tom Reid', at: '2026-09-28T20:14' }, { text: 'Holiday approved; cover needed for 2 sessions', who: DC, at: '2026-09-29T08:30', tone: 'ok' }] });
-  /* The approved holiday takes Tom off those occurrences and withdraws his draft allocations. */
-  r1.needs.forEach(function (n) {
-    var o = db.getOccurrence(n.occurrence);
-    o.staff.forEach(function (s) { if (s.coach === 'tom') s.unavailable = true; });
-    for (var i = F.allocations.length - 1; i >= 0; i--) if (F.allocations[i].occurrence === o.id && F.allocations[i].coach === 'tom' && F.allocations[i].state === 'Draft') F.allocations.splice(i, 1);
-  });
-  if (r1.needs[0]) {
-    r1.needs[0].offers.push({ id: 'OFR-01', coach: 'priya', rate: 2500, cost: 5000, sentBy: DC, sentAt: '2026-09-30T10:05', response: null, respondedAt: null, note: '' });
-    r1.needs[0].state = 'Offered';
-    r1.history.push({ text: 'Offer sent to Priya Nair for ' + K.dd(ppa12.date), who: DC, at: '2026-09-30T10:05', tone: 'info' });
-  }
-  var r2 = cvr({ coach: 'charlie', kind: 'Unavailable', from: '2026-10-01', to: '2026-10-01', reason: 'Family commitment this evening', requestedBy: 'Charlie Hughes', at: '2026-09-30T18:12', exception: 'AVX-01',
-    needs: [need(u12.id, 'charlie')],
-    history: [{ text: 'Marked unavailable for U12 Academy tonight', who: 'Charlie Hughes', at: '2026-09-30T18:12', tone: 'danger' }] });
-  r2.needs[0].offers.push({ id: 'OFR-02', coach: 'marcus', rate: 3125, cost: 4688, sentBy: DC, sentAt: '2026-10-01T09:15', response: 'Declined', respondedAt: '2026-10-01T11:02', note: 'Can’t get to Northgate by 19:00 tonight' });
-  r2.history.push({ text: 'Offer sent to Marcus Bell', who: DC, at: '2026-10-01T09:15', tone: 'info' }, { text: 'Marcus Bell declined: can’t get to Northgate by 19:00 tonight', who: 'Marcus Bell', at: '2026-10-01T11:02', tone: 'danger' });
-  cvr({ coach: null, kind: 'No coach', from: u13.date, to: u13.date, reason: 'No coach assigned after the September rota change', requestedBy: 'System', at: '2026-09-28T09:00',
-    needs: [need(u13.id, null)], history: [{ text: 'Session has no coach assigned', who: 'System', at: '2026-09-28T09:00', tone: 'danger' }] });
+  /* The mock requests are raised through the same cover functions the Hub uses (see coach-hub.js),
+     so they behave exactly like real ones: offered to every eligible coach, each date on its own. */
 
   /* ---------- Work summaries (September 2026) ---------- */
   C.summaries = [];
@@ -237,7 +216,7 @@
   /* Is the coach free for an occurrence? Returns { ok, reason }. */
   db.coachAvailableFor = function (coach, o) {
     var dow = (K.parse(o.date).getDay() + 6) % 7, w = db.getWeeklyAvailability(coach)[dow];
-    var ex = C.exceptions.filter(function (e) { return e.coach === coach && e.from <= o.date && e.to >= o.date; })[0];
+    var ex = C.exceptions.filter(function (e) { return e.coach === coach && e.from <= o.date && e.to >= o.date && (e.back || []).indexOf(o.date) < 0; })[0];
     if (ex && ex.type !== 'Different hours') {
       if (!ex.start || (ex.start < o.end && ex.end > o.start)) return { ok: false, reason: ex.type + (ex.start ? ' ' + ex.start + '–' + ex.end : '') };
     }
@@ -285,7 +264,7 @@
   };
 
   db.getCoverRequests = function (f) { return f ? C.cover.filter(f) : C.cover; };
-  db.getCoverRequest = function (id) { return pick(C.cover, id); };
+  db.getCoverRequest = function (id) { return pick(C.cover, String(id || '').split('/')[0]); };
   db.coverStatus = function (r) {
     var s = r.needs.map(function (n) { return n.state; });
     if (s.every(function (x) { return x === 'Covered'; })) return 'Covered';
@@ -311,6 +290,7 @@
       ((mins(x.end) <= mins(o.start) && mins(o.start) - mins(x.end) <= 30) || (mins(x.start) >= mins(o.end) && mins(x.start) - mins(o.end) <= 30)); })[0];
     return near ? 'Working ' + near.start + '–' + near.end + (near.end <= o.start ? ' just before' : ' just after') + ' (' + near.session + ')' : '';
   }
+  db.coverFlag = function (coach, o) { return backToBack(coach, o); };
   function otherAcceptance(coach, o, needId) {
     var hit = null;
     C.cover.forEach(function (r) { r.needs.forEach(function (n) {
@@ -323,16 +303,18 @@
   /* Suggested coaches for a need: every other active coach, eligible first */
   db.getCoverCandidates = function (reqId, needId) {
     var n = db.getCoverNeed(reqId, needId), o = db.getOccurrence(n.occurrence);
+    var away = n.absent && o.staff.filter(function (s) { return s.coach === n.absent; })[0], place = away ? (away.actualRole || away.role) : 'Lead';
+    var mine = function (c) { return n.offers.filter(function (f) { return f.coach === c && live(f); }); };
     return db.getCoaches().filter(function (c) { return c.active && c.id !== n.absent && !o.staff.some(function (s) { return s.coach === c.id && !s.unavailable; }); }).map(function (c) {
       var av = db.coachAvailableFor(c.id, o), comp = db.getCoachComplianceSummary(c.id), why = [];
       var ok = av.ok;
       if (!av.ok) why.push(av.reason);
-      if (c.type === 'learning') { ok = false; why.push('Learning coaches cannot cover alone'); }
+      if (c.type === 'learning' && place !== 'Learning') { ok = false; why.push('Learning Coaches only cover a Learning Coach place'); }
       if (comp.state === 'Expired' || comp.state === 'Missing') { ok = false; why.push(comp.text); }
-      var declined = n.offers.some(function (f) { return f.coach === c.id && f.response === 'Declined'; });
-      if (declined) { ok = false; why.push('Declined this session'); }
-      if (n.offers.some(function (f) { return f.coach === c.id && !f.response; })) { ok = false; why.push('Offer already sent, waiting for a reply'); }
-      if (n.offers.some(function (f) { return f.coach === c.id && f.response === 'Accepted'; })) { ok = false; why.push('Said yes: choose them above'); }
+      var m = mine(c.id);
+      if (m.some(function (f) { return f.response === 'Declined'; })) { ok = false; why.push('Said they can’t'); }
+      if (m.some(function (f) { return !f.response; })) { ok = false; why.push('Offered, waiting for a reply'); }
+      if (m.some(function (f) { return f.response === 'Accepted'; })) { ok = false; why.push('Said they can cover'); }
       /* Already said yes to cover something else at the same time */
       var elsewhere = otherAcceptance(c.id, o, n.id);
       if (elsewhere) { ok = false; why.push('Said yes to ' + elsewhere.session + ' ' + elsewhere.start + '–' + elsewhere.end + ' that day'); }
@@ -357,6 +339,7 @@
   db.setCoachActive = function (coach, on, who, at) {
     var c = db.getCoach(coach); c.active = !!on;
     (C.statusHistory[coach] = C.statusHistory[coach] || []).unshift({ text: on ? 'Marked active' : 'Marked inactive', who: who, at: at, tone: on ? 'ok' : 'warn' });
+    if (on) keepOffering(at);
     return c;
   };
   db.setRolePermission = function (roleId, perm, on, who, at) {
@@ -372,19 +355,22 @@
     var r = { id: 'RMV-' + String(C.removed.length + 1).padStart(2, '0'), coach: coach, sessionName: s.name, session: s.id, role: role || 'Coach', removedAt: from + 'T00:00', by: who, reason: reason || 'Changed by management', accessUntil: K.addDays(from, C.accessWindowDays) };
     C.removed.push(r); return r;
   };
-  db.removeAssignment = function (coach, sessionId, who, at, reason) {
-    var s = db.getSession(sessionId), st = (s.staff || []).filter(function (x) { return x.coach === coach; })[0];
-    var r = { id: 'RMV-' + String(C.removed.length + 1).padStart(2, '0'), coach: coach, sessionName: s.name, session: s.id, role: st ? st.role : 'Coach', removedAt: at, by: who, reason: reason || 'Removed by management', accessUntil: K.addDays(at.slice(0, 10), C.accessWindowDays) };
-    s.staff = s.staff.filter(function (x) { return x.coach !== coach; });
-    C.removed.push(r); return r;
-  };
-  db.addAvailabilityException = function (e) { e.id = 'AVX-' + String(C.exceptions.length + 1).padStart(2, '0'); C.exceptions.push(e); return e; };
+  db.addAvailabilityException = function (e) { e.id = 'AVX-' + String(C.exceptions.reduce(function (m, x) { return Math.max(m, +x.id.slice(4) || 0); }, 0) + 1).padStart(2, '0'); C.exceptions.push(e); return e; };
   db.removeAvailabilityException = function (id) { C.exceptions = C.exceptions.filter(function (e) { return e.id !== id; }); };
-  db.setWeeklyAvailability = function (coach, dayIdx, win, who, at) { C.weekly[coach][dayIdx] = win; C.weeklyUpdated = { by: who, at: at }; };
+  /* The usual week can't silently clash with dates the coach is on: change those sessions, or mark the dates as time off */
+  db.weeklyClashes = function (coach, dayIdx, win) {
+    return db.getOccurrences(function (o) { return (K.parse(o.date).getDay() + 6) % 7 === dayIdx && o.status === 'Scheduled' && !o.delivery && !db.hasStarted(o) &&
+      o.staff.some(function (s) { return s.coach === coach && !s.unavailable; }) && (!win || win[0] > o.start || win[1] < o.end); });
+  };
+  db.setWeeklyAvailability = function (coach, dayIdx, win, who, at) {
+    var clash = db.weeklyClashes(coach, dayIdx, win);
+    if (clash.length) return { error: clash };
+    C.weekly[coach][dayIdx] = win; C.weeklyUpdated = { by: who, at: at }; keepOffering(at); return { ok: true };
+  };
 
   db.verifyDocument = function (id, who, at) {
     var d = pick(C.docs, id); d.verification = { state: 'Verified', by: who, at: at, note: '' };
-    d.history.push({ text: 'Verified', who: who, at: at, tone: 'ok' }); return d;
+    d.history.push({ text: 'Verified', who: who, at: at, tone: 'ok' }); keepOffering(at); return d;
   };
   db.rejectDocument = function (id, reason, who, at) {
     var d = pick(C.docs, id); d.verification = { state: 'Rejected', by: who, at: at, note: reason };
@@ -399,92 +385,250 @@
   };
   db.setDocLeadDays = function (typeId, days, who, at) { var t = typeOf(typeId); t.leadDays = days; t.by = who; t.at = at; C.docs.forEach(function (d) { if (d.type === typeId && d.expires) d.reviewDue = K.addDays(d.expires, -days); }); return t; };
 
-  /* Cover workflow. Each date (need) moves on its own:
-     Open → Offered → Accepted → Covered, a decline returns it to Open,
-     and "Needs a phone call" parks it for a manager to ring round. */
-  db.addCoverRequest = function (o, who, at) {
-    var occs = db.getOccurrences(function (x) { return x.date >= o.from && x.date <= o.to && x.status !== 'Cancelled' && x.staff.some(function (s) { return s.coach === o.coach && !s.unavailable; }); });
-    var ex = db.addAvailabilityException({ coach: o.coach, type: o.kind === 'Holiday' ? 'Holiday' : 'Unavailable', from: o.from, to: o.to, start: null, end: null, reason: o.reason, by: who, at: at });
-    var r = cvr({ coach: o.coach, kind: o.kind, from: o.from, to: o.to, reason: o.reason, requestedBy: who, at: at, exception: ex.id, needs: occs.map(function (x) { return need(x.id, o.coach); }),
-      history: [{ text: o.kind + ' recorded for ' + K.dm(o.from) + (o.to !== o.from ? '–' + K.dm(o.to) : '') + ': ' + occs.length + ' session' + (occs.length === 1 ? '' : 's') + ' affected', who: who, at: at }] });
-    occs.forEach(function (x) { x.staff.forEach(function (s) { if (s.coach === o.coach) s.unavailable = true; }); });
-    if (!o.noAutoSend) r.needs.forEach(function (n) { db.offerAllEligible(r.id, n.id, who, at); });
+  /* ============================================================ COVER
+     One source of truth for cover. A request groups dates for convenience; every date (a "need")
+     moves on its own: Open → Offered → Accepted → Covered. "Covered" also holds a date that is no
+     longer needed (confirmed.coach is null and confirmed.ended says why).
+     - The Hub finds every eligible coach and offers the date to all of them at once (Hub and email).
+     - Saying yes never assigns anyone: Management chooses.
+     - The shared staffing steps put the chosen coach on that date only, at the agreed rate for the date.
+     - Time off that touches a date the coach is on always takes them off it and starts cover,
+       so that date can never look ready. */
+  var HUB = 'The Hub';
+  function live(f) { return !f.closed && f.response !== 'Filled'; }
+  function liveNeed(n) { return !!n && n.state !== 'Covered'; }
+  function occOf(n) { return db.getOccurrence(n.occurrence); }
+  function whenOf(o) { return o.session + ', ' + K.dd(o.date) + ', ' + o.start; }
+  function cap(t) { return t.charAt(0).toUpperCase() + t.slice(1); }
+  function needState(n) {
+    if (!liveNeed(n)) return;
+    var fs = n.offers.filter(live);
+    n.state = fs.some(function (f) { return f.response === 'Accepted'; }) ? 'Accepted' : fs.some(function (f) { return !f.response; }) ? 'Offered' : n.phone ? 'Needs a phone call' : 'Open';
+  }
+  db.coverNeedsFor = function (occId) {
+    var out = []; C.cover.forEach(function (r) { r.needs.forEach(function (n) { if (n.occurrence === occId && liveNeed(n)) out.push({ request: r, need: n }); }); }); return out;
+  };
+  /* Does this time off take the coach away from this date? A "Different hours" day counts when the session falls outside them. */
+  function exHits(e, o) {
+    if (e.from > o.date || e.to < o.date || (e.back || []).indexOf(o.date) >= 0) return false;
+    if (e.type === 'Different hours') return !!e.start && !(e.start <= o.start && e.end >= o.end);
+    return !e.start || (e.start < o.end && e.end > o.start);
+  }
+  db.awayFrom = function (coach, o) { return C.exceptions.filter(function (e) { return e.coach === coach && exHits(e, o); })[0] || null; };
+  /* Dates the coach is on that the time off reaches: still to start, not confirmed */
+  function touched(e) {
+    return db.getOccurrences(function (o) { return o.status === 'Scheduled' && !o.delivery && !o.draft && !db.hasStarted(o) && exHits(e, o) && o.staff.some(function (s) { return s.coach === e.coach && !s.unavailable; }); });
+  }
+  db.timeOffTouches = function (e) { return touched(Object.assign({ back: [] }, e)); };
+
+  /* A coach can't coach some dates (or a date has no coach): they come off those dates as away,
+     and each date is offered to every eligible coach. */
+  db.raiseCover = function (spec, who, at) {
+    var absent = spec.coach || null;
+    var occs = spec.occurrences.filter(function (o) { return o && !db.coverNeedsFor(o.id).some(function (x) { return x.need.absent === absent; }); })
+      .sort(function (a, b) { return (a.date + a.start) < (b.date + b.start) ? -1 : 1; });
+    if (!occs.length) return null;
+    var label = absent ? db.coachName(absent) + ' can’t coach' : 'No coach';
+    var r = cvr({ coach: absent, kind: spec.kind || (absent ? 'Unavailable' : 'No coach'), from: spec.from || occs[0].date, to: spec.to || occs[occs.length - 1].date, reason: spec.reason || '', requestedBy: who, at: at, exception: spec.exception || null,
+      needs: occs.map(function (o) { return need(o.id, absent); }),
+      history: [{ text: label + ': ' + occs.length + ' date' + (occs.length === 1 ? '' : 's') + ' need cover', detail: spec.reason || '', who: who, at: at, tone: 'warn' }] });
+    occs.forEach(function (o) {
+      if (absent) db.staffTakeOff(o, absent, { keepAway: true });
+      (o.history = o.history || []).push({ text: label + ' on this date: finding cover', detail: spec.reason || '', who: who, at: at, tone: 'warn' });
+    });
+    if (!spec.noAutoSend) r.needs.forEach(function (n) { db.offerAllEligible(r.id, n.id, HUB, at); });
     return r;
   };
+  /* Time off, from the coach or from Management */
+  db.recordTimeOff = function (e, who, at) {
+    var ex = db.addAvailabilityException({ coach: e.coach, type: e.type, from: e.from, to: e.to || e.from, start: e.start || null, end: e.end || null, reason: e.reason, by: who, at: at });
+    var occs = touched(ex);
+    var r = occs.length ? db.raiseCover({ coach: e.coach, occurrences: occs, kind: e.kind || (e.type === 'Holiday' ? 'Holiday' : 'Unavailable'), reason: e.reason, exception: ex.id, from: ex.from, to: ex.to, noAutoSend: e.noAutoSend }, who, at) : null;
+    keepOffering(at);
+    return { exception: ex, request: r, dates: occs.length };
+  };
+  db.addCoverRequest = function (o, who, at) {
+    return db.recordTimeOff({ coach: o.coach, type: o.kind === 'Holiday' ? 'Holiday' : 'Unavailable', kind: o.kind, from: o.from, to: o.to, reason: o.reason, noAutoSend: o.noAutoSend }, who, at).request;
+  };
+  /* Safety net: any time off already on file that still leaves the coach on a date starts cover for it */
+  db.sweepTimeOff = function (who, at) {
+    var made = [];
+    C.exceptions.slice().forEach(function (e) {
+      var occs = touched(e); if (!occs.length) return;
+      var r = db.raiseCover({ coach: e.coach, occurrences: occs, kind: e.type === 'Holiday' ? 'Holiday' : 'Unavailable', reason: e.reason, exception: e.id, from: e.from, to: e.to }, who, at); if (r) made.push(r);
+    });
+    return made;
+  };
+  /* Removing time off puts the coach back on the dates still looking for cover; dates already covered stay covered */
+  db.removeTimeOff = function (id, who, at) {
+    var e = C.exceptions.filter(function (x) { return x.id === id; })[0]; if (!e) return null;
+    C.cover.forEach(function (r) { if (r.exception === id) r.needs.forEach(function (n) { if (liveNeed(n)) db.withdrawCover(r.id, n.id, { back: true, reason: 'Time off removed' }, who, at); }); });
+    db.removeAvailabilityException(id); keepOffering(at); return e;
+  };
+
   function offerId() { return 'OFR-' + String(C.cover.reduce(function (k, x) { return k + x.needs.reduce(function (m, y) { return m + y.offers.length; }, 0); }, 0) + 1).padStart(2, '0'); }
   function notify(coach, title, body, route, at) { if (db.notifyCoach && coach) db.notifyCoach(coach, title, body, route, at); }
   db.sendCoverOffer = function (reqId, needId, coach, who, at, quiet) {
-    var r = pick(C.cover, reqId), n = db.getCoverNeed(reqId, needId), o = db.getOccurrence(n.occurrence), rate = db.coverRate(coach, o);
-    if (n.state === 'Covered') return null;
-    var f = { id: offerId(), coach: coach, rate: rate.rate, cost: rate.cost, sentBy: who, sentAt: at, response: null, respondedAt: null, note: '' };
-    n.offers.push(f); if (n.state !== 'Accepted') n.state = 'Offered'; n.phone = null;
-    if (!quiet) r.history.push({ text: 'Offer sent to ' + db.coachName(coach) + ' for ' + K.dd(o.date), who: who, at: at, tone: 'info' });
-    notify(coach, 'Cover offered to you', o.session + ', ' + K.dd(o.date) + ', ' + o.start + '. Say yes or no; the office chooses who covers.', 'coach-cover', at);
+    var r = pick(C.cover, reqId), n = db.getCoverNeed(reqId, needId), o = occOf(n), normal = db.coverRate(coach, o);
+    if (!liveNeed(n)) return null;
+    var rate = n.enhanced ? n.enhanced.rate : normal.rate;
+    var f = { id: offerId(), coach: coach, rate: rate, normal: normal.rate, cost: Math.round(rate * normal.units), sentBy: who, sentAt: at, response: null, respondedAt: null, note: '' };
+    n.offers.push(f); needState(n);
+    if (!quiet) r.history.push({ text: 'Offered to ' + db.coachName(coach) + ' for ' + K.dd(o.date), who: who, at: at, tone: 'info' });
+    notify(coach, 'Cover available', whenOf(o) + (rate !== normal.rate ? ', at ' + K.money(rate) + ' an hour' : '') + '. Accept or say you can’t; the office chooses who covers.', 'coach-cover', at);
     return f;
   };
   /* The default: every eligible coach is asked at once (Hub and email), each date on its own */
   db.offerAllEligible = function (reqId, needId, who, at) {
-    var r = pick(C.cover, reqId), n = db.getCoverNeed(reqId, needId), o = db.getOccurrence(n.occurrence);
-    if (!n || n.state === 'Covered') return [];
+    var r = pick(C.cover, reqId), n = db.getCoverNeed(reqId, needId);
+    if (!liveNeed(n)) return [];
+    var o = occOf(n);
     var sent = db.getCoverCandidates(reqId, needId).filter(function (c) { return c.eligible; }).map(function (c) { return db.sendCoverOffer(reqId, needId, c.coach.id, who, at, true); }).filter(Boolean);
-    if (sent.length) r.history.push({ text: 'Sent to ' + sent.length + ' eligible coach' + (sent.length === 1 ? '' : 'es') + ' for ' + K.dd(o.date) + ' by Hub and email: ' + sent.map(function (f) { return db.coachName(f.coach); }).join(', '), who: who, at: at, tone: 'info' });
+    if (sent.length) r.history.push({ text: 'Offered to ' + sent.length + ' eligible coach' + (sent.length === 1 ? '' : 'es') + ' for ' + K.dd(o.date) + ' by Hub and email: ' + sent.map(function (f) { return db.coachName(f.coach); }).join(', '), who: who, at: at, tone: 'info' });
+    needState(n);
     return sent;
   };
+  /* Coaches who become free later (time off removed, hours or usual week changed, documents verified,
+     back to active, taken off another date) are offered the dates still open */
+  function keepOffering(at) {
+    C.cover.forEach(function (r) { r.needs.forEach(function (n) { if (liveNeed(n) && !db.hasStarted(occOf(n))) db.offerAllEligible(r.id, n.id, HUB, at); }); });
+  }
+  db.keepOffering = keepOffering;
+  /* A coach answers, and can change their mind until Management chooses */
   db.respondCoverOffer = function (reqId, needId, offerId, response, note, at) {
-    var r = pick(C.cover, reqId), n = db.getCoverNeed(reqId, needId), f = n.offers.filter(function (x) { return x.id === offerId; })[0], o = db.getOccurrence(n.occurrence);
-    if (!f || n.state === 'Covered' || f.closed) return null;
-    f.response = response; f.respondedAt = at; f.note = note || '';
-    n.state = n.offers.some(function (x) { return x.response === 'Accepted'; }) ? 'Accepted' : (n.offers.some(function (x) { return !x.response; }) ? 'Offered' : 'Open');
-    r.history.push({ text: db.coachName(f.coach) + ' ' + response.toLowerCase() + ' cover for ' + K.dd(o.date) + (note ? ': ' + note : ''), who: db.coachName(f.coach), at: at, tone: response === 'Accepted' ? 'ok' : 'danger' });
+    var r = pick(C.cover, reqId), n = db.getCoverNeed(reqId, needId), f = n && n.offers.filter(function (x) { return x.id === offerId; })[0];
+    if (!f || !liveNeed(n) || !live(f)) return null;
+    var o = occOf(n);
+    if (response === 'Accepted') { var av = db.coachAvailableFor(f.coach, o); if (!av.ok) return { error: av.reason }; }
+    var was = f.response;
+    f.response = response; f.respondedAt = at; if (note != null) f.note = note || '';
+    needState(n);
+    var said = response === 'Accepted' ? (was === 'Declined' ? ' can cover after all' : ' can cover') : (was === 'Accepted' ? ' can’t cover after all' : ' can’t cover');
+    r.history.push({ text: db.coachName(f.coach) + said + ' on ' + K.dd(o.date) + (note ? ': ' + note : ''), who: db.coachName(f.coach), at: at, tone: response === 'Accepted' ? 'ok' : 'danger' });
     return f;
   };
-  db.markCoverPhoneCall = function (reqId, needId, note, who, at) {
-    var r = pick(C.cover, reqId), n = db.getCoverNeed(reqId, needId), o = db.getOccurrence(n.occurrence);
-    n.state = 'Needs a phone call'; n.phone = { note: note, by: who, at: at };
-    r.history.push({ text: 'Needs a phone call for ' + K.dd(o.date), detail: note, who: who, at: at, tone: 'warn' });
+  /* A reason added after saying "Can't do it" */
+  db.noteCoverReply = function (reqId, needId, offerId, note) {
+    var n = db.getCoverNeed(reqId, needId), f = n && n.offers.filter(function (x) { return x.id === offerId; })[0]; if (f) f.note = note; return f;
   };
-  /* Confirm: Management chooses one coach who said yes. That coach joins this date's staff as cover
-     (the session's regular staff never change); the absent coach's expected pay is withdrawn; the
-     covering coach's expected pay carries the agreed rate for this date. Every other offer closes and
-     everyone affected is told. opts: { offer, rate, reason } */
-  /* Closing one date's cover need: the shared last step for Cover and for a direct Change coach.
-     Every other offer for that date closes and the coaches offered it are told; other dates are untouched.
-     how: { coach, offer, rate, direct, note, history, reason } */
+  db.markCoverPhoneCall = function (reqId, needId, note, who, at) {
+    var r = pick(C.cover, reqId), n = db.getCoverNeed(reqId, needId), o = occOf(n);
+    n.phone = { note: note, by: who, at: at }; needState(n);
+    r.history.push({ text: 'Ring round for ' + K.dd(o.date), detail: note, who: who, at: at, tone: 'warn' });
+  };
+  /* A higher rate for one date, for everyone offered it. The coaches' normal rates never change. */
+  db.setCoverRate = function (reqId, needId, rate, reason, who, at) {
+    var r = pick(C.cover, reqId), n = db.getCoverNeed(reqId, needId); if (!liveNeed(n)) return null;
+    var o = occOf(n); n.enhanced = { rate: rate, reason: reason, by: who, at: at };
+    n.offers.forEach(function (f) { if (live(f)) { f.rate = rate; f.cost = Math.round(rate * hours(o)); notify(f.coach, 'Cover now pays more', whenOf(o) + ' now pays ' + K.money(rate) + ' an hour.', 'coach-cover', at); } });
+    r.history.push({ text: 'Cover for ' + K.dd(o.date) + ' now offered at ' + K.money(rate) + ' an hour', detail: reason, who: who, at: at, tone: 'info' });
+    return n;
+  };
+  /* Closing one date's cover need: the shared last step for Cover, a direct Change coach, withdrawing,
+     and a date that was cancelled, moved or confirmed. Every other offer for that date closes and the
+     coaches offered it are told; other dates are untouched.
+     how: { coach, offer, rate, direct, ended, note, history, reason } */
   db.closeCoverNeed = function (reqId, needId, how, who, at) {
-    var r = pick(C.cover, reqId), n = db.getCoverNeed(reqId, needId), o = db.getOccurrence(n.occurrence);
-    if (!n || n.state === 'Covered') return null;
-    n.state = 'Covered'; n.confirmed = { coach: how.coach || null, offer: how.offer || null, rate: how.rate != null ? how.rate : null, by: who, at: at, direct: !!how.direct, note: how.note || '' };
-    var told = [], what = o.session + ', ' + K.dd(o.date) + ', ' + o.start;
+    var r = pick(C.cover, reqId), n = db.getCoverNeed(reqId, needId);
+    if (!liveNeed(n)) return null;
+    var o = occOf(n);
+    n.state = 'Covered'; n.confirmed = { coach: how.coach || null, offer: how.offer || null, rate: how.rate != null ? how.rate : null, by: who, at: at, direct: !!how.direct, ended: how.coach ? null : (how.ended || 'not-needed'), note: how.note || '' };
+    var told = [], what = whenOf(o), by = how.coach ? (how.direct ? 'filled by Management' : 'covered by ' + db.coachName(how.coach)) : 'no longer needed';
     n.offers.forEach(function (x) {
-      if (x.id === how.offer || x.coach === how.coach) return;
-      if (!x.response) { x.response = 'Filled'; x.respondedAt = at; x.closed = true; x.note = how.direct ? 'Filled by Management' : 'Covered by ' + db.coachName(how.coach); told.push({ c: x.coach, replied: false }); }
-      else if (x.response === 'Accepted' && !x.closed) { x.closed = true; x.closedNote = how.direct ? 'Filled by Management' : 'Covered by ' + db.coachName(how.coach); told.push({ c: x.coach, replied: true }); }
+      if (x.id === how.offer || (how.coach && x.coach === how.coach) || !live(x) || x.response === 'Declined') return;
+      if (!x.response) { x.response = 'Filled'; x.respondedAt = at; x.closed = true; x.note = cap(by); told.push({ c: x.coach, replied: false }); }
+      else if (x.response === 'Accepted') { x.closed = true; x.closedNote = cap(by); told.push({ c: x.coach, replied: true }); }
     });
-    told.forEach(function (t) { notify(t.c, 'Cover filled', what + (how.direct ? ' has been filled by Management.' : ' is now covered by ' + db.coachName(how.coach) + '.') + (t.replied ? ' Thanks for replying.' : ' No need to reply.'), 'coach-cover', at); });
+    told.forEach(function (t) { notify(t.c, how.coach ? 'Cover filled' : 'Cover no longer needed', what + (how.coach ? (how.direct ? ' has been filled by Management.' : ' is now covered by ' + db.coachName(how.coach) + '.') : ' is no longer needed.') + (t.replied ? ' Thanks for replying.' : ' No need to reply.'), 'coach-cover', at); });
     told = told.map(function (t) { return t.c; });
-    r.history.push({ text: how.history || ('Cover confirmed: ' + db.coachName(how.coach) + ' on ' + K.dd(o.date)) + (told.length ? '; ' + told.map(function (c) { return db.coachName(c).split(' ')[0]; }).join(', ') + ' told it is filled' : ''), detail: how.reason || '', who: who, at: at, tone: 'ok' });
+    r.history.push({ text: (how.history || ('Cover confirmed: ' + db.coachName(how.coach) + ' on ' + K.dd(o.date))) + (told.length ? '; ' + told.map(function (c) { return db.coachName(c).split(' ')[0]; }).join(', ') + ' told' : ''), detail: how.reason || '', who: who, at: at, tone: how.coach ? 'ok' : 'info' });
     return { need: n, told: told };
   };
-  /* Confirm: Management chooses one coach who said yes. The shared staffing steps put them on that
-     date as cover (the session's regular staff never change) at the agreed rate for the date; the
-     absent coach stays on the date as away. Then the shared close step tidies every other offer. */
+  /* The chosen coach can't be in two places: their other open offers at the same time close */
+  db.coverBusyElsewhere = function (coach, o, at) {
+    C.cover.forEach(function (r) { r.needs.forEach(function (n) {
+      if (!liveNeed(n) || n.occurrence === o.id) return;
+      var x = occOf(n); if (x.date !== o.date || !(x.start < o.end && x.end > o.start)) return;
+      var hit = false;
+      n.offers.forEach(function (f) { if (f.coach === coach && live(f) && f.response !== 'Declined') { hit = true; f.closed = true; f.closedNote = 'Coaching ' + o.session + ' at the same time'; if (!f.response) { f.response = 'Filled'; f.respondedAt = at; f.note = f.closedNote; } } });
+      if (hit) { r.history.push({ text: db.coachName(coach) + ' is now coaching ' + o.session + ' at the same time, so their offer for ' + K.dd(x.date) + ' closed', who: HUB, at: at, tone: 'info' }); needState(n); }
+    }); });
+  };
+  /* Management chooses one coach who said yes. The shared staffing steps put them on that date as cover
+     (the regular coaches never change) at the agreed rate for the date; the absent coach stays on the
+     date as away. Then the shared close step tidies every other offer. opts: { offer, rate, reason } */
   db.confirmCover = function (reqId, needId, who, at, opts) {
     opts = opts || {};
-    var r = pick(C.cover, reqId), n = db.getCoverNeed(reqId, needId), o = db.getOccurrence(n.occurrence);
-    if (!n || n.state === 'Covered') return null;
-    var yes = n.offers.filter(function (x) { return x.response === 'Accepted' && !x.closed; });
-    var f = opts.offer ? yes.filter(function (x) { return x.id === opts.offer; })[0] : yes.slice(-1)[0]; if (!f) return null;
-    var absent = o.staff.filter(function (s) { return n.absent && s.coach === n.absent; })[0];
-    var role = absent ? (absent.actualRole || absent.role) : 'Lead', normal = db.coverRate(f.coach, o), rate = opts.rate != null ? opts.rate : f.rate;
+    var r = pick(C.cover, reqId), n = db.getCoverNeed(reqId, needId);
+    if (!liveNeed(n)) return null;
+    var o = occOf(n);
+    var f = n.offers.filter(function (x) { return x.response === 'Accepted' && live(x) && (!opts.offer || x.id === opts.offer); }).slice(-1)[0]; if (!f) return null;
+    var av = db.coachAvailableFor(f.coach, o); if (!av.ok) return { error: db.coachName(f.coach).split(' ')[0] + ' isn’t free any more: ' + av.reason.toLowerCase() };
+    var absent = n.absent && o.staff.filter(function (s) { return s.coach === n.absent; })[0];
+    var role = absent ? (absent.actualRole || absent.role) : 'Lead', normal = db.coverRate(f.coach, o).rate;
+    var rate = opts.rate != null ? opts.rate : n.enhanced ? n.enhanced.rate : normal;
     if (n.absent) db.staffTakeOff(o, n.absent, { keepAway: true, coveredBy: f.coach });
     /* The agreed cover rate is this date's rate: a later change to the coach's normal rate leaves it alone */
-    db.staffPlace(o, { coach: f.coach, role: role, covers: n.absent || null, agreed: { rate: rate, cover: r.id, note: { reason: opts.reason || (rate === normal.rate ? 'Agreed cover rate (normal rate)' : 'Agreed cover rate'), by: who, at: at } } });
-    var res = db.closeCoverNeed(reqId, needId, { coach: f.coach, offer: f.id, rate: rate, history: 'Cover confirmed: ' + db.coachName(f.coach) + ' on ' + K.dd(o.date) + ' at ' + K.money(rate) + ' an hour' + (opts.reason ? ' (' + opts.reason + ')' : ''), reason: opts.reason }, who, at);
-    var what = o.session + ', ' + K.dd(o.date) + ', ' + o.start;
-    notify(f.coach, 'Cover confirmed', 'You are on ' + what + (n.absent ? ', covering ' + db.coachName(n.absent) : '') + '.', 'coach-session/' + o.id, at);
-    if (n.absent) notify(n.absent, db.coachName(f.coach).split(' ')[0] + ' is covering for you', what + '.', 'coach-cover', at);
+    db.staffPlace(o, { coach: f.coach, role: role, covers: n.absent || null, agreed: { rate: rate, cover: r.id, note: { reason: opts.reason || (n.enhanced && rate === n.enhanced.rate ? n.enhanced.reason || 'Higher cover rate' : rate === normal ? 'Agreed cover rate (normal rate)' : 'Agreed cover rate'), by: who, at: at } } });
+    f.chosen = true;
+    db.closeCoverNeed(reqId, needId, { coach: f.coach, offer: f.id, rate: rate, history: 'Cover confirmed: ' + db.coachName(f.coach) + ' on ' + K.dd(o.date) + ' at ' + K.money(rate) + ' an hour' + (opts.reason ? ' (' + opts.reason + ')' : ''), reason: opts.reason }, who, at);
+    db.coverBusyElsewhere(f.coach, o, at);
+    notify(f.coach, 'You’re covering', 'You’re on ' + whenOf(o) + (n.absent ? ', covering ' + db.coachName(n.absent).split(' ')[0] : '') + '.', 'coach-session/' + o.id, at);
+    if (n.absent) notify(n.absent, db.coachName(f.coach).split(' ')[0] + ' is covering for you', whenOf(o) + '.', 'coach-cover', at);
     (o.history = o.history || []).push({ text: 'Cover confirmed: ' + db.coachName(f.coach) + (n.absent ? ' for ' + db.coachName(n.absent) : '') + ' at ' + K.money(rate) + ' an hour', who: who, at: at, tone: 'ok' });
     return n;
+  };
+  /* The chosen coach can't do it after all: they come off the date and it is offered again */
+  db.coverDropOut = function (reqId, needId, reason, who, at) {
+    var r = pick(C.cover, reqId), n = db.getCoverNeed(reqId, needId), c = n && n.confirmed && !n.confirmed.direct && n.confirmed.coach;
+    if (!c) return null;
+    var o = occOf(n); if (db.hasStarted(o) || o.delivery) return null;
+    db.staffTakeOff(o, c);
+    o.staff.forEach(function (s) { if (s.covering === c) s.covering = null; });
+    (n.dropped = n.dropped || []).push({ coach: c, reason: reason, at: at });
+    n.offers.forEach(function (f) {
+      if (f.coach === c) { f.response = 'Declined'; f.closed = false; f.chosen = false; f.note = 'Couldn’t do it after being chosen: ' + reason; }
+      else if (f.response === 'Accepted' && f.closed) f.response = 'Filled';
+    });
+    n.state = 'Open'; n.confirmed = null;
+    r.history.push({ text: db.coachName(c) + ' can’t cover ' + K.dd(o.date) + ' any more: offered again', detail: reason, who: who, at: at, tone: 'danger' });
+    (o.history = o.history || []).push({ text: db.coachName(c) + ' can’t cover any more: finding cover again', detail: reason, who: who, at: at, tone: 'danger' });
+    if (n.absent) notify(n.absent, db.coachName(c).split(' ')[0] + ' can’t cover for you any more', whenOf(o) + '. The office is finding someone else.', 'coach-cover', at);
+    db.offerAllEligible(r.id, needId, HUB, at); needState(n);
+    return n;
+  };
+  /* No longer needed for one date. back: the absent coach can coach after all and goes back on the
+     date; otherwise the date runs without cover. Offers close and everyone offered it is told. */
+  db.withdrawCover = function (reqId, needId, how, who, at) {
+    var r = pick(C.cover, reqId), n = db.getCoverNeed(reqId, needId);
+    if (!liveNeed(n)) return null;
+    var o = occOf(n), back = how.back && n.absent;
+    if (back) {
+      db.staffBack(o, n.absent);
+      var e = db.awayFrom(n.absent, o); if (e) (e.back = e.back || []).push(o.date);
+      if (how.tell !== false) notify(n.absent, 'You’re back on ' + o.session, whenOf(o) + '. Cover is no longer needed.', 'coach-session/' + o.id, at);
+    }
+    var words = back ? db.coachName(n.absent).split(' ')[0] + ' can coach after all' : 'Running without cover';
+    (o.history = o.history || []).push({ text: words + ': cover no longer needed', detail: how.reason || '', who: who, at: at, tone: 'info' });
+    return db.closeCoverNeed(reqId, needId, { coach: null, ended: back ? 'back' : 'not-needed', note: words, history: words + ' on ' + K.dd(o.date) + ': cover no longer needed', reason: how.reason }, who, at);
+  };
+  /* The date itself changed (cancelled, postponed, moved, or confirmed as delivered): its cover closes.
+     coveredBy: { absentCoach: coach who actually covered } from delivery confirmation. */
+  db.closeCoverForDate = function (o, ended, note, who, at, coveredBy) {
+    db.coverNeedsFor(o.id).forEach(function (x) {
+      var c = coveredBy && coveredBy[String(x.need.absent)];
+      db.closeCoverNeed(x.request.id, x.need.id, c ? { coach: c, direct: true, note: note, history: db.coachName(c) + ' covered ' + K.dd(o.date) + ' (recorded when delivery was confirmed)' } : { coach: null, ended: ended, note: note, history: note + ': cover for ' + K.dd(o.date) + ' closed' }, who, at);
+    });
+  };
+  /* Plain outcome of one date, shared by Management screens, Needs Attention and the Coach hub */
+  db.coverOutcome = function (n) {
+    var o = occOf(n), now = K.parse(K.now()), start = K.parse(o.date + 'T' + o.start), h = (start - now) / 36e5;
+    var fs = n.offers, lv = fs.filter(live);
+    var out = { offered: fs.length, replied: fs.filter(function (f) { return f.response === 'Accepted' || f.response === 'Declined'; }).length,
+      can: lv.filter(function (f) { return f.response === 'Accepted'; }), waiting: lv.filter(function (f) { return !f.response; }), cant: fs.filter(function (f) { return f.response === 'Declined'; }),
+      urgency: o.date === K.today ? 'today' : h <= 24 ? 'soon' : '', hours: h };
+    out.key = !liveNeed(n) ? (n.confirmed && n.confirmed.coach ? 'done' : 'ended') : out.can.length ? 'choose' : out.waiting.length ? 'waiting' : 'none';
+    return out;
   };
 
   /* ---------- Delivery confirmation ----------
@@ -540,6 +684,10 @@
       staff: o.staff.map(function (x) { return { coach: x.coach, plannedRole: x.role, role: x.actualRole || x.role, attended: x.attended, covers: x.covers || null, extra: !!x.extra }; }) };
     (o.history = o.history || []).push({ text: 'Delivery confirmed: ' + (changes.length ? changes.join('; ') : 'went as planned'), who: who, at: at, tone: 'ok' });
     syncSummaries(o, workers, o.staff.map(function (x) { return x.coach; }), 'confirmed as delivered', who, at);
+    /* Cover still open for this date closes with what actually happened */
+    var coveredBy = {}; o.staff.forEach(function (x) { if (x.covering) coveredBy[x.coach] = x.covering; });
+    if (workers.length) coveredBy['null'] = workers[0];
+    db.closeCoverForDate(o, 'delivered', 'Session has run', who, at, coveredBy);
     return o;
   };
 

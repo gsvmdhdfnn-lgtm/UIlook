@@ -148,3 +148,24 @@
   .ch-marks button { flex: 1; justify-content: center; padding: 0 4px; font-size: 13px; }
   .ch-next__head .lx-next__pills { flex-wrap: wrap; }
 }
+
+/* Cover offer: one card, answered in seconds on a phone */
+.ch-offers { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr)); }
+.ch-offer { display: grid; gap: 2px; padding: 18px 18px 16px; border-radius: 20px; background: var(--hx-surface-solid); box-shadow: var(--hx-shadow); min-width: 0; }
+.ch-offer .overline { color: var(--text-3); }
+.ch-offer__t { margin: 4px 0 2px; font-size: 22px; font-weight: 700; letter-spacing: -.01em; }
+.ch-offer__w { margin: 0; font-size: 16px; font-weight: 600; }
+.ch-offer__v { margin: 0; font-size: 15px; color: var(--text-2); }
+.ch-offer__extra { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 4px; font-size: 14px; color: var(--text-2); }
+.ch-offer .notice { margin-top: 12px; }
+.ch-offer__acts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+.ch-offer__acts .btn { flex: 1 1 140px; justify-content: center; min-height: 48px; }
+.ch-offer.is-answered .ch-offer__acts .btn { flex: 0 1 auto; min-height: 40px; }
+.ch-offer.is-on { box-shadow: var(--hx-shadow), inset 0 0 0 1.5px var(--ok); }
+/* Quick reasons */
+.ch-why { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 4px; }
+.ch-why__opt { position: relative; }
+.ch-why__opt input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
+.ch-why__opt span { display: inline-flex; align-items: center; min-height: 40px; padding: 0 16px; border-radius: 999px; background: var(--hover); font-weight: 600; font-size: 14px; }
+.ch-why__opt input:checked + span { background: var(--accent); color: var(--on-accent); }
+.ch-why__opt input:focus-visible + span { outline: 2px solid var(--focus); outline-offset: 2px; }
